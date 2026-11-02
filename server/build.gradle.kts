@@ -19,6 +19,15 @@ application {
 dependencies {
     implementation(projects.shared)
 
+    // Align transitive dependencies on releases containing security fixes.
+    implementation(platform("io.netty:netty-bom:4.2.19.Final"))
+    implementation(platform("com.fasterxml.jackson:jackson-bom:2.22.4"))
+    constraints {
+        implementation("com.auth0:java-jwt:4.6.2")
+        implementation("commons-codec:commons-codec:1.19.0")
+        implementation("org.apache.commons:commons-compress:1.28.0")
+    }
+
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
     implementation(libs.ktor.server.config.yaml)

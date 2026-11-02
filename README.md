@@ -22,25 +22,25 @@ make up    # start PostgreSQL + the server in Docker
 
 ## Commands
 
-| Command | Description |
-|---|---|
-| `make env` | Create `.env` from `.env.example` (generates JWT_SECRET and the DB password) |
-| `make up` | Build and start PostgreSQL + server in Docker, wait until healthy |
-| `make down` | Stop containers |
-| `make restart` | Restart containers |
-| `make logs` | Follow server logs |
-| `make ps` | List containers |
-| `make dev` | PostgreSQL in Docker, server running locally with Gradle (faster for development) |
-| `make db` | Start PostgreSQL only |
-| `make psql` | Open a `psql` shell on the database |
-| `make tools` | Start pgAdmin on http://localhost:5050 |
-| `make test` | Run all tests (Docker required for Testcontainers) |
-| `make build` | Compile all modules |
-| `make android-sdk` | Install the Android SDK + an emulator (no root needed) |
-| `make emulator` | Start the Android emulator |
-| `make android` | Install and launch the app on the connected emulator/device |
-| `make fclean` | Remove containers, volumes (data) and build outputs |
-| `make re` | `fclean` then `up` |
+| Command            | Description                                                                       |
+|--------------------|-----------------------------------------------------------------------------------|
+| `make env`         | Create `.env` from `.env.example` (generates JWT_SECRET and the DB password)      |
+| `make up`          | Build and start PostgreSQL + server in Docker, wait until healthy                 |
+| `make down`        | Stop containers                                                                   |
+| `make restart`     | Restart containers                                                                |
+| `make logs`        | Follow server logs                                                                |
+| `make ps`          | List containers                                                                   |
+| `make dev`         | PostgreSQL in Docker, server running locally with Gradle (faster for development) |
+| `make db`          | Start PostgreSQL only                                                             |
+| `make psql`        | Open a `psql` shell on the database                                               |
+| `make tools`       | Start pgAdmin on http://localhost:5050                                            |
+| `make test`        | Run all tests (Docker required for Testcontainers)                                |
+| `make build`       | Compile all modules                                                               |
+| `make android-sdk` | Install the Android SDK + an emulator (no root needed)                            |
+| `make emulator`    | Start the Android emulator                                                        |
+| `make android`     | Install and launch the app on the connected emulator/device                       |
+| `make fclean`      | Remove containers, volumes (data) and build outputs                               |
+| `make re`          | `fclean` then `up`                                                                |
 
 ## Structure
 

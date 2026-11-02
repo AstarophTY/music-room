@@ -11,6 +11,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
+    @Suppress("UnstableApiUsage")
     repositories {
         google()
         mavenCentral()
@@ -24,7 +25,7 @@ val localProps = java.util.Properties().apply {
     val f = file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-val androidSdk = localProps.getProperty("sdk.dir")
+val androidSdk: String? = localProps.getProperty("sdk.dir")
     ?: System.getenv("ANDROID_HOME")
     ?: System.getenv("ANDROID_SDK_ROOT")
 

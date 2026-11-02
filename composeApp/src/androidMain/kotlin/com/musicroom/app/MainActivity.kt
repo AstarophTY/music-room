@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import com.musicroom.shared.ClientInfo
 import com.musicroom.shared.MusicRoomApi
 import io.ktor.client.engine.okhttp.OkHttp
+import androidx.core.content.edit
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -16,7 +17,7 @@ class MainActivity : ComponentActivity() {
         val clientInfo = ClientInfo(
             platform = "android",
             device = "${Build.MANUFACTURER} ${Build.MODEL}",
-            appVersion = BuildConfig.VERSION_NAME,
+            appVersion = packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown",
         )
         val settings = AndroidSettingsStore(this)
 
@@ -34,5 +35,5 @@ private class AndroidSettingsStore(context: Context) : SettingsStore {
 
     override var backendUrl: String
         get() = prefs.getString("backend_url", null) ?: "http://10.0.2.2:8080"
-        set(value) = prefs.edit().putString("backend_url", value).apply()
+        set(value) = prefs.edit { putString("backend_url", value) }
 }

@@ -18,7 +18,6 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
-import kotlinx.coroutines.runBlocking
 import org.testcontainers.junit.jupiter.Testcontainers
 import java.util.UUID
 import kotlin.test.Test
@@ -53,9 +52,7 @@ class UsersControllerTest {
     @Test
     fun `me returns the authenticated user`() = testApplication {
         setup()
-        val user = runBlocking {
-            users.repository.create("alice-${UUID.randomUUID()}@example.com", "Alice", passwordHash = null)
-        }
+        val user = users.repository.create("alice-${UUID.randomUUID()}@example.com", "Alice", passwordHash = null)
         val token = appModule.jwtService.createAccessToken(user.id)
 
         val response = jsonClient().get(ApiRoutes.USERS_ME) { bearerAuth(token) }
