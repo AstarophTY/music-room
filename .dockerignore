@@ -1,0 +1,8 @@
+**/build
+**/.gradle
+.idea
+.kotlin
+.git
+.env
+local.properties
+composeApp
