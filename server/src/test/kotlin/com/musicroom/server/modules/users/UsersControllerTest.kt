@@ -31,7 +31,7 @@ class UsersControllerTest {
         database = DatabaseConfig("unused", "unused", "unused"),
         jwt = JwtConfig(secret = "x".repeat(32), issuer = "test", audience = "test", realm = "test"),
     )
-    private val appModule = AppModule(config, TestDatabase.module)
+    private val appModule = AppModule(config, TestDatabase.module, emailSender = { _, _, _ -> })
     private val users = UsersModule(TestDatabase.module)
 
     private fun ApplicationTestBuilder.setup() {

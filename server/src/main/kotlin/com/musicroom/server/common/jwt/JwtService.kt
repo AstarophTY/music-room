@@ -13,6 +13,8 @@ class JwtService(private val config: JwtConfig) {
 
     val realm: String get() = config.realm
 
+    val accessTokenTtlSeconds: Long get() = config.accessTokenTtlMinutes * 60
+
     val verifier: JWTVerifier = JWT.require(algorithm)
         .withIssuer(config.issuer)
         .withAudience(config.audience)
@@ -23,6 +25,6 @@ class JwtService(private val config: JwtConfig) {
         .withAudience(config.audience)
         .withSubject(userId.toString())
         .withIssuedAt(now)
-        .withExpiresAt(now.plusSeconds(config.accessTokenTtlMinutes * 60))
+        .withExpiresAt(now.plusSeconds(accessTokenTtlSeconds))
         .sign(algorithm)
 }

@@ -1,6 +1,7 @@
 package com.musicroom.server.common.filters
 
 import com.musicroom.server.common.exceptions.HttpException
+import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.dto.ErrorResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
@@ -23,7 +24,7 @@ fun Application.configureExceptionFilter() {
             call.respond(HttpStatusCode.InternalServerError, ErrorResponse("internal_error"))
         }
         status(HttpStatusCode.TooManyRequests) { call, status ->
-            call.respond(status, ErrorResponse("too_many_requests"))
+            call.respond(status, ErrorResponse(ApiErrors.TOO_MANY_REQUESTS, "Too many requests, try again in a minute"))
         }
     }
 }

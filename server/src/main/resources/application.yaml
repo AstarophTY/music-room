@@ -21,3 +21,18 @@ jwt:
   realm: "music-room"
   accessTokenTtlMinutes: "$JWT_ACCESS_TTL_MINUTES:15"
   refreshTokenTtlDays: "$JWT_REFRESH_TTL_DAYS:30"
+
+# Leave GOOGLE_CLIENT_ID / APPLE_CLIENT_ID empty to turn that sign-in method off.
+# Several IDs can be given, separated by commas.
+oauth:
+  googleClientIds: "$GOOGLE_CLIENT_ID:"
+  appleClientIds: "$APPLE_CLIENT_ID:"
+
+# SMTP_HOST empty: emails go to the local Mailpit started by docker compose (inbox: http://localhost:8025).
+mail:
+  host: "$SMTP_HOST:"
+  port: "$SMTP_PORT:587"
+  mailpitHost: "$MAILPIT_HOST:localhost"
+  user: "$SMTP_USER:"
+  password: "$SMTP_PASSWORD:"
+  from: "$SMTP_FROM:Music Room <no-reply@musicroom.local>"

@@ -8,6 +8,7 @@ object UsersTable : UUIDTable("users") {
     val passwordHash = varchar("password_hash", 255).nullable()
     val displayName = varchar("display_name", 64)
     val emailVerified = bool("email_verified").default(false)
+    val termsAcceptedAt = timestampWithTimeZone("terms_accepted_at").nullable()
     val createdAt = timestampWithTimeZone("created_at")
     val updatedAt = timestampWithTimeZone("updated_at")
 }

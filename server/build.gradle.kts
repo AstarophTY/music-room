@@ -53,6 +53,8 @@ dependencies {
     implementation(libs.hikari)
 
     implementation(libs.bcrypt)
+    implementation(libs.angus.mail)
+    implementation(libs.jwks.rsa)
     implementation(libs.logback)
 
     testImplementation(libs.ktor.server.test.host)
