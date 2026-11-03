@@ -47,7 +47,8 @@ make up    # start PostgreSQL + the server in Docker
 ```
 shared/       DTOs, API contract, Ktor HTTP client (shared by client and server)
 server/       Ktor REST + WebSocket API, Exposed, Flyway migrations
-composeApp/   Android app (Compose Multiplatform)
+androidApp/   Android application entry point
+composeApp/   Shared Compose UI
 ```
 
 ### Backend (NestJS-like structure)
@@ -87,12 +88,18 @@ To add a feature: create `modules/<feature>/` following the same pattern, then a
 
 ## Android app
 
-Open the project in Android Studio (it creates `local.properties` with the SDK path) and run the `composeApp` configuration, or use `make android-sdk`, `make emulator` then `make android`.
+Open the project in Android Studio (it creates `local.properties` with the SDK path) and run the `androidApp` configuration, or use `make android-sdk`, `make emulator` then `make android`.
 
-The `composeApp` module is only included in the build when an Android SDK is found (`local.properties`, `ANDROID_HOME` or `ANDROID_SDK_ROOT`), so the server builds without an SDK, including in Docker.
+The `androidApp` and `composeApp` modules are only included in the build when an Android SDK is found (`local.properties`, `ANDROID_HOME` or `ANDROID_SDK_ROOT`), so the server builds without an SDK, including in Docker.
 
 The backend URL is set in the app. It defaults to `http://10.0.2.2:8080`, which points to the host machine from the emulator. On a real phone, use your computer's local IP.
 
 ## Secrets
 
 All secrets live in `.env`, which is git-ignored. Only `.env.example` is committed. **Never commit a secret.**
+
+## iOS app
+
+Open `iosApp/iosApp.xcodeproj` in Xcode and run the `iosApp` scheme on an Apple Silicon simulator or a signed device. The Xcode build invokes Gradle to build the shared Compose framework and copy its resources. The Android SDK must also be configured because `composeApp` is included only when an Android SDK is available. The project supports iOS 15 and later; Intel simulators are not supported by the current Compose dependencies.
+
+The default server URL is `http://localhost:8080`, which reaches the host from the simulator. Set a reachable server URL on a physical device. The app currently permits HTTP connections, matching the Android client; use HTTPS for production.
