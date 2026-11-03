@@ -96,7 +96,7 @@ check-android:
 		echo "No device connected. Run 'make emulator' or plug in a phone with USB debugging enabled."; exit 1; }
 
 android: check-android ## Install and launch the app on the connected emulator/device
-	$(GRADLE) :composeApp:installDebug
+	$(GRADLE) :androidApp:installDebug
 	"$(ADB)" shell am start -n com.musicroom.app/.MainActivity
 
 clean: ## Remove Gradle build outputs

@@ -21,3 +21,7 @@ Thumbs.db
 
 *.log
 captures/
+
+# Xcode user-specific state
+xcuserdata/
+*.xcuserstate

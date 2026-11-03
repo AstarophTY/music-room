@@ -1,7 +1,5 @@
 rootProject.name = "music-room"
 
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
-
 pluginManagement {
     repositories {
         google()
@@ -30,7 +28,7 @@ val androidSdk: String? = localProps.getProperty("sdk.dir")
     ?: System.getenv("ANDROID_SDK_ROOT")
 
 if (androidSdk != null && file(androidSdk).exists()) {
-    include(":composeApp")
+    include(":composeApp", ":androidApp")
 } else {
-    logger.lifecycle("[music-room] No Android SDK found: skipping :composeApp module.")
+    logger.lifecycle("[music-room] No Android SDK found: skipping :composeApp and :androidApp modules.")
 }

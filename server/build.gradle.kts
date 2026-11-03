@@ -17,7 +17,7 @@ application {
 }
 
 dependencies {
-    implementation(projects.shared)
+    implementation(project(":shared"))
 
     // Align transitive dependencies on releases containing security fixes.
     implementation(platform("io.netty:netty-bom:4.2.19.Final"))
