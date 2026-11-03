@@ -8,6 +8,11 @@ pluginManagement {
     }
 }
 
+// Downloads the JDK 17 toolchain automatically when it is not installed.
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
+
 dependencyResolutionManagement {
     @Suppress("UnstableApiUsage")
     repositories {

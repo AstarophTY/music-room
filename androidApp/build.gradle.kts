@@ -31,6 +31,9 @@ dependencies {
     implementation(project(":composeApp"))
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
     implementation(libs.ktor.client.okhttp)
     implementation("com.squareup.okhttp3:okhttp") { version { strictly("5.3.2") } }
     implementation(libs.kotlinx.coroutines.android)

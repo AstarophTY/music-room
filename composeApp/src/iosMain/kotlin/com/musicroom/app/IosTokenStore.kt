@@ -1,11 +1,16 @@
 package com.musicroom.app
 
+import com.musicroom.shared.TokenStore
 import platform.Foundation.NSUserDefaults
 
-internal class IosSettingsStore : SettingsStore {
+internal class IosTokenStore : TokenStore {
     private val defaults = NSUserDefaults.standardUserDefaults
 
-    override var backendUrl: String
-        get() = defaults.stringForKey("backend_url") ?: "http://localhost:8080"
-        set(value) = defaults.setObject(value, forKey = "backend_url")
+    override var refreshToken: String?
+        get() = defaults.stringForKey(KEY)
+        set(value) = if (value == null) defaults.removeObjectForKey(KEY) else defaults.setObject(value, forKey = KEY)
+
+    private companion object {
+        const val KEY = "refresh_token"
+    }
 }

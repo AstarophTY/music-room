@@ -1,0 +1,119 @@
+package com.musicroom.app.profile
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.BadgeCheck
+import com.composables.icons.lucide.FileText
+import com.composables.icons.lucide.KeyRound
+import com.composables.icons.lucide.Languages
+import com.composables.icons.lucide.LogOut
+import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Palette
+import com.composables.icons.lucide.Pencil
+import com.musicroom.app.auth.TermsDialog
+import com.musicroom.app.common.Avatar
+import com.musicroom.app.common.SubScreenScaffold
+import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.*
+import com.musicroom.app.theme.ThemeMode
+import com.musicroom.app.theme.components.AppCard
+import com.musicroom.app.theme.tokens.AppShapes
+import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.shared.dto.UserResponse
+import org.jetbrains.compose.resources.stringResource
+
+/** Profile header and settings menu, opened from the avatar in the top bar. */
+@Composable
+fun ProfileScreen(
+    user: UserResponse,
+    serverUrl: String,
+    themeMode: ThemeMode,
+    onBack: () -> Unit,
+    onOpen: (ProfileRoute) -> Unit,
+    onLogout: () -> Unit,
+) {
+    val colors = AppTheme.colors
+    var showTerms by remember { mutableStateOf(false) }
+    val themeLabel = stringResource(
+        when (themeMode) {
+            ThemeMode.System -> Res.string.appearance_system
+            ThemeMode.Light -> Res.string.appearance_light
+            ThemeMode.Dark -> Res.string.appearance_dark
+        },
+    )
+
+    SubScreenScaffold(title = stringResource(Res.string.profile_title), onBack = onBack) {
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
+        ) {
+            Avatar(user.displayName, size = 96.dp)
+            Text(user.displayName, style = AppTheme.typography.title, color = colors.textPrimary)
+            Text(user.email, style = AppTheme.typography.body, color = colors.textSecondary)
+            if (user.emailVerified) {
+                Row(
+                    Modifier.background(colors.accentSubtle, AppShapes.pill)
+                        .padding(horizontal = AppTheme.spacing.sm, vertical = AppTheme.spacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Lucide.BadgeCheck, contentDescription = null, tint = colors.accentText, modifier = Modifier.size(16.dp))
+                    Text(stringResource(Res.string.profile_verified), style = AppTheme.typography.bodySmall, color = colors.accentText)
+                }
+            }
+        }
+
+        Text(stringResource(Res.string.profile_section_account), style = AppTheme.typography.label, color = colors.textSecondary)
+        AppCard(Modifier.fillMaxWidth()) {
+            SettingsRow(Lucide.Pencil, stringResource(Res.string.profile_edit), { onOpen(ProfileRoute.EditProfile) })
+            SettingsRow(Lucide.KeyRound, stringResource(Res.string.profile_password), { onOpen(ProfileRoute.ChangePassword) })
+        }
+
+        Text(stringResource(Res.string.profile_section_preferences), style = AppTheme.typography.label, color = colors.textSecondary)
+        AppCard(Modifier.fillMaxWidth()) {
+            SettingsRow(
+                Lucide.Palette,
+                stringResource(Res.string.profile_appearance),
+                { onOpen(ProfileRoute.Appearance) },
+                value = themeLabel,
+            )
+            SettingsRow(
+                Lucide.Languages,
+                stringResource(Res.string.profile_language),
+                onClick = {},
+                value = stringResource(Res.string.profile_language_value, stringResource(Res.string.language_name)),
+                showChevron = false,
+            )
+        }
+
+        Text(stringResource(Res.string.profile_section_about), style = AppTheme.typography.label, color = colors.textSecondary)
+        AppCard(Modifier.fillMaxWidth()) {
+            SettingsRow(Lucide.FileText, stringResource(Res.string.terms_title), { showTerms = true })
+            SettingsRow(Lucide.LogOut, stringResource(Res.string.logout), onLogout, destructive = true, showChevron = false)
+        }
+        Text(
+            stringResource(Res.string.login_server, serverUrl),
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+            style = AppTheme.typography.bodySmall,
+            color = colors.textDisabled,
+        )
+    }
+
+    if (showTerms) TermsDialog(onDismiss = { showTerms = false })
+}

@@ -1,0 +1,78 @@
+package com.musicroom.app.common
+
+import androidx.compose.runtime.Composable
+import com.musicroom.app.auth.SocialSignInException
+import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.*
+import com.musicroom.shared.ApiErrors
+import com.musicroom.shared.ApiException
+import com.musicroom.shared.AuthValidation
+import com.musicroom.shared.ValidationError
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
+
+/** Text to show to the user, translated when it is displayed (state can hold it outside composition). */
+sealed interface UiText {
+    @Composable
+    fun resolve(): String
+
+    data class Resource(val resource: StringResource, val args: List<Any> = emptyList()) : UiText {
+        @Composable
+        override fun resolve(): String = stringResource(resource, *args.toTypedArray())
+    }
+
+    /** Text that has no translation, e.g. an unknown server message. */
+    data class Raw(val text: String) : UiText {
+        @Composable
+        override fun resolve(): String = text
+    }
+
+    companion object {
+        fun of(resource: StringResource, vararg args: Any): UiText = Resource(resource, args.toList())
+
+        fun of(error: ValidationError): UiText = when (error) {
+            ValidationError.EMAIL_REQUIRED -> of(Res.string.validation_email_required)
+            ValidationError.EMAIL_TOO_LONG -> of(Res.string.validation_email_too_long)
+            ValidationError.EMAIL_INVALID -> of(Res.string.validation_email_invalid)
+            ValidationError.PASSWORD_TOO_SHORT ->
+                of(Res.string.validation_password_too_short, AuthValidation.PASSWORD_MIN_LENGTH)
+            ValidationError.PASSWORD_TOO_LONG -> of(Res.string.validation_password_too_long)
+            ValidationError.PASSWORD_TOO_WEAK -> of(Res.string.validation_password_too_weak)
+            ValidationError.PASSWORD_CONFIRMATION_REQUIRED -> of(Res.string.validation_password_confirmation_required)
+            ValidationError.PASSWORD_MISMATCH -> of(Res.string.validation_password_mismatch)
+            ValidationError.DISPLAY_NAME_REQUIRED -> of(Res.string.validation_display_name_required)
+            ValidationError.DISPLAY_NAME_TOO_LONG -> of(Res.string.validation_display_name_too_long)
+            ValidationError.TERMS_NOT_ACCEPTED -> of(Res.string.validation_terms_not_accepted)
+            ValidationError.CODE_FORMAT -> of(Res.string.validation_code_format, AuthValidation.VERIFICATION_CODE_LENGTH)
+        }
+
+        /** Translates a server error code, or falls back to the server's message. */
+        fun of(error: Throwable): UiText = when (error) {
+            is ApiException -> apiErrors[error.error]?.let { of(it) }
+                ?: ValidationError.entries.firstOrNull { it.code == error.error }?.let { of(it) }
+                ?: Raw(error.message ?: error.error)
+            is SocialSignInException ->
+                of(if (error.notConfigured) Res.string.error_social_not_configured else Res.string.error_social_failed)
+            else -> of(Res.string.error_network)
+        }
+
+        private val apiErrors = mapOf(
+            ApiErrors.INVALID_CREDENTIALS to Res.string.error_invalid_credentials,
+            ApiErrors.EMAIL_TAKEN to Res.string.error_email_taken,
+            ApiErrors.TERMS_REQUIRED to Res.string.error_terms_required,
+            ApiErrors.WRONG_CURRENT_PASSWORD to Res.string.error_wrong_current_password,
+            ApiErrors.INVALID_CODE to Res.string.error_invalid_code,
+            ApiErrors.CODE_EXPIRED to Res.string.error_code_expired,
+            ApiErrors.TOO_MANY_ATTEMPTS to Res.string.error_too_many_attempts,
+            ApiErrors.EMAIL_ALREADY_VERIFIED to Res.string.error_email_already_verified,
+            ApiErrors.RESEND_TOO_SOON to Res.string.error_resend_too_soon,
+            ApiErrors.EMAIL_UNAVAILABLE to Res.string.error_email_unavailable,
+            ApiErrors.OAUTH_NOT_CONFIGURED to Res.string.error_oauth_not_configured,
+            ApiErrors.INVALID_OAUTH_TOKEN to Res.string.error_invalid_oauth_token,
+            ApiErrors.OAUTH_EMAIL_UNVERIFIED to Res.string.error_oauth_email_unverified,
+            ApiErrors.OAUTH_ALREADY_LINKED to Res.string.error_oauth_already_linked,
+            ApiErrors.TOO_MANY_REQUESTS to Res.string.error_too_many_requests,
+            ApiErrors.SESSION_EXPIRED to Res.string.error_session_expired,
+        )
+    }
+}
