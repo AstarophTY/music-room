@@ -18,6 +18,7 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.shared)
             implementation(compose.runtime)
+            implementation(compose.components.resources)
             implementation(compose.foundation)
             implementation(compose.material3)
             implementation(compose.ui)
@@ -55,4 +56,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+compose.resources {
+    packageOfResClass = "com.musicroom.app.generated.resources"
 }

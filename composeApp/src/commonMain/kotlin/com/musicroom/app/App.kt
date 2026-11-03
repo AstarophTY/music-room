@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import com.musicroom.app.theme.AppTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,7 +37,7 @@ fun App(
     var status by remember { mutableStateOf("Not tested") }
     val scope = rememberCoroutineScope()
 
-    MaterialTheme {
+    AppTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier.safeDrawingPadding().imePadding().padding(24.dp),
