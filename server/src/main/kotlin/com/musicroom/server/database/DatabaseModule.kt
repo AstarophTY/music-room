@@ -4,19 +4,20 @@ import com.musicroom.server.config.DatabaseConfig
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.flywaydb.core.Flyway
-import org.jetbrains.exposed.sql.Database
-import org.jetbrains.exposed.sql.Transaction
-import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
-import org.jetbrains.exposed.sql.transactions.transaction
+import org.jetbrains.exposed.v1.jdbc.Database
+import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.suspendTransaction
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import java.io.Closeable
 
 class DatabaseModule(private val dataSource: HikariDataSource) : Closeable {
 
     val database: Database = Database.connect(dataSource)
 
-    suspend fun <T> query(block: suspend Transaction.() -> T): T =
-        newSuspendedTransaction(Dispatchers.IO, database) { block() }
+    suspend fun <T> query(block: suspend JdbcTransaction.() -> T): T =
+        withContext(Dispatchers.IO) { suspendTransaction(db = database) { block() } }
 
     fun isHealthy(): Boolean = runCatching {
         transaction(database) { exec("SELECT 1") { it.next() } }

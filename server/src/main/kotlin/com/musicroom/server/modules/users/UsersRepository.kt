@@ -3,9 +3,10 @@ package com.musicroom.server.modules.users
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.users.entities.User
 import com.musicroom.server.modules.users.entities.UsersTable
-import org.jetbrains.exposed.sql.ResultRow
-import org.jetbrains.exposed.sql.insertAndGetId
-import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.v1.core.ResultRow
+import org.jetbrains.exposed.v1.core.eq
+import org.jetbrains.exposed.v1.jdbc.insertAndGetId
+import org.jetbrains.exposed.v1.jdbc.selectAll
 import java.time.OffsetDateTime
 import java.util.UUID
 
