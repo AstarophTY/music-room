@@ -16,7 +16,15 @@ object ApiRoutes {
     const val AUTH_OAUTH = "$AUTH/oauth"
     const val AUTH_EMAIL_VERIFY = "$AUTH/email/verify"
     const val AUTH_EMAIL_RESEND = "$AUTH/email/resend"
+    const val AUTH_2FA_VERIFY = "$AUTH/2fa/verify"
+    const val AUTH_2FA_SETUP = "$AUTH/2fa/setup"
+    const val AUTH_2FA_ENABLE = "$AUTH/2fa/enable"
+    const val AUTH_2FA_DISABLE = "$AUTH/2fa/disable"
 
     const val USERS = "$API_V1/users"
     const val USERS_ME = "$USERS/me"
+    const val USERS_ME_AVATAR = "$USERS_ME/avatar"
+    const val USER_AVATAR = "$USERS/{id}/avatar"
+
+    fun userAvatar(userId: String) = "$USERS/$userId/avatar"
 }

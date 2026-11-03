@@ -9,8 +9,13 @@ import com.musicroom.shared.dto.InfoResponse
 import com.musicroom.shared.dto.LoginRequest
 import com.musicroom.shared.dto.OAuthLoginRequest
 import com.musicroom.shared.dto.RefreshTokenRequest
+import com.musicroom.shared.dto.RecoveryCodesResponse
 import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.ResetPasswordRequest
+import com.musicroom.shared.dto.TwoFactorChallengeResponse
+import com.musicroom.shared.dto.TwoFactorCodeRequest
+import com.musicroom.shared.dto.TwoFactorLoginRequest
+import com.musicroom.shared.dto.TwoFactorSetupResponse
 import com.musicroom.shared.dto.UpdateProfileRequest
 import com.musicroom.shared.dto.UserResponse
 import com.musicroom.shared.dto.VerifyEmailRequest
@@ -81,12 +86,42 @@ class MusicRoomApi(
     suspend fun register(request: RegisterRequest): UserResponse =
         startSession(postJson(ApiRoutes.AUTH_REGISTER, request).bodyOrThrow())
 
-    suspend fun login(request: LoginRequest): UserResponse =
-        startSession(postJson(ApiRoutes.AUTH_LOGIN, request).bodyOrThrow())
+    /** Throws [TwoFactorRequiredException] if the account has 2FA. */
+    suspend fun login(request: LoginRequest): UserResponse = startSessionOrChallenge(postJson(ApiRoutes.AUTH_LOGIN, request))
 
-    /** Signs in with a Google/Apple ID token. Throws ApiException(error = ApiErrors.TERMS_REQUIRED) for a new account. */
+    /**
+     * Signs in with a Google/Apple ID token. Throws ApiException(error = ApiErrors.TERMS_REQUIRED) for a new account,
+     * and [TwoFactorRequiredException] if the account has 2FA.
+     */
     suspend fun oauthLogin(request: OAuthLoginRequest): UserResponse =
-        startSession(postJson(ApiRoutes.AUTH_OAUTH, request).bodyOrThrow())
+        startSessionOrChallenge(postJson(ApiRoutes.AUTH_OAUTH, request))
+
+    /** Second step of a login with 2FA: the code from the authenticator app, or a recovery code. */
+    suspend fun verifyTwoFactor(request: TwoFactorLoginRequest): UserResponse =
+        startSession(postJson(ApiRoutes.AUTH_2FA_VERIFY, request).bodyOrThrow())
+
+    /** Starts 2FA setup: returns the secret to add to the authenticator app. */
+    suspend fun setupTwoFactor(): TwoFactorSetupResponse =
+        authorized(HttpMethod.Post, ApiRoutes.AUTH_2FA_SETUP).bodyOrThrow()
+
+    /** Confirms setup with a first code. Returns the recovery codes (shown once). */
+    suspend fun enableTwoFactor(request: TwoFactorCodeRequest): RecoveryCodesResponse =
+        authorized(HttpMethod.Post, ApiRoutes.AUTH_2FA_ENABLE) { jsonBody(request) }.bodyOrThrow()
+
+    suspend fun disableTwoFactor(request: TwoFactorCodeRequest): UserResponse =
+        authorized(HttpMethod.Post, ApiRoutes.AUTH_2FA_DISABLE) { jsonBody(request) }.bodyOrThrow()
+
+    /** Uploads a profile photo (JPEG or PNG). The server crops and resizes it. */
+    suspend fun uploadAvatar(image: ByteArray, contentType: ContentType): UserResponse =
+        authorized(HttpMethod.Put, ApiRoutes.USERS_ME_AVATAR) {
+            contentType(contentType)
+            setBody(image)
+        }.bodyOrThrow()
+
+    suspend fun deleteAvatar(): UserResponse = authorized(HttpMethod.Delete, ApiRoutes.USERS_ME_AVATAR).bodyOrThrow()
+
+    /** Profile photo bytes (JPEG). */
+    suspend fun avatar(userId: String): ByteArray = authorized(HttpMethod.Get, ApiRoutes.userAvatar(userId)).bodyOrThrow()
 
     /** Checks the code sent by email and returns the updated user (emailVerified = true). */
     suspend fun verifyEmail(request: VerifyEmailRequest): UserResponse =
@@ -104,7 +139,7 @@ class MusicRoomApi(
 
     /** Sets a new password with the emailed code, signs out every other device and logs in here. */
     suspend fun resetPassword(request: ResetPasswordRequest): UserResponse =
-        startSession(postJson(ApiRoutes.AUTH_PASSWORD_RESET, request).bodyOrThrow())
+        startSessionOrChallenge(postJson(ApiRoutes.AUTH_PASSWORD_RESET, request))
 
     /** Reopens the saved session, or returns null if there is none or it is no longer valid. */
     suspend fun restoreSession(): UserResponse? {
@@ -135,6 +170,14 @@ class MusicRoomApi(
         accessToken = response.accessToken
         tokenStore.refreshToken = response.refreshToken
         return response.user
+    }
+
+    /** 202 = the account has 2FA: no tokens yet, the user must type a code. */
+    private suspend fun startSessionOrChallenge(response: HttpResponse): UserResponse {
+        if (response.status == HttpStatusCode.Accepted) {
+            throw TwoFactorRequiredException(response.body<TwoFactorChallengeResponse>().challengeToken)
+        }
+        return startSession(response.bodyOrThrow())
     }
 
     private fun clearSession() {

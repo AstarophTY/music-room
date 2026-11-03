@@ -72,6 +72,7 @@ paths:
     post:
       tags: [auth]
       summary: Log in with email + password
+      description: With 2FA on, answers 202 with a challenge; send it with a code to /api/v1/auth/2fa/verify.
       requestBody:
         required: true
         content:
@@ -83,6 +84,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AuthResponse" }
+        "202":
+          description: Password right, the account has 2FA
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TwoFactorChallengeResponse" }
         "401":
           description: Invalid email or password
           content:
@@ -294,6 +300,152 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/verify:
+    post:
+      tags: [auth]
+      summary: Second step of a login with 2FA
+      description: >-
+        code is the 6-digit code of the authenticator app (each code works once) or a recovery code (XXXXX-XXXXX,
+        single use). 5 wrong codes in a row block 2FA codes for 15 minutes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorLoginRequest" }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: Wrong code (invalid_two_factor_code)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Challenge expired (5 minutes)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: Too many wrong codes (two_factor_locked)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/setup:
+    post:
+      tags: [auth]
+      summary: Start 2FA setup (new TOTP secret, not active yet)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Secret and otpauth:// link (to show as a QR code)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TwoFactorSetupResponse" }
+        "409":
+          description: 2FA already on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/enable:
+    post:
+      tags: [auth]
+      summary: Turn 2FA on with a first code; returns 10 recovery codes (shown once) and emails an alert
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorCodeRequest" }
+      responses:
+        "200":
+          description: 2FA on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodesResponse" }
+        "400":
+          description: Wrong code, or setup not started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/disable:
+    post:
+      tags: [auth]
+      summary: Turn 2FA off (needs a code or a recovery code) and email an alert
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorCodeRequest" }
+      responses:
+        "200":
+          description: 2FA off
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Wrong code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/users/me/avatar:
+    put:
+      tags: [users]
+      summary: Upload a profile photo (JPEG or PNG, 5 MB max)
+      description: The server checks it is an image, crops it to a square and stores a 256x256 JPEG (metadata removed).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: Updated profile (new avatarVersion)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Not an image (invalid_image) or too large (image_too_large)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [users]
+      summary: Remove the profile photo (the initials avatar is shown again)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Updated profile (avatarVersion null)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+  /api/v1/users/{id}/avatar:
+    get:
+      tags: [users]
+      summary: Profile photo of a user (256x256 JPEG)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The photo
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "404":
+          description: No photo
   /api/v1/users/me:
     get:
       tags: [users]
@@ -382,6 +534,38 @@ components:
         email: { type: string, format: email }
         displayName: { type: string }
         emailVerified: { type: boolean }
+        twoFactorEnabled: { type: boolean }
+        avatarColor: { type: string, enum: [yellow, tomato, pink, iris, teal, grass] }
+        avatarVersion: { type: integer, nullable: true, description: "Changes with each new photo; null without photo" }
+    TwoFactorChallengeResponse:
+      type: object
+      required: [challengeToken, expiresInSeconds]
+      properties:
+        challengeToken: { type: string }
+        expiresInSeconds: { type: integer, example: 300 }
+    TwoFactorLoginRequest:
+      type: object
+      required: [challengeToken, code]
+      properties:
+        challengeToken: { type: string }
+        code: { type: string, example: "123456" }
+    TwoFactorSetupResponse:
+      type: object
+      required: [secret, otpauthUri]
+      properties:
+        secret: { type: string, description: Base32 }
+        otpauthUri: { type: string, example: "otpauth://totp/Music%20Room:alice@example.com?secret=...&issuer=Music%20Room" }
+    TwoFactorCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+    RecoveryCodesResponse:
+      type: object
+      required: [recoveryCodes, user]
+      properties:
+        recoveryCodes: { type: array, items: { type: string, example: "N677E-8X6SG" } }
+        user: { $ref: "#/components/schemas/UserResponse" }
     RegisterRequest:
       type: object
       required: [email, password, displayName, acceptedTerms]
@@ -434,9 +618,10 @@ components:
         newPassword: { type: string, format: password }
     UpdateProfileRequest:
       type: object
-      required: [displayName]
+      description: Fields left out are not changed.
       properties:
         displayName: { type: string, maxLength: 64 }
+        avatarColor: { type: string, enum: [yellow, tomato, pink, iris, teal, grass] }
     AuthResponse:
       type: object
       required: [accessToken, refreshToken, expiresInSeconds, user]

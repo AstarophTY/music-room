@@ -22,6 +22,14 @@ object ApiErrors {
     const val OAUTH_EMAIL_UNVERIFIED = "oauth_email_unverified"
     const val OAUTH_ALREADY_LINKED = "oauth_already_linked"
     const val TOO_MANY_REQUESTS = "too_many_requests"
+    const val INVALID_TWO_FACTOR_CODE = "invalid_two_factor_code"
+    const val TWO_FACTOR_LOCKED = "two_factor_locked"
+    const val TWO_FACTOR_CHALLENGE_EXPIRED = "two_factor_challenge_expired"
+    const val TWO_FACTOR_ALREADY_ENABLED = "two_factor_already_enabled"
+    const val TWO_FACTOR_NOT_ENABLED = "two_factor_not_enabled"
+    const val TWO_FACTOR_SETUP_REQUIRED = "two_factor_setup_required"
+    const val INVALID_IMAGE = "invalid_image"
+    const val IMAGE_TOO_LARGE = "image_too_large"
 
     /** Set by the client when the refresh token is no longer valid. */
     const val SESSION_EXPIRED = "session_expired"

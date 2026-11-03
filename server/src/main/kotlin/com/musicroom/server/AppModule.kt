@@ -12,6 +12,7 @@ import com.musicroom.server.common.oauth.JwksOAuthTokenVerifier
 import com.musicroom.server.common.oauth.OAuthTokenVerifier
 import com.musicroom.server.common.register
 import com.musicroom.server.common.security.PasswordHasher
+import com.musicroom.server.common.security.SecretBox
 import com.musicroom.server.common.serialization.configureSerialization
 import com.musicroom.server.common.throttler.configureThrottler
 import com.musicroom.server.common.websocket.configureWebSockets
@@ -40,6 +41,7 @@ class AppModule(
         passwordHasher = passwordHasher,
         emailSender = emailSender,
         oauthVerifier = oauthVerifier,
+        secretBox = SecretBox(config.jwt.secret),
         refreshTokenTtlDays = config.jwt.refreshTokenTtlDays,
     )
 

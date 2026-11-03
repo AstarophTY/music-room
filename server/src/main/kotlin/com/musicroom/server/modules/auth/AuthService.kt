@@ -27,6 +27,8 @@ import com.musicroom.shared.dto.OAuthLoginRequest
 import com.musicroom.shared.dto.RefreshTokenRequest
 import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.ResetPasswordRequest
+import com.musicroom.shared.dto.TwoFactorChallengeResponse
+import com.musicroom.shared.dto.TwoFactorLoginRequest
 import io.ktor.http.HttpStatusCode
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import java.security.SecureRandom
@@ -41,6 +43,7 @@ class AuthService(
     private val emailVerification: EmailVerificationService,
     private val emailCodes: EmailCodes,
     private val mailer: AccountMailer,
+    private val twoFactor: TwoFactorService,
     private val oauthVerifier: OAuthTokenVerifier,
     private val jwt: JwtService,
     private val passwordHasher: PasswordHasher,
@@ -71,10 +74,10 @@ class AuthService(
      * - email matches an account: link the identity to it;
      * - otherwise: create an account, only if the user accepted the terms (else 403 terms_required).
      */
-    suspend fun oauthLogin(request: OAuthLoginRequest): AuthResponse {
+    suspend fun oauthLogin(request: OAuthLoginRequest): LoginResult {
         val identity = oauthVerifier.verify(request.provider, request.idToken)
         oauthAccounts.findUserId(identity.provider, identity.subject)?.let { userId ->
-            return issueTokens(users.findById(userId) ?: throw UnauthorizedException("Account not found", ApiErrors.INVALID_CREDENTIALS))
+            return completeLogin(users.findById(userId) ?: throw UnauthorizedException("Account not found", ApiErrors.INVALID_CREDENTIALS))
         }
 
         val email = identity.email?.let(AuthValidation::normalizeEmail)
@@ -98,7 +101,26 @@ class AuthService(
                 )
             }
         }
+        return completeLogin(user)
+    }
+
+    /** Second step of a login with 2FA: checks the code, then issues the tokens. */
+    suspend fun verifyTwoFactor(request: TwoFactorLoginRequest): AuthResponse {
+        val userId = jwt.verifyTwoFactorChallenge(request.challengeToken)
+            ?: throw UnauthorizedException("This login has expired, start again", ApiErrors.TWO_FACTOR_CHALLENGE_EXPIRED)
+        val user = users.findById(userId)
+            ?: throw UnauthorizedException("This login has expired, start again", ApiErrors.TWO_FACTOR_CHALLENGE_EXPIRED)
+        if (user.twoFactorEnabled) twoFactor.checkCode(user, request.code)
         return issueTokens(user)
+    }
+
+    /** Tokens right away, or a 2FA challenge when the account has two-factor authentication. */
+    private suspend fun completeLogin(user: User): LoginResult = if (user.twoFactorEnabled) {
+        LoginResult.TwoFactorRequired(
+            TwoFactorChallengeResponse(jwt.createTwoFactorChallenge(user.id), JwtService.CHALLENGE_TTL_SECONDS),
+        )
+    } else {
+        LoginResult.Success(issueTokens(user))
     }
 
     private suspend fun linkToExisting(user: User): User {
@@ -138,14 +160,14 @@ class AuthService(
         if (e.sqlState == UNIQUE_VIOLATION) throw ConflictException(EMAIL_TAKEN, ApiErrors.EMAIL_TAKEN) else throw e
     }
 
-    suspend fun login(request: LoginRequest): AuthResponse {
+    suspend fun login(request: LoginRequest): LoginResult {
         val user = users.findByEmail(AuthValidation.normalizeEmail(request.email))
         // Always run bcrypt, even for unknown emails, so response time does not reveal which emails exist.
         val passwordOk = passwordHasher.verify(request.password, user?.passwordHash)
         if (user == null || !passwordOk) {
             throw UnauthorizedException("Invalid email or password", ApiErrors.INVALID_CREDENTIALS)
         }
-        return issueTokens(user)
+        return completeLogin(user)
     }
 
     /** Swaps a refresh token for a new pair. Each refresh token works only once (rotation). */
@@ -173,7 +195,8 @@ class AuthService(
             throw ForbiddenException("Current password is incorrect", ApiErrors.WRONG_CURRENT_PASSWORD)
         }
         validate(AuthValidation.passwordError(request.newPassword))
-        return setPassword(user, request.newPassword, language)
+        setPassword(user, request.newPassword, language)
+        return issueTokens(user)
     }
 
     /**
@@ -192,20 +215,22 @@ class AuthService(
     }
 
     /** Sets a new password with the emailed code. The code also proves the email belongs to the user. */
-    suspend fun resetPassword(request: ResetPasswordRequest, language: Language): AuthResponse {
+    suspend fun resetPassword(request: ResetPasswordRequest, language: Language): LoginResult {
         validate(AuthValidation.passwordError(request.newPassword))
         val user = users.findByEmail(AuthValidation.normalizeEmail(request.email))
             ?: throw BadRequestException("This code has expired. Ask for a new one.", ApiErrors.CODE_EXPIRED)
         emailCodes.consume(user.id, EmailCodePurpose.RESET_PASSWORD, request.code)
         if (!user.emailVerified) users.markEmailVerified(user.id)
-        return setPassword(user.copy(emailVerified = true), request.newPassword, language)
+        val verified = user.copy(emailVerified = true)
+        setPassword(verified, request.newPassword, language)
+        // An emailed code is not a second factor: with 2FA on, the code from the app is still required.
+        return completeLogin(verified)
     }
 
-    private suspend fun setPassword(user: User, newPassword: String, language: Language): AuthResponse {
+    private suspend fun setPassword(user: User, newPassword: String, language: Language) {
         users.updatePasswordHash(user.id, passwordHasher.hash(newPassword))
         refreshTokens.revokeAllForUser(user.id)
         mailer.notifyPasswordChanged(user, language)
-        return issueTokens(user)
     }
 
     private suspend fun issueTokens(user: User): AuthResponse {

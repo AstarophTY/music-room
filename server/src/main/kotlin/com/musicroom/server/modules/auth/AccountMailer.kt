@@ -95,6 +95,35 @@ class AccountMailer(private val sender: EmailSender) {
         }
     }
 
+    /** Security alert when two-factor authentication is turned on or off. Never fails the request. */
+    suspend fun notifyTwoFactorChanged(user: User, enabled: Boolean, language: Language) {
+        val (subject, body) = when (language) {
+            Language.FR -> if (enabled) {
+                "Double authentification activée sur Music Room" to
+                    "Salut ${user.displayName},\n\nLa double authentification est maintenant activée sur ton compte. " +
+                    "Garde tes codes de secours en lieu sûr.\n\nSi ce n'est pas toi, change ton mot de passe tout de suite."
+            } else {
+                "Double authentification désactivée sur Music Room" to
+                    "Salut ${user.displayName},\n\nLa double authentification vient d'être désactivée sur ton compte.\n\n" +
+                    "Si ce n'est pas toi, change ton mot de passe tout de suite et réactive-la."
+            }
+            Language.EN -> if (enabled) {
+                "Two-factor authentication turned on for Music Room" to
+                    "Hello ${user.displayName},\n\nTwo-factor authentication is now on for your account. " +
+                    "Keep your recovery codes somewhere safe.\n\nIf this was not you, change your password right away."
+            } else {
+                "Two-factor authentication turned off for Music Room" to
+                    "Hello ${user.displayName},\n\nTwo-factor authentication was just turned off for your account.\n\n" +
+                    "If this was not you, change your password right away and turn it back on."
+            }
+        }
+        try {
+            send(user, subject, body)
+        } catch (e: HttpException) {
+            log.warn("2FA alert not sent to user {}", user.id)
+        }
+    }
+
     private suspend fun send(user: User, subject: String, body: String) {
         try {
             sender.send(user.email, subject, body)
