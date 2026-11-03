@@ -17,6 +17,8 @@ jwks-rsa = "0.24.1"
 androidx-credentials = "1.6.0"
 googleid = "1.2.1"
 lucide = "2.2.1"
+# 1.1.x matches Compose Multiplatform 1.11 (later versions need Compose 1.12).
+qrose = "1.1.1"
 testcontainers = "1.21.4"
 junit = "6.1.3"
 androidx-activity = "1.13.0"
@@ -79,6 +81,7 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "androidx-credentials" }
 androidx-credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "androidx-credentials" }
 compose-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "compose-multiplatform" }
+qrose = { module = "io.github.alexzhirkevich:qrose", version.ref = "qrose" }
 lucide-icons = { module = "com.composables:icons-lucide-cmp", version.ref = "lucide" }
 googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleid" }
 

@@ -25,8 +25,9 @@ import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.ShieldCheck
 import com.musicroom.app.auth.TermsDialog
-import com.musicroom.app.common.Avatar
+import com.musicroom.app.common.UserAvatar
 import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.*
@@ -34,12 +35,14 @@ import com.musicroom.app.theme.ThemeMode
 import com.musicroom.app.theme.components.AppCard
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
 /** Profile header and settings menu, opened from the avatar in the top bar. */
 @Composable
 fun ProfileScreen(
+    api: MusicRoomApi,
     user: UserResponse,
     serverUrl: String,
     themeMode: ThemeMode,
@@ -63,7 +66,7 @@ fun ProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
         ) {
-            Avatar(user.displayName, size = 96.dp)
+            UserAvatar(api, user, size = 96.dp)
             Text(user.displayName, style = AppTheme.typography.title, color = colors.textPrimary)
             Text(user.email, style = AppTheme.typography.body, color = colors.textSecondary)
             if (user.emailVerified) {
@@ -82,7 +85,17 @@ fun ProfileScreen(
         Text(stringResource(Res.string.profile_section_account), style = AppTheme.typography.label, color = colors.textSecondary)
         AppCard(Modifier.fillMaxWidth()) {
             SettingsRow(Lucide.Pencil, stringResource(Res.string.profile_edit), { onOpen(ProfileRoute.EditProfile) })
+        }
+
+        Text(stringResource(Res.string.profile_section_security), style = AppTheme.typography.label, color = colors.textSecondary)
+        AppCard(Modifier.fillMaxWidth()) {
             SettingsRow(Lucide.KeyRound, stringResource(Res.string.profile_password), { onOpen(ProfileRoute.ChangePassword) })
+            SettingsRow(
+                Lucide.ShieldCheck,
+                stringResource(Res.string.twofa_settings_title),
+                { onOpen(ProfileRoute.TwoFactor) },
+                value = stringResource(if (user.twoFactorEnabled) Res.string.twofa_status_on else Res.string.twofa_status_off),
+            )
         }
 
         Text(stringResource(Res.string.profile_section_preferences), style = AppTheme.typography.label, color = colors.textSecondary)

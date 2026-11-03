@@ -1,35 +1,47 @@
 package com.musicroom.app.common
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.shared.dto.AvatarColor
 
-/** Round avatar with the user's initials. */
+/** Round avatar: the photo if there is one, otherwise the initials on the chosen color. */
 @Composable
-fun Avatar(name: String, modifier: Modifier = Modifier, size: Dp = 40.dp) {
-    val colors = AppTheme.colors
-    val initials = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.take(2)
-        .joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
+fun Avatar(
+    name: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
+    color: AvatarColor = AvatarColor.YELLOW,
+    photo: ImageBitmap? = null,
+) {
+    val tint = AppTheme.colors.avatars.getValue(color)
     Box(
-        modifier = modifier.size(size).background(colors.accentSubtleStrong, CircleShape)
-            .border(AppTheme.spacing.border, colors.accentBorder, CircleShape),
+        modifier = modifier.size(size).clip(CircleShape).background(tint.background, CircleShape)
+            .border(AppTheme.spacing.border, tint.border, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            initials,
-            style = AppTheme.typography.label.merge(TextStyle(fontSize = (size.value * 0.38f).sp)),
-            color = colors.accentText,
-        )
+        if (photo != null) {
+            Image(photo, contentDescription = name, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            val initials = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.take(2)
+                .joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
+            Text(initials, style = AppTheme.typography.label.merge(TextStyle(fontSize = (size.value * 0.38f).sp)), color = tint.text)
+        }
     }
 }

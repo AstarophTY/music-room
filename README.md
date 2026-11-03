@@ -66,6 +66,9 @@ make psql   # then: SELECT email, password_hash FROM users;
 | `make android-sdk` | Install the Android SDK + an emulator (no root needed)                            |
 | `make emulator`    | Start the Android emulator                                                        |
 | `make android`     | Install and launch the app on the connected emulator/device                       |
+| `make linux`       | Run the desktop app (on WSL it opens through WSLg)                                |
+| `make windows`     | Build the Windows app with its own Java in `build/windows/MusicRoom` and start it |
+| `make web`         | Run the web app on http://localhost:3000                                          |
 | `make fclean`      | Remove containers, volumes (data) and build outputs                               |
 | `make re`          | `fclean` then `up`                                                                |
 
@@ -75,7 +78,7 @@ make psql   # then: SELECT email, password_hash FROM users;
 shared/       DTOs, API contract, Ktor HTTP client (shared by client and server)
 server/       Ktor REST + WebSocket API, Exposed, Flyway migrations
 androidApp/   Android application entry point
-composeApp/   Shared Compose UI
+composeApp/   Shared Compose UI + desktop (desktopMain) and web (wasmJsMain) entry points
 ```
 
 ### Backend (NestJS-like structure)
@@ -139,6 +142,8 @@ The backend URL comes from `BACKEND_URL` in `.env` and is baked into the app at 
 - **Refresh token**: random value valid 30 days (`JWT_REFRESH_TTL_DAYS`), stored **hashed** (SHA-256) in `refresh_tokens`. Each one works once (rotation); reusing an old one revokes every session of the user.
 - Changing the password signs out every other device and **emails a security alert**. Logging out revokes the refresh token.
 - **Forgot password**: "Forgot password?" on the login screen emails a 6-digit code (same rules as the verification code), then the user sets a new password. The server answers the same way whether the email exists or not.
+- **Two-factor authentication** (Profile > Security): TOTP codes from an authenticator app (QR code or key), RFC 6238 implemented in `common/security/Totp.kt`. Secrets are encrypted in the database (AES-GCM, key derived from `JWT_SECRET`), each code works once, 10 single-use recovery codes (hashed), 5 wrong codes lock 2FA for 15 min. With 2FA on, login / Google / password reset answer `202` with a 5-minute challenge, then `POST /api/v1/auth/2fa/verify`. Turning 2FA on or off emails an alert.
+- **Profile picture**: a photo (Android picker, file dialog on desktop and web; not on iOS yet) re-encoded by the server as a 256x256 JPEG, or initials on one of 6 Radix colors.
 - Errors carry a machine-readable `error` code (`ApiErrors`, `ValidationError` in `shared`): the app translates it.
 - Auth routes are limited to 10 requests/min per IP (brute force protection).
 - Validation rules live in `shared` (`AuthValidation`): the app uses them for instant feedback, the server enforces them.

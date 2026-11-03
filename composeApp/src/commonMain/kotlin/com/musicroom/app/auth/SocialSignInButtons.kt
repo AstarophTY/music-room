@@ -22,6 +22,7 @@ import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.TwoFactorRequiredException
 import com.musicroom.shared.dto.OAuthLoginRequest
 import com.musicroom.shared.dto.OAuthProvider
 import com.musicroom.shared.dto.UserResponse
@@ -41,6 +42,7 @@ fun SocialSignInButtons(
     onBusyChange: (Boolean) -> Unit,
     onError: (UiText?) -> Unit,
     onAuthenticated: (UserResponse) -> Unit,
+    onTwoFactorRequired: (String) -> Unit,
 ) {
     if (socialSignIn.providers.isEmpty()) return
     // Sign-in that is waiting for the user to accept the terms.
@@ -55,6 +57,8 @@ fun SocialSignInButtons(
                 action()
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: TwoFactorRequiredException) {
+                onTwoFactorRequired(e.challengeToken)
             } catch (e: Exception) {
                 onError(UiText.of(e))
             } finally {

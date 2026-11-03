@@ -2,6 +2,7 @@ package com.musicroom.app.theme.color
 
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import com.musicroom.shared.dto.AvatarColor
 
 /** Radix Colors (radix-ui.com/colors): yellow as the brand color, sand as its matching gray. */
 private object Palette {
@@ -38,6 +39,38 @@ private object Palette {
     val sandDark11 = Color(0xFFB5B3AD)
     val sandDark12 = Color(0xFFEEEEEC)
 
+    // Avatar colors: step 3 (background), 7 (border), 11 (text), light then dark.
+    val tomato3 = Color(0xFFFEEBE7)
+    val tomato7 = Color(0xFFF5A898)
+    val tomato11 = Color(0xFFD13415)
+    val tomatoDark3 = Color(0xFF391714)
+    val tomatoDark7 = Color(0xFF853A2D)
+    val tomatoDark11 = Color(0xFFFF977D)
+    val pink3 = Color(0xFFFEE9F5)
+    val pink7 = Color(0xFFE7ACD0)
+    val pink11 = Color(0xFFC2298A)
+    val pinkDark3 = Color(0xFF37172F)
+    val pinkDark7 = Color(0xFF803D6B)
+    val pinkDark11 = Color(0xFFFF8DCC)
+    val iris3 = Color(0xFFF0F1FE)
+    val iris7 = Color(0xFFB8BAF8)
+    val iris11 = Color(0xFF5753C6)
+    val irisDark3 = Color(0xFF202248)
+    val irisDark7 = Color(0xFF4A4A95)
+    val irisDark11 = Color(0xFFB1A9FF)
+    val teal3 = Color(0xFFE0F8F3)
+    val teal7 = Color(0xFF83CDC1)
+    val teal11 = Color(0xFF008573)
+    val tealDark3 = Color(0xFF0D2D2A)
+    val tealDark7 = Color(0xFF1C6961)
+    val tealDark11 = Color(0xFF0BD8B6)
+    val grass3 = Color(0xFFE9F6E9)
+    val grass7 = Color(0xFF94CE9A)
+    val grass11 = Color(0xFF2A7E3B)
+    val grassDark3 = Color(0xFF1B2A1E)
+    val grassDark7 = Color(0xFF2D5736)
+    val grassDark11 = Color(0xFF71D083)
+
     // Status (step 11 = readable text on the background)
     val red11 = Color(0xFFCE2C31)
     val redDark11 = Color(0xFFFF9592)
@@ -66,6 +99,14 @@ val LightColors = AppColorScheme(
     error = Palette.red11,
     success = Palette.green11,
     warning = Palette.amber11,
+    avatars = mapOf(
+        AvatarColor.YELLOW to AvatarTint(Palette.yellow4, Palette.yellow7, Palette.yellow11),
+        AvatarColor.TOMATO to AvatarTint(Palette.tomato3, Palette.tomato7, Palette.tomato11),
+        AvatarColor.PINK to AvatarTint(Palette.pink3, Palette.pink7, Palette.pink11),
+        AvatarColor.IRIS to AvatarTint(Palette.iris3, Palette.iris7, Palette.iris11),
+        AvatarColor.TEAL to AvatarTint(Palette.teal3, Palette.teal7, Palette.teal11),
+        AvatarColor.GRASS to AvatarTint(Palette.grass3, Palette.grass7, Palette.grass11),
+    ),
 )
 
 val DarkColors = AppColorScheme(
@@ -86,6 +127,14 @@ val DarkColors = AppColorScheme(
     error = Palette.redDark11,
     success = Palette.greenDark11,
     warning = Palette.amberDark11,
+    avatars = mapOf(
+        AvatarColor.YELLOW to AvatarTint(Palette.yellowDark4, Palette.yellowDark7, Palette.yellowDark11),
+        AvatarColor.TOMATO to AvatarTint(Palette.tomatoDark3, Palette.tomatoDark7, Palette.tomatoDark11),
+        AvatarColor.PINK to AvatarTint(Palette.pinkDark3, Palette.pinkDark7, Palette.pinkDark11),
+        AvatarColor.IRIS to AvatarTint(Palette.irisDark3, Palette.irisDark7, Palette.irisDark11),
+        AvatarColor.TEAL to AvatarTint(Palette.tealDark3, Palette.tealDark7, Palette.tealDark11),
+        AvatarColor.GRASS to AvatarTint(Palette.grassDark3, Palette.grassDark7, Palette.grassDark11),
+    ),
 )
 
 val LocalAppColors = staticCompositionLocalOf { LightColors }

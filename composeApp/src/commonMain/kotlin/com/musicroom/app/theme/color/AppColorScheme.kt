@@ -1,6 +1,7 @@
 package com.musicroom.app.theme.color
 
 import androidx.compose.ui.graphics.Color
+import com.musicroom.shared.dto.AvatarColor
 
 data class AppColorScheme(
     val background: Color,
@@ -23,4 +24,6 @@ data class AppColorScheme(
     val error: Color,
     val success: Color,
     val warning: Color,
+    /** One tint per avatar color the user can pick. */
+    val avatars: Map<AvatarColor, AvatarTint>,
 )

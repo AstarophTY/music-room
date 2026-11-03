@@ -98,6 +98,10 @@ kotlin {
                 implementation(libs.kotlinx.coroutines.swing)
             }
         }
+        androidMain.dependencies {
+            // Photo picker for the profile picture.
+            implementation(libs.androidx.activity.compose)
+        }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)
         }
@@ -113,6 +117,7 @@ kotlin {
             implementation(compose.ui)
             implementation(libs.lucide.icons)
             implementation(libs.compose.ui.backhandler)
+            implementation(libs.qrose)
         }
     }
 }

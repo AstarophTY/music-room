@@ -34,6 +34,7 @@ import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.AuthValidation
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.TwoFactorRequiredException
 import com.musicroom.shared.dto.ForgotPasswordRequest
 import com.musicroom.shared.dto.ResetPasswordRequest
 import com.musicroom.shared.dto.UserResponse
@@ -51,6 +52,7 @@ fun ForgotPasswordScreen(
     onEmailChange: (String) -> Unit,
     onBack: () -> Unit,
     onAuthenticated: (UserResponse) -> Unit,
+    onTwoFactorRequired: (String) -> Unit,
 ) {
     var codeSent by rememberSaveable { mutableStateOf(false) }
     var code by remember { mutableStateOf("") }
@@ -84,6 +86,9 @@ fun ForgotPasswordScreen(
                 action()
             } catch (e: CancellationException) {
                 throw e
+            } catch (e: TwoFactorRequiredException) {
+                // The password is changed; the account still asks for its 2FA code to log in.
+                onTwoFactorRequired(e.challengeToken)
             } catch (e: Exception) {
                 error = UiText.of(e)
             } finally {

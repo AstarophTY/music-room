@@ -18,19 +18,20 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.musicroom.app.common.Avatar
+import com.musicroom.app.common.UserAvatar
 import com.musicroom.app.common.Equalizer
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.app_name
 import com.musicroom.app.generated.resources.profile_open
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
 /** Side menu that replaces the bottom bar on large screens. The profile stays at the top left. */
 @Composable
-fun SideNavBar(user: UserResponse, selected: MainTab, onSelect: (MainTab) -> Unit, onOpenProfile: () -> Unit) {
+fun SideNavBar(api: MusicRoomApi, user: UserResponse, selected: MainTab, onSelect: (MainTab) -> Unit, onOpenProfile: () -> Unit) {
     val colors = AppTheme.colors
     val border = AppTheme.spacing.border
     Column(
@@ -45,7 +46,7 @@ fun SideNavBar(user: UserResponse, selected: MainTab, onSelect: (MainTab) -> Uni
             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Avatar(user.displayName, size = 44.dp)
+            UserAvatar(api, user, size = 44.dp)
             Column {
                 Text(user.displayName, style = AppTheme.typography.label, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(stringResource(Res.string.profile_open), style = AppTheme.typography.bodySmall, color = colors.textSecondary, maxLines = 1)

@@ -73,6 +73,14 @@ sealed interface UiText {
             ApiErrors.OAUTH_ALREADY_LINKED to Res.string.error_oauth_already_linked,
             ApiErrors.TOO_MANY_REQUESTS to Res.string.error_too_many_requests,
             ApiErrors.SESSION_EXPIRED to Res.string.error_session_expired,
+            ApiErrors.INVALID_TWO_FACTOR_CODE to Res.string.error_invalid_two_factor_code,
+            ApiErrors.TWO_FACTOR_LOCKED to Res.string.error_two_factor_locked,
+            ApiErrors.TWO_FACTOR_CHALLENGE_EXPIRED to Res.string.error_two_factor_challenge_expired,
+            ApiErrors.TWO_FACTOR_ALREADY_ENABLED to Res.string.error_two_factor_already_enabled,
+            ApiErrors.TWO_FACTOR_NOT_ENABLED to Res.string.error_two_factor_not_enabled,
+            ApiErrors.TWO_FACTOR_SETUP_REQUIRED to Res.string.error_two_factor_setup_required,
+            ApiErrors.INVALID_IMAGE to Res.string.error_invalid_image,
+            ApiErrors.IMAGE_TOO_LARGE to Res.string.error_image_too_large,
         )
     }
 }

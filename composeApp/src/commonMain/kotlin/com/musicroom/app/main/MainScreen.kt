@@ -28,6 +28,7 @@ import com.musicroom.app.profile.ChangePasswordScreen
 import com.musicroom.app.profile.EditProfileScreen
 import com.musicroom.app.profile.ProfileRoute
 import com.musicroom.app.profile.ProfileScreen
+import com.musicroom.app.profile.TwoFactorSettingsScreen
 import com.musicroom.app.search.SearchScreen
 import com.musicroom.app.theme.ThemeMode
 import com.musicroom.app.theme.tokens.AppTheme
@@ -71,24 +72,10 @@ fun MainScreen(
         }
     }
 
-    if (WindowSize.current == WindowSize.Expanded) {
-        // Large screen: side menu on the left instead of the top and bottom bars.
-        Row(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
-            SideNavBar(user, selected = tab, onSelect = { tab = it }, onOpenProfile = openProfile)
-            Box(Modifier.weight(1f).fillMaxHeight().safeDrawingPadding()) { content() }
-        }
-    } else {
-        Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
-            MainTopBar(user, onOpenProfile = openProfile)
-            Box(Modifier.weight(1f).fillMaxWidth().imePadding()) { content() }
-            BottomNavBar(selected = tab, onSelect = { tab = it })
-        }
-    }
-
     val back = { profileRoute = profileRoute?.parent }
     when (profileRoute) {
-        null -> Unit
-        ProfileRoute.Profile -> ProfileScreen(
+        ProfileRoute.Profile -> return ProfileScreen(
+            api = api,
             user = user,
             serverUrl = api.baseUrl,
             themeMode = themeMode,
@@ -101,8 +88,25 @@ fun MainScreen(
                 }
             },
         )
-        ProfileRoute.EditProfile -> EditProfileScreen(api, user, onUserChange, onBack = back)
-        ProfileRoute.ChangePassword -> ChangePasswordScreen(api, onBack = back)
-        ProfileRoute.Appearance -> AppearanceScreen(themeMode, onThemeModeChange, onBack = back)
+        ProfileRoute.EditProfile -> return EditProfileScreen(api, user, onUserChange, onBack = back)
+        ProfileRoute.ChangePassword -> return ChangePasswordScreen(api, onBack = back)
+        ProfileRoute.TwoFactor -> return TwoFactorSettingsScreen(api, user, onUserChange, onBack = back)
+        ProfileRoute.Appearance -> return AppearanceScreen(themeMode, onThemeModeChange, onBack = back)
+        // Profile pages replace the tabs (instead of covering them) so touches cannot reach the tabs below.
+        null -> Unit
+    }
+
+    if (WindowSize.current == WindowSize.Expanded) {
+        // Large screen: side menu on the left instead of the top and bottom bars.
+        Row(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
+            SideNavBar(api, user, selected = tab, onSelect = { tab = it }, onOpenProfile = openProfile)
+            Box(Modifier.weight(1f).fillMaxHeight().safeDrawingPadding()) { content() }
+        }
+    } else {
+        Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
+            MainTopBar(api, user, onOpenProfile = openProfile)
+            Box(Modifier.weight(1f).fillMaxWidth().imePadding()) { content() }
+            BottomNavBar(selected = tab, onSelect = { tab = it })
+        }
     }
 }

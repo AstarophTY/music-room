@@ -5,5 +5,6 @@ enum class ProfileRoute(val parent: ProfileRoute?) {
     Profile(null),
     EditProfile(Profile),
     ChangePassword(Profile),
+    TwoFactor(Profile),
     Appearance(Profile),
 }
