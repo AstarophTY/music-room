@@ -17,5 +17,7 @@ enum class ValidationError(val code: String, val message: String) {
     DISPLAY_NAME_TOO_LONG("display_name_too_long", "Display name is too long"),
     TERMS_NOT_ACCEPTED("terms_not_accepted", "You must accept the terms of use to create an account"),
     SOCIAL_HANDLE_INVALID("social_handle_invalid", "This username is not valid"),
+    PLAYLIST_NAME_REQUIRED("playlist_name_required", "Give the playlist a name"),
+    PLAYLIST_NAME_TOO_LONG("playlist_name_too_long", "The playlist name is too long"),
     CODE_FORMAT("code_format", "Enter the ${AuthValidation.VERIFICATION_CODE_LENGTH}-digit code from the email"),
 }

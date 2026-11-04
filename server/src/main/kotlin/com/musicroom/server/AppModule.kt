@@ -20,6 +20,7 @@ import com.musicroom.server.common.websocket.configureWebSockets
 import com.musicroom.server.config.AppConfig
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
+import com.musicroom.server.modules.playlists.PlaylistsModule
 import com.musicroom.server.modules.spotify.SpotifyModule
 import com.musicroom.server.modules.spotify.client.SpotifyApi
 import com.musicroom.server.modules.spotify.client.SpotifyHttpApi
@@ -51,11 +52,14 @@ class AppModule(
         refreshTokenTtlDays = config.jwt.refreshTokenTtlDays,
     )
 
+    val spotify = SpotifyModule(database, users.repository, config.spotify, spotifyApi, jwtService, secretBox)
+
     val modules: List<Module> = listOf(
         SystemModule(config, database),
         users,
         auth,
-        SpotifyModule(database, users.repository, config.spotify, spotifyApi, jwtService, secretBox),
+        spotify,
+        PlaylistsModule(database, users.repository, spotify.service),
     )
 }
 

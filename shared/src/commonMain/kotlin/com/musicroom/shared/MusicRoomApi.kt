@@ -1,21 +1,28 @@
 package com.musicroom.shared
 
+import com.musicroom.shared.dto.AddPlaylistMemberRequest
+import com.musicroom.shared.dto.AddPlaylistTrackRequest
 import com.musicroom.shared.dto.AuthResponse
 import com.musicroom.shared.dto.ChangePasswordRequest
+import com.musicroom.shared.dto.CreatePlaylistRequest
 import com.musicroom.shared.dto.ErrorResponse
 import com.musicroom.shared.dto.ForgotPasswordRequest
 import com.musicroom.shared.dto.HealthResponse
 import com.musicroom.shared.dto.InfoResponse
 import com.musicroom.shared.dto.LoginRequest
 import com.musicroom.shared.dto.OAuthLoginRequest
-import com.musicroom.shared.dto.RefreshTokenRequest
-import com.musicroom.shared.dto.PlaylistsResponse
-import com.musicroom.shared.dto.RecoveryCodesResponse
-import com.musicroom.shared.dto.RegisterRequest
-import com.musicroom.shared.dto.ResetPasswordRequest
 import com.musicroom.shared.dto.PlayRequest
 import com.musicroom.shared.dto.PlaybackStateResponse
+import com.musicroom.shared.dto.PlaylistAccess
+import com.musicroom.shared.dto.PlaylistDetailResponse
+import com.musicroom.shared.dto.PlaylistListResponse
+import com.musicroom.shared.dto.PlaylistResponse
+import com.musicroom.shared.dto.PlaylistsResponse
 import com.musicroom.shared.dto.RecommendationsResponse
+import com.musicroom.shared.dto.RecoveryCodesResponse
+import com.musicroom.shared.dto.RefreshTokenRequest
+import com.musicroom.shared.dto.RegisterRequest
+import com.musicroom.shared.dto.ResetPasswordRequest
 import com.musicroom.shared.dto.SpotifyConnectResponse
 import com.musicroom.shared.dto.SpotifyStatusResponse
 import com.musicroom.shared.dto.TrackPageResponse
@@ -25,6 +32,8 @@ import com.musicroom.shared.dto.TwoFactorCodeRequest
 import com.musicroom.shared.dto.TwoFactorLoginRequest
 import com.musicroom.shared.dto.TwoFactorResendRequest
 import com.musicroom.shared.dto.TwoFactorSetupResponse
+import com.musicroom.shared.dto.UpdatePlaylistMemberRequest
+import com.musicroom.shared.dto.UpdatePlaylistRequest
 import com.musicroom.shared.dto.UpdateProfileRequest
 import com.musicroom.shared.dto.UpdateSocialLinksRequest
 import com.musicroom.shared.dto.UserResponse
@@ -202,6 +211,52 @@ class MusicRoomApi(
         authorized(HttpMethod.Put, ApiRoutes.MUSIC_PLAYER_SEEK) {
             url.parameters.append("positionMs", positionMs.toString())
         }.throwIfError()
+    }
+
+    /** Music Room playlists the user owns or was added to. */
+    suspend fun roomPlaylists(): PlaylistListResponse = authorized(HttpMethod.Get, ApiRoutes.PLAYLISTS).bodyOrThrow()
+
+    suspend fun createPlaylist(request: CreatePlaylistRequest): PlaylistResponse =
+        authorized(HttpMethod.Post, ApiRoutes.PLAYLISTS) { jsonBody(request) }.bodyOrThrow()
+
+    suspend fun roomPlaylist(id: String): PlaylistDetailResponse = authorized(HttpMethod.Get, ApiRoutes.playlist(id)).bodyOrThrow()
+
+    suspend fun updatePlaylist(id: String, request: UpdatePlaylistRequest): PlaylistDetailResponse =
+        authorized(HttpMethod.Patch, ApiRoutes.playlist(id)) { jsonBody(request) }.bodyOrThrow()
+
+    suspend fun deletePlaylist(id: String) {
+        authorized(HttpMethod.Delete, ApiRoutes.playlist(id)).throwIfError()
+    }
+
+    /** Uploads the playlist photo (JPEG or PNG). The server crops and resizes it. */
+    suspend fun uploadPlaylistCover(id: String, image: ByteArray, contentType: ContentType): PlaylistDetailResponse =
+        authorized(HttpMethod.Put, ApiRoutes.playlistCover(id)) {
+            contentType(contentType)
+            setBody(image)
+        }.bodyOrThrow()
+
+    suspend fun deletePlaylistCover(id: String): PlaylistDetailResponse =
+        authorized(HttpMethod.Delete, ApiRoutes.playlistCover(id)).bodyOrThrow()
+
+    /** Playlist photo bytes (JPEG). */
+    suspend fun playlistCover(id: String): ByteArray = authorized(HttpMethod.Get, ApiRoutes.playlistCover(id)).bodyOrThrow()
+
+    /** Adds a Spotify track at the end of the playlist. */
+    suspend fun addPlaylistTrack(id: String, trackId: String): PlaylistDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.roomPlaylistTracks(id)) { jsonBody(AddPlaylistTrackRequest(trackId)) }.bodyOrThrow()
+
+    suspend fun removePlaylistTrack(id: String, entryId: String): PlaylistDetailResponse =
+        authorized(HttpMethod.Delete, ApiRoutes.roomPlaylistTrack(id, entryId)).bodyOrThrow()
+
+    suspend fun addPlaylistMember(id: String, email: String, access: PlaylistAccess): PlaylistDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.playlistMembers(id)) { jsonBody(AddPlaylistMemberRequest(email, access)) }.bodyOrThrow()
+
+    suspend fun updatePlaylistMember(id: String, userId: String, access: PlaylistAccess): PlaylistDetailResponse =
+        authorized(HttpMethod.Patch, ApiRoutes.playlistMember(id, userId)) { jsonBody(UpdatePlaylistMemberRequest(access)) }.bodyOrThrow()
+
+    /** Removes a member (owner), or leaves the playlist when [userId] is the user's own id. */
+    suspend fun removePlaylistMember(id: String, userId: String) {
+        authorized(HttpMethod.Delete, ApiRoutes.playlistMember(id, userId)).throwIfError()
     }
 
     /** Downloads a public file (album cover...). */

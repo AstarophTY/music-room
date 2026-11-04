@@ -47,6 +47,27 @@ object ApiRoutes {
 
     fun playlistTracks(id: String) = "$MUSIC/playlists/$id/tracks"
 
+    /** Playlists made in Music Room (the MUSIC_* playlist routes are the user's Spotify ones). */
+    const val PLAYLISTS = "$API_V1/playlists"
+    const val PLAYLIST = "$PLAYLISTS/{id}"
+    const val PLAYLIST_COVER = "$PLAYLIST/cover"
+    const val PLAYLIST_TRACKS = "$PLAYLIST/tracks"
+    const val PLAYLIST_TRACK = "$PLAYLIST/tracks/{entryId}"
+    const val PLAYLIST_MEMBERS = "$PLAYLIST/members"
+    const val PLAYLIST_MEMBER = "$PLAYLIST/members/{userId}"
+
+    fun playlist(id: String) = "$PLAYLISTS/$id"
+
+    fun playlistCover(id: String) = "$PLAYLISTS/$id/cover"
+
+    fun roomPlaylistTracks(id: String) = "$PLAYLISTS/$id/tracks"
+
+    fun roomPlaylistTrack(id: String, entryId: String) = "$PLAYLISTS/$id/tracks/$entryId"
+
+    fun playlistMembers(id: String) = "$PLAYLISTS/$id/members"
+
+    fun playlistMember(id: String, userId: String) = "$PLAYLISTS/$id/members/$userId"
+
     const val USERS = "$API_V1/users"
     const val USERS_ME = "$USERS/me"
     const val USERS_ME_AVATAR = "$USERS_ME/avatar"

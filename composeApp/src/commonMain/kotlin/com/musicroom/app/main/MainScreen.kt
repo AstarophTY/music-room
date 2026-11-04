@@ -1,5 +1,13 @@
 package com.musicroom.app.main
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +29,11 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import com.musicroom.app.common.WindowSize
-import com.musicroom.app.create.CreateScreen
+import com.musicroom.app.create.CreateSheet
 import com.musicroom.app.events.EventsScreen
 import com.musicroom.app.home.HomeScreen
+import com.musicroom.app.player.PlayerBar
+import com.musicroom.app.player.PlayerController
 import com.musicroom.app.playlists.PlaylistsScreen
 import com.musicroom.app.profile.AppearanceScreen
 import com.musicroom.app.profile.ChangePasswordScreen
@@ -32,8 +42,6 @@ import com.musicroom.app.profile.ProfileRoute
 import com.musicroom.app.profile.ProfileScreen
 import com.musicroom.app.profile.SocialLinksScreen
 import com.musicroom.app.profile.SpotifySettingsScreen
-import com.musicroom.app.player.PlayerBar
-import com.musicroom.app.player.PlayerController
 import com.musicroom.app.profile.TwoFactorSettingsScreen
 import com.musicroom.app.search.SearchScreen
 import com.musicroom.app.theme.ThemeMode
@@ -56,12 +64,25 @@ fun MainScreen(
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     var profileRoute by rememberSaveable { mutableStateOf<ProfileRoute?>(null) }
     var sideNavCollapsed by rememberSaveable { mutableStateOf(false) }
+    var showCreate by rememberSaveable { mutableStateOf(false) }
+    var openRoomPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val player = remember(api) { PlayerController(api, scope) }
     // Follows what Spotify plays while an account is linked.
     LaunchedEffect(user.spotifyConnected) { if (user.spotifyConnected) player.sync() }
     val onSpotifyConnected = { onUserChange(user.copy(spotifyConnected = true)) }
-    val playerBar: @Composable () -> Unit = { if (user.spotifyConnected) PlayerBar(api, player) }
+    val playerBar: @Composable () -> Unit = {
+        AnimatedVisibility(
+            visible = user.spotifyConnected && (player.track != null || player.error != null),
+            enter = slideInVertically { it } + fadeIn(),
+            exit = slideOutVertically { it } + fadeOut(),
+        ) {
+            PlayerBar(api, player)
+        }
+    }
+    val openCreate = { showCreate = true }
+    // The Create tab is not a page: it opens the create card from the bottom.
+    val selectTab: (MainTab) -> Unit = { if (it == MainTab.Create) openCreate() else tab = it }
 
     // Android back: close the profile pages first, then go back to the home tab.
     BackHandler(enabled = profileRoute != null || tab != MainTab.Home) {
@@ -70,21 +91,38 @@ fun MainScreen(
     }
 
     val openProfile = { profileRoute = ProfileRoute.Profile }
-    val content: @Composable () -> Unit = {
-        when (tab) {
+    val tabPage: @Composable (MainTab) -> Unit = { shown ->
+        when (shown) {
             MainTab.Home -> HomeScreen(
                 api = api,
                 user = user,
                 player = player,
                 onSpotifyConnected = onSpotifyConnected,
-                onCreate = { tab = MainTab.Create },
-                onOpenPlaylists = { tab = MainTab.Playlists },
+                onCreate = openCreate,
             )
             MainTab.Search -> SearchScreen(api, user, player, onSpotifyConnected)
-            MainTab.Events -> EventsScreen(onCreate = { tab = MainTab.Create })
-            MainTab.Playlists -> PlaylistsScreen(api, user, player, onSpotifyConnected, onCreate = { tab = MainTab.Create })
-            MainTab.Create -> CreateScreen()
+            MainTab.Events -> EventsScreen(onCreate = openCreate)
+            MainTab.Playlists -> PlaylistsScreen(
+                api,
+                user,
+                player,
+                onSpotifyConnected,
+                onCreate = openCreate,
+                openRoomPlaylistId = openRoomPlaylist,
+                onOpenRoomPlaylist = { openRoomPlaylist = it },
+            )
+            MainTab.Create -> Unit
         }
+    }
+    // Changing tab fades the new one in while it rises a little.
+    val content: @Composable () -> Unit = {
+        AnimatedContent(
+            tab,
+            transitionSpec = {
+                (fadeIn(tween(220, delayMillis = 60)) + slideInVertically(tween(260)) { it / 30 })
+                    .togetherWith(fadeOut(tween(120)))
+            },
+        ) { tabPage(it) }
     }
 
     val back = { profileRoute = profileRoute?.parent }
@@ -125,7 +163,7 @@ fun MainScreen(
                 onToggleCollapsed = { sideNavCollapsed = !sideNavCollapsed },
                 onSelect = {
                     profileRoute = null
-                    tab = it
+                    selectTab(it)
                 },
                 onOpenProfile = openProfile,
             )
@@ -144,7 +182,20 @@ fun MainScreen(
             MainTopBar(api, user, onOpenProfile = openProfile)
             Box(Modifier.weight(1f).fillMaxWidth().imePadding()) { content() }
             playerBar()
-            BottomNavBar(selected = tab, onSelect = { tab = it })
+            BottomNavBar(selected = tab, onSelect = selectTab)
         }
+    }
+
+    if (showCreate) {
+        CreateSheet(
+            api,
+            onDismiss = { showCreate = false },
+            onPlaylistCreated = { playlist ->
+                showCreate = false
+                profileRoute = null
+                openRoomPlaylist = playlist.id
+                tab = MainTab.Playlists
+            },
+        )
     }
 }

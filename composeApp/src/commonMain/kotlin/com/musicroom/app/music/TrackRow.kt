@@ -21,12 +21,22 @@ import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TrackResponse
 
-/** Track in a list: cover, title, artists, and its length (an equalizer instead while it plays). */
+/**
+ * Track in a list: cover, title, artists, and its length (an equalizer instead while it plays).
+ * [trailing] adds an action at the end of the row (add, remove...).
+ */
 @Composable
-fun TrackRow(api: MusicRoomApi, track: TrackResponse, playing: Boolean, onClick: () -> Unit) {
+fun TrackRow(
+    api: MusicRoomApi,
+    track: TrackResponse,
+    playing: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
+) {
     val colors = AppTheme.colors
     Row(
-        Modifier.fillMaxWidth().pressable(onClick = onClick).padding(vertical = AppTheme.spacing.xs),
+        modifier.fillMaxWidth().pressable(onClick = onClick).padding(vertical = AppTheme.spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -52,5 +62,6 @@ fun TrackRow(api: MusicRoomApi, track: TrackResponse, playing: Boolean, onClick:
         } else {
             Text(Durations.format(track.durationMs), style = AppTheme.typography.bodySmall, color = colors.textDisabled)
         }
+        trailing?.invoke()
     }
 }

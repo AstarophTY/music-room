@@ -1,10 +1,12 @@
 package com.musicroom.app.playlists
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.material3.Text
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -14,39 +16,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
-import com.composables.icons.lucide.ListMusic
-import com.composables.icons.lucide.Lucide
-import com.musicroom.app.common.EmptyState
-import com.musicroom.app.common.SectionTitle
-import com.musicroom.app.common.TabContent
 import com.musicroom.app.common.UiText
-import com.musicroom.app.common.WindowSize
-import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.common_loading
-import com.musicroom.app.generated.resources.common_retry
-import com.musicroom.app.generated.resources.home_playlists_title
-import com.musicroom.app.generated.resources.playlists_create
-import com.musicroom.app.generated.resources.playlists_empty_body
-import com.musicroom.app.generated.resources.playlists_empty_title
-import com.musicroom.app.generated.resources.playlists_mine
-import com.musicroom.app.generated.resources.playlists_spotify
-import com.musicroom.app.generated.resources.playlists_spotify_empty
-import com.musicroom.app.music.SpotifyConnectCard
 import com.musicroom.app.player.PlayerController
-import com.musicroom.app.theme.components.AppButton
-import com.musicroom.app.theme.components.AppButtonVariant
-import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.PlaylistResponse
 import com.musicroom.shared.dto.PlaylistSummaryResponse
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
-import org.jetbrains.compose.resources.stringResource
 
 /**
- * The playlists made in Music Room (created from the Create tab), then the ones the user created on their Spotify
- * account. Opening one shows its tracks in place of the list.
+ * The playlists made in Music Room (owned or shared with the user), then the ones the user created on their
+ * Spotify account. Opening one slides its page in place of the list. [openRoomPlaylistId] is kept by the
+ * caller so a new playlist can open right after it is created.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -56,68 +38,72 @@ fun PlaylistsScreen(
     player: PlayerController,
     onSpotifyConnected: () -> Unit,
     onCreate: () -> Unit,
+    openRoomPlaylistId: String?,
+    onOpenRoomPlaylist: (String?) -> Unit,
 ) {
-    val colors = AppTheme.colors
     var spotifyPlaylists by remember { mutableStateOf<List<PlaylistSummaryResponse>?>(null) }
-    var error by remember { mutableStateOf<UiText?>(null) }
+    var roomPlaylists by remember { mutableStateOf<List<PlaylistResponse>?>(null) }
+    var spotifyError by remember { mutableStateOf<UiText?>(null) }
+    var roomError by remember { mutableStateOf<UiText?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
-    var openId by rememberSaveable { mutableStateOf<String?>(null) }
+    var openSpotifyId by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(user.spotifyConnected, attempt) {
         if (!user.spotifyConnected) return@LaunchedEffect
-        error = null
+        spotifyError = null
         try {
             spotifyPlaylists = api.myPlaylists().items
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            error = UiText.of(e)
+            spotifyError = UiText.of(e)
+        }
+    }
+    // Reloaded each time the list shows again, so changes made in a playlist appear.
+    LaunchedEffect(openRoomPlaylistId == null, attempt) {
+        if (openRoomPlaylistId != null) return@LaunchedEffect
+        roomError = null
+        try {
+            roomPlaylists = api.roomPlaylists().items
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            roomError = UiText.of(e)
         }
     }
 
-    val open = openId?.let { id -> spotifyPlaylists?.firstOrNull { it.id == id } }
-    BackHandler(enabled = open != null) { openId = null }
-    if (open != null) return PlaylistDetail(api, open, player, onBack = { openId = null })
+    // Which page shows: the list, or one playlist ("room:<id>" or "spotify:<id>").
+    val list = "list"
+    val page = when {
+        openRoomPlaylistId != null -> "room:$openRoomPlaylistId"
+        openSpotifyId != null -> "spotify:$openSpotifyId"
+        else -> list
+    }
+    BackHandler(enabled = page != list) {
+        onOpenRoomPlaylist(null)
+        openSpotifyId = null
+    }
 
-    TabContent {
-        Text(stringResource(Res.string.home_playlists_title), style = AppTheme.typography.display, color = colors.textPrimary)
-
-        SectionTitle(stringResource(Res.string.playlists_mine))
-        EmptyState(
-            icon = Lucide.ListMusic,
-            title = stringResource(Res.string.playlists_empty_title),
-            body = stringResource(Res.string.playlists_empty_body),
-            actionLabel = stringResource(Res.string.playlists_create),
-            onAction = onCreate,
-        )
-
-        val loaded = spotifyPlaylists
-        SectionTitle(
-            stringResource(Res.string.playlists_spotify) + (loaded?.takeIf { user.spotifyConnected }?.let { " · ${it.size}" } ?: ""),
-        )
-        val failure = error
+    AnimatedContent(
+        page,
+        transitionSpec = {
+            val opening = targetState != list
+            (slideInHorizontally(tween(280)) { if (opening) it / 2 else -it / 4 } + fadeIn(tween(280)))
+                .togetherWith(slideOutHorizontally(tween(220)) { if (opening) -it / 4 else it / 2 } + fadeOut(tween(180)))
+        },
+    ) { target ->
         when {
-            !user.spotifyConnected -> SpotifyConnectCard(api, onConnected = onSpotifyConnected)
-            failure != null -> {
-                Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
-                AppButton(stringResource(Res.string.common_retry), { attempt++ }, variant = AppButtonVariant.Secondary)
+            target.startsWith("room:") ->
+                RoomPlaylistScreen(api, target.removePrefix("room:"), user.id, player, onBack = { onOpenRoomPlaylist(null) })
+            target.startsWith("spotify:") -> {
+                val playlist = spotifyPlaylists?.firstOrNull { it.id == target.removePrefix("spotify:") }
+                if (playlist != null) PlaylistDetail(api, playlist, player, onBack = { openSpotifyId = null })
             }
-            loaded == null -> Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-            loaded.isEmpty() -> Text(stringResource(Res.string.playlists_spotify_empty), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-            else -> {
-                // Two columns on tablets and computers.
-                val columns = if (WindowSize.current == WindowSize.Compact) 1 else 2
-                Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
-                    loaded.chunked(columns).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg)) {
-                            row.forEach { playlist ->
-                                PlaylistRow(api, playlist, onClick = { openId = playlist.id }, modifier = Modifier.weight(1f))
-                            }
-                            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
-                        }
-                    }
-                }
-            }
+            else -> PlaylistsList(
+                api, user, roomPlaylists, roomError, spotifyPlaylists, spotifyError,
+                onRetry = { attempt++ }, onSpotifyConnected = onSpotifyConnected, onCreate = onCreate,
+                onOpenRoom = onOpenRoomPlaylist, onOpenSpotify = { openSpotifyId = it },
+            )
         }
     }
 }

@@ -1,0 +1,6 @@
+package com.musicroom.shared.dto
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class CreatePlaylistRequest(val name: String, val type: PlaylistType = PlaylistType.PERSONAL)

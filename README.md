@@ -178,6 +178,17 @@ Without `GOOGLE_CLIENT_ID`, the button shows an error message and the server ref
 - **Recommendations** (`GET /api/v1/music/me/recommendations`): Spotify's own recommendations endpoint is closed to new apps, so the server builds them from the user's top tracks and more tracks from their top artists (search). Cached 10 minutes per user to save the Spotify quota.
 - Search asks Spotify for 10 results per page, the development-mode maximum.
 
+## Playlists
+
+Playlists made in Music Room (`/api/v1/playlists`), stored in 4 tables:
+
+- `playlists`: name, owner and **type**: `personal` (only the owner adds songs) or `shared` (members with write access add songs too).
+- `playlist_members`: the users added by email, each with **read** (listen) or **write** (add / remove songs, change the photo) access. Write access only works in a shared playlist; turning a playlist personal makes every member read-only.
+- `playlist_tracks`: the songs in order, with the Spotify track details saved when the song was added.
+- `playlist_covers`: the photo, re-encoded as a 512x512 JPEG.
+
+Only the owner renames, changes the type, manages members and deletes the playlist. Users who are neither the owner nor a member get 404. In the app, the Create button opens a card from the bottom; songs are added from Spotify search and the playlist plays on the user's Spotify device.
+
 ## App design and languages
 
 - Navigation: avatar (top left) opens the profile and settings; bottom bar with Home, Search, Events (middle), Playlists, Create. Events, playlists and create show placeholders until the matching services exist on the server. A player bar sits above the bottom bar (under the content on large screens) while Spotify plays.

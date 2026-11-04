@@ -35,6 +35,15 @@ object ApiErrors {
     const val SPOTIFY_NO_DEVICE = "spotify_no_device"
     const val SPOTIFY_PREMIUM_REQUIRED = "spotify_premium_required"
     const val SPOTIFY_PLAYLIST_RESTRICTED = "spotify_playlist_restricted"
+    const val TRACK_ALREADY_IN_PLAYLIST = "track_already_in_playlist"
+    const val PLAYLIST_FULL = "playlist_full"
+
+    /** No Music Room account has the email of the member to add. */
+    const val USER_NOT_FOUND = "user_not_found"
+    const val ALREADY_MEMBER = "already_member"
+
+    /** Only listeners can be added to a personal playlist: make it shared to let members edit it. */
+    const val PERSONAL_PLAYLIST_READ_ONLY = "personal_playlist_read_only"
     const val INVALID_IMAGE = "invalid_image"
     const val IMAGE_TOO_LARGE = "image_too_large"
 

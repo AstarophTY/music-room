@@ -2,8 +2,8 @@ package com.musicroom.app.common
 
 import androidx.compose.runtime.Composable
 import com.musicroom.app.auth.SocialSignInException
-import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.*
+import com.musicroom.app.generated.resources.Res
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.AuthValidation
@@ -44,6 +44,8 @@ sealed interface UiText {
             ValidationError.DISPLAY_NAME_TOO_LONG -> of(Res.string.validation_display_name_too_long)
             ValidationError.TERMS_NOT_ACCEPTED -> of(Res.string.validation_terms_not_accepted)
             ValidationError.SOCIAL_HANDLE_INVALID -> of(Res.string.validation_social_handle_invalid)
+            ValidationError.PLAYLIST_NAME_REQUIRED -> of(Res.string.validation_playlist_name_required)
+            ValidationError.PLAYLIST_NAME_TOO_LONG -> of(Res.string.validation_playlist_name_too_long)
             ValidationError.CODE_FORMAT -> of(Res.string.validation_code_format, AuthValidation.VERIFICATION_CODE_LENGTH)
         }
 
@@ -80,6 +82,11 @@ sealed interface UiText {
             ApiErrors.TWO_FACTOR_ALREADY_ENABLED to Res.string.error_two_factor_already_enabled,
             ApiErrors.TWO_FACTOR_NOT_ENABLED to Res.string.error_two_factor_not_enabled,
             ApiErrors.TWO_FACTOR_SETUP_REQUIRED to Res.string.error_two_factor_setup_required,
+            ApiErrors.TRACK_ALREADY_IN_PLAYLIST to Res.string.error_track_already_in_playlist,
+            ApiErrors.PLAYLIST_FULL to Res.string.error_playlist_full,
+            ApiErrors.USER_NOT_FOUND to Res.string.error_user_not_found,
+            ApiErrors.ALREADY_MEMBER to Res.string.error_already_member,
+            ApiErrors.PERSONAL_PLAYLIST_READ_ONLY to Res.string.error_personal_playlist_read_only,
             ApiErrors.INVALID_IMAGE to Res.string.error_invalid_image,
             ApiErrors.IMAGE_TOO_LARGE to Res.string.error_image_too_large,
             ApiErrors.SPOTIFY_NOT_CONFIGURED to Res.string.error_spotify_not_configured,

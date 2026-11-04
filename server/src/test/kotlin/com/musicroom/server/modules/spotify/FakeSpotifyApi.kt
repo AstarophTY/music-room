@@ -25,6 +25,8 @@ class FakeSpotifyApi : SpotifyApi {
     var playlists: List<SpotifyPlaylist> = emptyList()
     /** Tracks by playlist id; a playlist missing here answers 403 like a followed playlist. */
     var playlistItems: Map<String, List<SpotifyTrack>> = emptyMap()
+    /** Tracks found by id; others answer 404. */
+    var tracks: Map<String, SpotifyTrack> = emptyMap()
 
     val searches = mutableListOf<String>()
     val plays = mutableListOf<Pair<String?, SpotifyPlayBody?>>()
@@ -43,7 +45,7 @@ class FakeSpotifyApi : SpotifyApi {
         return SpotifyPaging(searchResults[query].orEmpty().take(limit))
     }
 
-    override suspend fun track(accessToken: String, id: String) = throw SpotifyApiException(404, "not found")
+    override suspend fun track(accessToken: String, id: String) = tracks[id] ?: throw SpotifyApiException(404, "not found")
 
     override suspend fun myPlaylists(accessToken: String, offset: Int, limit: Int): SpotifyPaging<SpotifyPlaylist> {
         val page = playlists.drop(offset).take(limit)
