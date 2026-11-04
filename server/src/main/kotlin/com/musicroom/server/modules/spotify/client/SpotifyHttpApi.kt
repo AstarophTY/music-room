@@ -1,7 +1,12 @@
 package com.musicroom.server.modules.spotify.client
 
 import com.musicroom.server.config.SpotifyConfig
+import com.musicroom.server.modules.spotify.client.model.SpotifyArtist
+import com.musicroom.server.modules.spotify.client.model.SpotifyDevice
+import com.musicroom.server.modules.spotify.client.model.SpotifyDevicesResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyPaging
+import com.musicroom.server.modules.spotify.client.model.SpotifyPlayBody
+import com.musicroom.server.modules.spotify.client.model.SpotifyPlaybackState
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylist
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylistTrackItem
 import com.musicroom.server.modules.spotify.client.model.SpotifySearchResponse
@@ -19,9 +24,15 @@ import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.request
+import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
 import io.ktor.http.URLBuilder
 import io.ktor.http.encodeURLPathPart
 import io.ktor.http.isSuccess
@@ -89,11 +100,14 @@ class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
     override suspend fun track(accessToken: String, id: String): SpotifyTrack =
         api(accessToken, "/tracks/${id.encodeURLPathPart()}") { parameter("market", "from_token") }
 
-    override suspend fun myPlaylists(accessToken: String, limit: Int): SpotifyPaging<SpotifyPlaylist> =
-        api(accessToken, "/me/playlists") { parameter("limit", limit) }
+    override suspend fun myPlaylists(accessToken: String, offset: Int, limit: Int): SpotifyPaging<SpotifyPlaylist> =
+        api(accessToken, "/me/playlists") {
+            parameter("offset", offset)
+            parameter("limit", limit)
+        }
 
     override suspend fun playlistTracks(accessToken: String, id: String, offset: Int, limit: Int): SpotifyPaging<SpotifyPlaylistTrackItem> =
-        api(accessToken, "/playlists/${id.encodeURLPathPart()}/tracks") {
+        api(accessToken, "/playlists/${id.encodeURLPathPart()}/items") {
             parameter("offset", offset)
             parameter("limit", limit)
             parameter("market", "from_token")
@@ -104,6 +118,57 @@ class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
             parameter("limit", limit)
             parameter("time_range", "medium_term")
         }
+
+    override suspend fun topArtists(accessToken: String, limit: Int, timeRange: String): SpotifyPaging<SpotifyArtist> =
+        api(accessToken, "/me/top/artists") {
+            parameter("limit", limit)
+            parameter("time_range", timeRange)
+        }
+
+    override suspend fun playbackState(accessToken: String): SpotifyPlaybackState? {
+        val response = client.get("$API_URL/me/player") {
+            bearerAuth(accessToken)
+            parameter("market", "from_token")
+        }.checked()
+        // 204: no device is playing or paused.
+        return if (response.status == HttpStatusCode.NoContent) null else response.body()
+    }
+
+    override suspend fun devices(accessToken: String): List<SpotifyDevice> =
+        api<SpotifyDevicesResponse>(accessToken, "/me/player/devices").devices
+
+    override suspend fun play(accessToken: String, deviceId: String?, body: SpotifyPlayBody?) {
+        player(HttpMethod.Put, accessToken, "/me/player/play") {
+            if (deviceId != null) parameter("device_id", deviceId)
+            if (body != null) {
+                contentType(ContentType.Application.Json)
+                setBody(body)
+            }
+        }
+    }
+
+    override suspend fun pause(accessToken: String) = player(HttpMethod.Put, accessToken, "/me/player/pause")
+
+    override suspend fun next(accessToken: String) = player(HttpMethod.Post, accessToken, "/me/player/next")
+
+    override suspend fun previous(accessToken: String) = player(HttpMethod.Post, accessToken, "/me/player/previous")
+
+    override suspend fun seek(accessToken: String, positionMs: Long) =
+        player(HttpMethod.Put, accessToken, "/me/player/seek") { parameter("position_ms", positionMs) }
+
+    /** Player commands answer with no useful body. */
+    private suspend fun player(
+        method: HttpMethod,
+        accessToken: String,
+        path: String,
+        configure: HttpRequestBuilder.() -> Unit = {},
+    ) {
+        client.request(API_URL + path) {
+            this.method = method
+            bearerAuth(accessToken)
+            configure()
+        }.checked()
+    }
 
     private suspend fun token(form: io.ktor.http.Parameters): SpotifyTokenResponse {
         val basic = Base64.getEncoder().encodeToString("${config.clientId}:${config.clientSecret}".toByteArray())

@@ -32,6 +32,9 @@ object ApiErrors {
     const val SPOTIFY_NOT_CONNECTED = "spotify_not_connected"
     const val SPOTIFY_UNAVAILABLE = "spotify_unavailable"
     const val SPOTIFY_RATE_LIMITED = "spotify_rate_limited"
+    const val SPOTIFY_NO_DEVICE = "spotify_no_device"
+    const val SPOTIFY_PREMIUM_REQUIRED = "spotify_premium_required"
+    const val SPOTIFY_PLAYLIST_RESTRICTED = "spotify_playlist_restricted"
     const val INVALID_IMAGE = "invalid_image"
     const val IMAGE_TOO_LARGE = "image_too_large"
 

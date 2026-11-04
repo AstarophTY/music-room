@@ -39,13 +39,11 @@ data class AppConfig(
             ),
         )
 
-        /** No SMTP_HOST: development mode, every email goes to the local Mailpit inbox. */
+        /** No SMTP_HOST: development mode, every email is written to the server logs. */
         private fun mailConfig(config: ApplicationConfig): MailConfig {
             val from = config.string("mail.from").ifEmpty { MailConfig().from }
             val host = config.string("mail.host")
-            if (host.isEmpty()) {
-                return MailConfig(host = config.string("mail.mailpitHost").ifEmpty { "localhost" }, from = from)
-            }
+            if (host.isEmpty()) return MailConfig(from = from)
             return MailConfig(
                 host = host,
                 port = config.string("mail.port").toIntOrNull() ?: SMTP_SUBMISSION_PORT,

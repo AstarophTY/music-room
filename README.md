@@ -19,7 +19,7 @@ make up    # start PostgreSQL + the server in Docker
 
 - API: http://localhost:8080/health
 - Swagger: http://localhost:8080/swagger
-- Emails (Mailpit): http://localhost:8025
+- Emails: printed in the server logs (`make logs`) while `SMTP_HOST` is empty
 
 On Windows/WSL, Docker Desktop must have WSL integration enabled for your distro (Settings > Resources > WSL integration).
 
@@ -32,7 +32,7 @@ From Swagger (http://localhost:8080/swagger) or with curl:
 curl -s -X POST localhost:8080/api/v1/auth/register -H 'Content-Type: application/json' \
   -d '{"email":"alice@example.com","password":"hunter42abc","displayName":"Alice","acceptedTerms":true}'
 
-# Read the code in Mailpit (http://localhost:8025), then verify the email
+# Read the code in the server logs (make logs), then verify the email
 curl -s -X POST localhost:8080/api/v1/auth/email/verify -H 'Authorization: Bearer <ACCESS_TOKEN>' \
   -H 'Content-Type: application/json' -d '{"code":"123456"}'
 
@@ -136,7 +136,7 @@ The backend URL comes from `BACKEND_URL` in `.env` and is baked into the app at 
 
 - Sign up in the app in 3 pages: email, password + confirmation, display name + terms of use (required, checked by the server too).
 - **Email verification**: a 6-digit code is emailed after sign-up. It is stored hashed, works once, expires after 15 min and allows 5 tries; a new one can be requested once a minute. The app shows the code screen until the email is verified.
-- In development (`SMTP_HOST` empty), emails go to **Mailpit**: open http://localhost:8025 to read them. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_FROM` to use a real SMTP server.
+- In development (`SMTP_HOST` empty), emails are not sent: they are written to the server logs (`make logs`, or the Gradle output with `make dev`). Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` and `SMTP_FROM` to use a real SMTP server.
 - Sign up / log in with email + password. Passwords are hashed with **bcrypt** (cost 12, random salt) and never stored or logged in clear text.
 - **Access token**: JWT valid 15 min (`JWT_ACCESS_TTL_MINUTES`), sent as `Authorization: Bearer`.
 - **Refresh token**: random value valid 30 days (`JWT_REFRESH_TTL_DAYS`), stored **hashed** (SHA-256) in `refresh_tokens`. Each one works once (rotation); reusing an old one revokes every session of the user.
@@ -168,9 +168,19 @@ Without `GOOGLE_CLIENT_ID`, the button shows an error message and the server ref
 
 **Apple:** the server already verifies Apple ID tokens (`APPLE_CLIENT_ID` = the iOS bundle ID). The button is not in the app yet: Sign in with Apple has no Android SDK, and on iOS it needs a paid Apple Developer account and a Mac with Xcode.
 
+### Spotify: playback and recommendations
+
+1. Create an app on the [Spotify dashboard](https://developer.spotify.com/dashboard), add the redirect URI `http://127.0.0.1:8080/api/v1/spotify/callback` (or your `SPOTIFY_REDIRECT_URI`), and add each tester's Spotify email under *User Management* (development mode allows 5 users and needs a Premium owner).
+2. Set `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in `.env`, then `make up`.
+3. In the app: Home, Search or Profile > Spotify > *Connect Spotify*. The Spotify login opens in the browser, and the app picks up the account once it is linked.
+
+- **Playback** uses Spotify Connect: the app is a remote, the music plays in the Spotify app on one of the user's devices (phone, computer, speaker, or the web player at open.spotify.com). It needs **Spotify Premium** and Spotify open somewhere; otherwise the player bar says so (`spotify_no_device`, `spotify_premium_required`). Routes: `GET /api/v1/music/player`, `PUT .../player/play|pause|seek`, `POST .../player/next|previous`.
+- **Recommendations** (`GET /api/v1/music/me/recommendations`): Spotify's own recommendations endpoint is closed to new apps, so the server builds them from the user's top tracks and more tracks from their top artists (search). Cached 10 minutes per user to save the Spotify quota.
+- Search asks Spotify for 10 results per page, the development-mode maximum.
+
 ## App design and languages
 
-- Navigation: avatar (top left) opens the profile and settings; bottom bar with Home, Search, Events (middle), Playlists, Create. Search, events, playlists and create show placeholders until the matching services exist on the server.
+- Navigation: avatar (top left) opens the profile and settings; bottom bar with Home, Search, Events (middle), Playlists, Create. Events, playlists and create show placeholders until the matching services exist on the server. A player bar sits above the bottom bar (under the content on large screens) while Spotify plays.
 - Colors: [Radix Colors](https://www.radix-ui.com/colors) yellow + sand, light and dark themes, all in `theme/color/Palette.kt`. The theme (system, light, dark) is chosen in Profile > Appearance and saved on the device.
 - Icons: [Lucide](https://lucide.dev) (`com.composables:icons-lucide-cmp`).
 - Languages: English and French, from `composeApp/src/commonMain/composeResources/values*/strings.xml`. The app follows the phone's language and sends it as `Accept-Language`, so server emails use it too.

@@ -8,13 +8,17 @@ import com.musicroom.server.common.guards.jwtGuard
 import com.musicroom.server.common.i18n.requestLanguage
 import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.shared.ApiRoutes
+import com.musicroom.shared.dto.PlayRequest
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 
 class SpotifyController(private val service: SpotifyService, private val users: UsersRepository) : Controller {
     override fun Route.routes() {
@@ -50,6 +54,34 @@ class SpotifyController(private val service: SpotifyService, private val users: 
             }
             get(ApiRoutes.MUSIC_MY_TOP_TRACKS) {
                 call.respond(service.topTracks(call.currentUserId()))
+            }
+            get(ApiRoutes.MUSIC_RECOMMENDATIONS) {
+                call.respond(service.recommendations(call.currentUserId()))
+            }
+            get(ApiRoutes.MUSIC_PLAYER) {
+                call.respond(service.playbackState(call.currentUserId()))
+            }
+            put(ApiRoutes.MUSIC_PLAYER_PLAY) {
+                service.play(call.currentUserId(), call.receive<PlayRequest>())
+                call.respond(HttpStatusCode.NoContent)
+            }
+            put(ApiRoutes.MUSIC_PLAYER_PAUSE) {
+                service.pause(call.currentUserId())
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post(ApiRoutes.MUSIC_PLAYER_NEXT) {
+                service.next(call.currentUserId())
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post(ApiRoutes.MUSIC_PLAYER_PREVIOUS) {
+                service.previous(call.currentUserId())
+                call.respond(HttpStatusCode.NoContent)
+            }
+            put(ApiRoutes.MUSIC_PLAYER_SEEK) {
+                val position = call.request.queryParameters["positionMs"]?.toLongOrNull()
+                    ?: throw BadRequestException("positionMs is required")
+                service.seek(call.currentUserId(), position)
+                call.respond(HttpStatusCode.NoContent)
             }
             get(ApiRoutes.MUSIC_PLAYLIST_TRACKS) {
                 val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0

@@ -19,7 +19,7 @@ class SmtpEmailSender(private val config: MailConfig) : EmailSender {
             put("mail.smtp.host", config.host)
             put("mail.smtp.port", config.port.toString())
             put("mail.smtp.auth", config.user.isNotEmpty().toString())
-            // Upgrades to TLS when the server offers it (real providers on port 587); Mailpit does not.
+            // Upgrades to TLS when the server offers it (real providers on port 587).
             put("mail.smtp.starttls.enable", "true")
             put("mail.smtp.connectiontimeout", TIMEOUT_MS)
             put("mail.smtp.timeout", TIMEOUT_MS)

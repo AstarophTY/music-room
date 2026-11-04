@@ -26,9 +26,9 @@ import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import org.jetbrains.compose.resources.stringResource
 
-/** Row of the side menu (large screens). Events is always yellow, like the disc of the bottom bar. */
+/** Row of the side menu (large screens). Events is always yellow, like the disc of the bottom bar. [collapsed]: icon only. */
 @Composable
-fun SideNavItem(tab: MainTab, selected: Boolean, onClick: () -> Unit) {
+fun SideNavItem(tab: MainTab, selected: Boolean, collapsed: Boolean, onClick: () -> Unit) {
     val colors = AppTheme.colors
     val isEvents = tab == MainTab.Events
     val background = when {
@@ -49,16 +49,16 @@ fun SideNavItem(tab: MainTab, selected: Boolean, onClick: () -> Unit) {
     )
     Row(
         Modifier.fillMaxWidth().pressable(onClick = onClick).background(background, AppShapes.pill)
-            .padding(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm + 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
+            .padding(horizontal = if (collapsed) 0.dp else AppTheme.spacing.md, vertical = AppTheme.spacing.sm + 2.dp),
+        horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.spacedBy(AppTheme.spacing.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             tab.icon,
-            contentDescription = null,
+            contentDescription = if (collapsed) stringResource(tab.label) else null,
             tint = content,
             modifier = Modifier.size(22.dp).rotate(if (isEvents && selected) angle else 0f),
         )
-        Text(stringResource(tab.label), style = AppTheme.typography.label, color = content)
+        if (!collapsed) Text(stringResource(tab.label), style = AppTheme.typography.label, color = content, maxLines = 1, softWrap = false)
     }
 }

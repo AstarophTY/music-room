@@ -39,7 +39,6 @@ up: check-env ## Start PostgreSQL + server in Docker
 	$(COMPOSE) up -d --build --wait
 	@echo "API     : http://localhost:$${SERVER_PORT:-8080}/health"
 	@echo "Swagger : http://localhost:$${SERVER_PORT:-8080}/swagger"
-	@echo "Emails  : http://localhost:$${MAILPIT_UI_PORT:-8025}"
 
 down: ## Stop containers
 	$(COMPOSE) --profile tools down
@@ -55,8 +54,7 @@ ps: ## List containers
 db: check-env ## Start PostgreSQL only
 	$(COMPOSE) up -d --wait postgres
 
-dev: db ## Start PostgreSQL + Mailpit in Docker and run the server locally with Gradle
-	$(COMPOSE) up -d mailpit
+dev: db ## Start PostgreSQL in Docker and run the server locally with Gradle
 	$(GRADLE) :server:run
 
 tools: check-env ## Start pgAdmin (http://localhost:5050)

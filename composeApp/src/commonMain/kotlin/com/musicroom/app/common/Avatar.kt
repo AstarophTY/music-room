@@ -15,6 +15,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,7 +42,15 @@ fun Avatar(
         } else {
             val initials = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }.take(2)
                 .joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
-            Text(initials, style = AppTheme.typography.label.merge(TextStyle(fontSize = (size.value * 0.38f).sp)), color = tint.text)
+            val fontSize = (size.value * 0.38f).sp
+            // Line height equal to the font size, trimmed and centered, so the letters sit in the middle of the
+            // circle (the label's own 20sp line height pushed them off-center on desktop).
+            val style = TextStyle(
+                fontSize = fontSize,
+                lineHeight = fontSize,
+                lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both),
+            )
+            Text(initials, style = AppTheme.typography.label.merge(style), color = tint.text, maxLines = 1)
         }
     }
 }

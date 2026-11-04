@@ -18,10 +18,11 @@ import com.musicroom.app.generated.resources.appearance_system_hint
 import com.musicroom.app.generated.resources.profile_appearance
 import com.musicroom.app.theme.ThemeMode
 import com.musicroom.app.theme.components.AppCard
+import com.musicroom.app.common.deviceName
 import com.musicroom.app.theme.tokens.AppTheme
 import org.jetbrains.compose.resources.stringResource
 
-/** Light, dark, or follow the phone. The choice is saved on the device. */
+/** Light, dark, or follow the device. The choice is saved on the device. */
 @Composable
 fun AppearanceScreen(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Unit, onBack: () -> Unit) {
     SubScreenScaffold(title = stringResource(Res.string.profile_appearance), onBack = onBack) {
@@ -41,7 +42,7 @@ fun AppearanceScreen(themeMode: ThemeMode, onThemeModeChange: (ThemeMode) -> Uni
                             ThemeMode.Dark -> Res.string.appearance_dark
                         },
                     ),
-                    value = if (mode == ThemeMode.System) stringResource(Res.string.appearance_system_hint) else null,
+                    value = if (mode == ThemeMode.System) stringResource(Res.string.appearance_system_hint, deviceName()) else null,
                     onClick = { onThemeModeChange(mode) },
                     showChevron = false,
                     selected = mode == themeMode,

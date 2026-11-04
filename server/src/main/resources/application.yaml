@@ -34,11 +34,10 @@ spotify:
   clientSecret: "$SPOTIFY_CLIENT_SECRET:"
   redirectUri: "$SPOTIFY_REDIRECT_URI:http://127.0.0.1:8080/api/v1/spotify/callback"
 
-# SMTP_HOST empty: emails go to the local Mailpit started by docker compose (inbox: http://localhost:8025).
+# SMTP_HOST empty: emails are not sent, they are written to the server logs (make logs).
 mail:
   host: "$SMTP_HOST:"
   port: "$SMTP_PORT:587"
-  mailpitHost: "$MAILPIT_HOST:localhost"
   user: "$SMTP_USER:"
   password: "$SMTP_PASSWORD:"
   from: "$SMTP_FROM:Music Room <no-reply@musicroom.local>"

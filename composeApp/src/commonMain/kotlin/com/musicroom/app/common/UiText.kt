@@ -82,6 +82,13 @@ sealed interface UiText {
             ApiErrors.TWO_FACTOR_SETUP_REQUIRED to Res.string.error_two_factor_setup_required,
             ApiErrors.INVALID_IMAGE to Res.string.error_invalid_image,
             ApiErrors.IMAGE_TOO_LARGE to Res.string.error_image_too_large,
+            ApiErrors.SPOTIFY_NOT_CONFIGURED to Res.string.error_spotify_not_configured,
+            ApiErrors.SPOTIFY_NOT_CONNECTED to Res.string.error_spotify_not_connected,
+            ApiErrors.SPOTIFY_UNAVAILABLE to Res.string.error_spotify_unavailable,
+            ApiErrors.SPOTIFY_RATE_LIMITED to Res.string.error_spotify_rate_limited,
+            ApiErrors.SPOTIFY_NO_DEVICE to Res.string.error_spotify_no_device,
+            ApiErrors.SPOTIFY_PREMIUM_REQUIRED to Res.string.error_spotify_premium_required,
+            ApiErrors.SPOTIFY_PLAYLIST_RESTRICTED to Res.string.error_spotify_playlist_restricted,
         )
     }
 }

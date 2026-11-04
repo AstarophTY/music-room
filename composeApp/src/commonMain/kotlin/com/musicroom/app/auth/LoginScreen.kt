@@ -22,7 +22,6 @@ import com.musicroom.app.generated.resources.login_button
 import com.musicroom.app.generated.resources.login_forgot
 import com.musicroom.app.generated.resources.login_missing
 import com.musicroom.app.generated.resources.login_no_account
-import com.musicroom.app.generated.resources.login_server
 import com.musicroom.app.generated.resources.login_subtitle
 import com.musicroom.app.generated.resources.login_title
 import com.musicroom.app.theme.components.AppButton
@@ -118,6 +117,5 @@ fun LoginScreen(
             enabled = !loading,
             variant = AppButtonVariant.Ghost,
         )
-        Text(stringResource(Res.string.login_server, api.baseUrl), style = typography.bodySmall, color = colors.textDisabled)
     }
 }

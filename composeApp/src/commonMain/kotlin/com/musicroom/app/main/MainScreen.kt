@@ -10,8 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -29,6 +31,9 @@ import com.musicroom.app.profile.EditProfileScreen
 import com.musicroom.app.profile.ProfileRoute
 import com.musicroom.app.profile.ProfileScreen
 import com.musicroom.app.profile.SocialLinksScreen
+import com.musicroom.app.profile.SpotifySettingsScreen
+import com.musicroom.app.player.PlayerBar
+import com.musicroom.app.player.PlayerController
 import com.musicroom.app.profile.TwoFactorSettingsScreen
 import com.musicroom.app.search.SearchScreen
 import com.musicroom.app.theme.ThemeMode
@@ -37,7 +42,7 @@ import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.launch
 
-/** Logged-in part of the app: top bar, current tab, bottom bar, and the profile pages on top. */
+/** Logged-in part of the app: top bar, current tab, bottom bar, and the profile pages (next to the side menu on large screens). */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun MainScreen(
@@ -50,7 +55,13 @@ fun MainScreen(
 ) {
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     var profileRoute by rememberSaveable { mutableStateOf<ProfileRoute?>(null) }
+    var sideNavCollapsed by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val player = remember(api) { PlayerController(api, scope) }
+    // Follows what Spotify plays while an account is linked.
+    LaunchedEffect(user.spotifyConnected) { if (user.spotifyConnected) player.sync() }
+    val onSpotifyConnected = { onUserChange(user.copy(spotifyConnected = true)) }
+    val playerBar: @Composable () -> Unit = { if (user.spotifyConnected) PlayerBar(api, player) }
 
     // Android back: close the profile pages first, then go back to the home tab.
     BackHandler(enabled = profileRoute != null || tab != MainTab.Home) {
@@ -62,52 +73,77 @@ fun MainScreen(
     val content: @Composable () -> Unit = {
         when (tab) {
             MainTab.Home -> HomeScreen(
+                api = api,
                 user = user,
+                player = player,
+                onSpotifyConnected = onSpotifyConnected,
                 onCreate = { tab = MainTab.Create },
                 onOpenPlaylists = { tab = MainTab.Playlists },
             )
-            MainTab.Search -> SearchScreen()
+            MainTab.Search -> SearchScreen(api, user, player, onSpotifyConnected)
             MainTab.Events -> EventsScreen(onCreate = { tab = MainTab.Create })
-            MainTab.Playlists -> PlaylistsScreen(onCreate = { tab = MainTab.Create })
+            MainTab.Playlists -> PlaylistsScreen(api, user, player, onSpotifyConnected, onCreate = { tab = MainTab.Create })
             MainTab.Create -> CreateScreen()
         }
     }
 
     val back = { profileRoute = profileRoute?.parent }
-    when (profileRoute) {
-        ProfileRoute.Profile -> return ProfileScreen(
-            api = api,
-            user = user,
-            serverUrl = api.baseUrl,
-            themeMode = themeMode,
-            onBack = back,
-            onOpen = { profileRoute = it },
-            onLogout = {
-                scope.launch {
-                    api.logout()
-                    onLoggedOut()
-                }
-            },
-        )
-        ProfileRoute.EditProfile -> return EditProfileScreen(api, user, onUserChange, onBack = back)
-        ProfileRoute.SocialLinks -> return SocialLinksScreen(api, user, onUserChange, onBack = back)
-        ProfileRoute.ChangePassword -> return ChangePasswordScreen(api, onBack = back)
-        ProfileRoute.TwoFactor -> return TwoFactorSettingsScreen(api, user, onUserChange, onBack = back)
-        ProfileRoute.Appearance -> return AppearanceScreen(themeMode, onThemeModeChange, onBack = back)
-        // Profile pages replace the tabs (instead of covering them) so touches cannot reach the tabs below.
-        null -> Unit
+    val profilePage: @Composable (ProfileRoute) -> Unit = { route ->
+        when (route) {
+            ProfileRoute.Profile -> ProfileScreen(
+                api = api,
+                user = user,
+                themeMode = themeMode,
+                onBack = back,
+                onOpen = { profileRoute = it },
+                onLogout = {
+                    scope.launch {
+                        api.logout()
+                        onLoggedOut()
+                    }
+                },
+            )
+            ProfileRoute.EditProfile -> EditProfileScreen(api, user, onUserChange, onBack = back)
+            ProfileRoute.SocialLinks -> SocialLinksScreen(api, user, onUserChange, onBack = back)
+            ProfileRoute.ChangePassword -> ChangePasswordScreen(api, onBack = back)
+            ProfileRoute.TwoFactor -> TwoFactorSettingsScreen(api, user, onUserChange, onBack = back)
+            ProfileRoute.Appearance -> AppearanceScreen(themeMode, onThemeModeChange, onBack = back)
+            ProfileRoute.Spotify -> SpotifySettingsScreen(api, user, onUserChange, onBack = back)
+        }
     }
 
+    val route = profileRoute
     if (WindowSize.current == WindowSize.Expanded) {
-        // Large screen: side menu on the left instead of the top and bottom bars.
+        // Large screen: side menu on the left instead of the top and bottom bars. It stays visible on the
+        // profile pages, which open on the right in place of the tab.
         Row(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
-            SideNavBar(api, user, selected = tab, onSelect = { tab = it }, onOpenProfile = openProfile)
-            Box(Modifier.weight(1f).fillMaxHeight().safeDrawingPadding()) { content() }
+            SideNavBar(
+                api,
+                user,
+                selected = if (route == null) tab else null,
+                collapsed = sideNavCollapsed,
+                onToggleCollapsed = { sideNavCollapsed = !sideNavCollapsed },
+                onSelect = {
+                    profileRoute = null
+                    tab = it
+                },
+                onOpenProfile = openProfile,
+            )
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    if (route != null) profilePage(route) else Box(Modifier.fillMaxSize().safeDrawingPadding()) { content() }
+                }
+                playerBar()
+            }
         }
+    } else if (route != null) {
+        // Profile pages replace the tabs (instead of covering them) so touches cannot reach the tabs below.
+        profilePage(route)
     } else {
         Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
             MainTopBar(api, user, onOpenProfile = openProfile)
             Box(Modifier.weight(1f).fillMaxWidth().imePadding()) { content() }
+            playerBar()
             BottomNavBar(selected = tab, onSelect = { tab = it })
         }
     }

@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.AudioLines
 import com.composables.icons.lucide.BadgeCheck
 import com.composables.icons.lucide.FileText
 import com.composables.icons.lucide.KeyRound
@@ -37,6 +38,7 @@ import com.musicroom.app.generated.resources.*
 import com.musicroom.app.theme.ThemeMode
 import com.musicroom.app.theme.components.AppCard
 import com.musicroom.app.theme.tokens.AppShapes
+import com.musicroom.app.common.deviceName
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.UserResponse
@@ -47,7 +49,6 @@ import org.jetbrains.compose.resources.stringResource
 fun ProfileScreen(
     api: MusicRoomApi,
     user: UserResponse,
-    serverUrl: String,
     themeMode: ThemeMode,
     onBack: () -> Unit,
     onOpen: (ProfileRoute) -> Unit,
@@ -110,6 +111,16 @@ fun ProfileScreen(
             )
         }
 
+        Text(stringResource(Res.string.profile_section_music), style = AppTheme.typography.label, color = colors.textSecondary)
+        AppCard(Modifier.fillMaxWidth()) {
+            SettingsRow(
+                Lucide.AudioLines,
+                stringResource(Res.string.spotify_title),
+                { onOpen(ProfileRoute.Spotify) },
+                value = stringResource(if (user.spotifyConnected) Res.string.spotify_connected else Res.string.spotify_not_connected),
+            )
+        }
+
         Text(stringResource(Res.string.profile_section_security), style = AppTheme.typography.label, color = colors.textSecondary)
         AppCard(Modifier.fillMaxWidth()) {
             SettingsRow(Lucide.KeyRound, stringResource(Res.string.profile_password), { onOpen(ProfileRoute.ChangePassword) })
@@ -133,7 +144,7 @@ fun ProfileScreen(
                 Lucide.Languages,
                 stringResource(Res.string.profile_language),
                 onClick = {},
-                value = stringResource(Res.string.profile_language_value, stringResource(Res.string.language_name)),
+                value = stringResource(Res.string.profile_language_value, stringResource(Res.string.language_name), deviceName()),
                 showChevron = false,
             )
         }
@@ -143,12 +154,6 @@ fun ProfileScreen(
             SettingsRow(Lucide.FileText, stringResource(Res.string.terms_title), { showTerms = true })
             SettingsRow(Lucide.LogOut, stringResource(Res.string.logout), onLogout, destructive = true, showChevron = false)
         }
-        Text(
-            stringResource(Res.string.login_server, serverUrl),
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-            style = AppTheme.typography.bodySmall,
-            color = colors.textDisabled,
-        )
     }
 
     if (showTerms) TermsDialog(onDismiss = { showTerms = false })

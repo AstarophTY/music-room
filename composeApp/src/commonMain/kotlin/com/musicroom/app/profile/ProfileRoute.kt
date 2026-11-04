@@ -8,4 +8,5 @@ enum class ProfileRoute(val parent: ProfileRoute?) {
     ChangePassword(Profile),
     TwoFactor(Profile),
     Appearance(Profile),
+    Spotify(Profile),
 }

@@ -22,12 +22,23 @@ import com.musicroom.app.generated.resources.home_live_title
 import com.musicroom.app.generated.resources.home_playlists_empty
 import com.musicroom.app.generated.resources.home_playlists_title
 import com.musicroom.app.generated.resources.playlists_create
+import com.musicroom.app.music.SpotifyConnectCard
+import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
+/** Greeting, the "start an event" card, Spotify recommendations (or the card to connect Spotify), then events and playlists. */
 @Composable
-fun HomeScreen(user: UserResponse, onCreate: () -> Unit, onOpenPlaylists: () -> Unit) {
+fun HomeScreen(
+    api: MusicRoomApi,
+    user: UserResponse,
+    player: PlayerController,
+    onSpotifyConnected: () -> Unit,
+    onCreate: () -> Unit,
+    onOpenPlaylists: () -> Unit,
+) {
     TabContent {
         Text(
             stringResource(Res.string.home_greeting, user.displayName),
@@ -35,6 +46,11 @@ fun HomeScreen(user: UserResponse, onCreate: () -> Unit, onOpenPlaylists: () -> 
             color = AppTheme.colors.textPrimary,
         )
         HeroCard(onStartEvent = onCreate)
+        if (user.spotifyConnected) {
+            RecommendationsSection(api, player)
+        } else {
+            SpotifyConnectCard(api, onConnected = onSpotifyConnected)
+        }
         val live: @Composable (Modifier) -> Unit = { modifier ->
             EmptyState(
                 icon = Lucide.MapPin,

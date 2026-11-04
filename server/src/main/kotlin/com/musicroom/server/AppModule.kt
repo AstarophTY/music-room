@@ -6,6 +6,7 @@ import com.musicroom.server.common.guards.configureJwtGuard
 import com.musicroom.server.common.interceptors.configureLoggingInterceptor
 import com.musicroom.server.common.jwt.JwtService
 import com.musicroom.server.common.mail.EmailSender
+import com.musicroom.server.common.mail.LogEmailSender
 import com.musicroom.server.common.mail.SmtpEmailSender
 import com.musicroom.server.common.middleware.configureHttpMiddleware
 import com.musicroom.server.common.oauth.JwksOAuthTokenVerifier
@@ -32,7 +33,7 @@ class AppModule(
     config: AppConfig,
     database: DatabaseModule,
     passwordHasher: PasswordHasher = PasswordHasher(),
-    emailSender: EmailSender = SmtpEmailSender(config.mail),
+    emailSender: EmailSender = if (config.mail.host.isEmpty()) LogEmailSender() else SmtpEmailSender(config.mail),
     oauthVerifier: OAuthTokenVerifier = JwksOAuthTokenVerifier(config.oauth),
     spotifyApi: SpotifyApi = SpotifyHttpApi(config.spotify),
 ) {

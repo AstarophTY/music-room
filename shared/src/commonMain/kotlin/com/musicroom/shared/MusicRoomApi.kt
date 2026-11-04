@@ -13,6 +13,9 @@ import com.musicroom.shared.dto.PlaylistsResponse
 import com.musicroom.shared.dto.RecoveryCodesResponse
 import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.ResetPasswordRequest
+import com.musicroom.shared.dto.PlayRequest
+import com.musicroom.shared.dto.PlaybackStateResponse
+import com.musicroom.shared.dto.RecommendationsResponse
 import com.musicroom.shared.dto.SpotifyConnectResponse
 import com.musicroom.shared.dto.SpotifyStatusResponse
 import com.musicroom.shared.dto.TrackPageResponse
@@ -171,6 +174,35 @@ class MusicRoomApi(
         }.bodyOrThrow()
 
     suspend fun myTopTracks(): TrackPageResponse = authorized(HttpMethod.Get, ApiRoutes.MUSIC_MY_TOP_TRACKS).bodyOrThrow()
+
+    suspend fun recommendations(): RecommendationsResponse =
+        authorized(HttpMethod.Get, ApiRoutes.MUSIC_RECOMMENDATIONS).bodyOrThrow()
+
+    /** What Spotify is playing on the user's devices. */
+    suspend fun playbackState(): PlaybackStateResponse = authorized(HttpMethod.Get, ApiRoutes.MUSIC_PLAYER).bodyOrThrow()
+
+    /** Plays [uris], or the playlist [contextUri], from [index] on the user's Spotify device; neither resumes. */
+    suspend fun play(uris: List<String> = emptyList(), index: Int = 0, contextUri: String? = null) {
+        authorized(HttpMethod.Put, ApiRoutes.MUSIC_PLAYER_PLAY) { jsonBody(PlayRequest(uris, index, contextUri)) }.throwIfError()
+    }
+
+    suspend fun pause() {
+        authorized(HttpMethod.Put, ApiRoutes.MUSIC_PLAYER_PAUSE).throwIfError()
+    }
+
+    suspend fun skipNext() {
+        authorized(HttpMethod.Post, ApiRoutes.MUSIC_PLAYER_NEXT).throwIfError()
+    }
+
+    suspend fun skipPrevious() {
+        authorized(HttpMethod.Post, ApiRoutes.MUSIC_PLAYER_PREVIOUS).throwIfError()
+    }
+
+    suspend fun seek(positionMs: Long) {
+        authorized(HttpMethod.Put, ApiRoutes.MUSIC_PLAYER_SEEK) {
+            url.parameters.append("positionMs", positionMs.toString())
+        }.throwIfError()
+    }
 
     /** Downloads a public file (album cover...). */
     suspend fun download(url: String): ByteArray = plainHttp.get(url).bodyOrThrow()
