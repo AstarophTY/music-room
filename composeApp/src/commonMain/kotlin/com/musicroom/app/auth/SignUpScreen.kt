@@ -29,6 +29,7 @@ import com.musicroom.shared.AuthValidation
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.TwoFactorRequiredException
 import com.musicroom.shared.dto.RegisterRequest
+import com.musicroom.shared.dto.TwoFactorMethod
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -44,7 +45,7 @@ fun SignUpScreen(
     onEmailChange: (String) -> Unit,
     onAuthenticated: (UserResponse) -> Unit,
     onLogIn: () -> Unit,
-    onTwoFactorRequired: (String) -> Unit,
+    onTwoFactorRequired: (String, TwoFactorMethod) -> Unit,
 ) {
     var step by rememberSaveable { mutableStateOf(SignUpStep.Email) }
     var displayName by rememberSaveable { mutableStateOf("") }

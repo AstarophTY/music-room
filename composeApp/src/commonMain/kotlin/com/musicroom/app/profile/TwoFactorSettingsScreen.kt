@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -29,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Copy
 import com.composables.icons.lucide.ExternalLink
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.ShieldCheck
 import com.musicroom.app.common.StatusMessage
 import com.musicroom.app.common.SubScreenScaffold
@@ -44,20 +47,30 @@ import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TwoFactorCodeRequest
+import com.musicroom.shared.dto.TwoFactorMethod
 import com.musicroom.shared.dto.TwoFactorSetupResponse
 import com.musicroom.shared.dto.UserResponse
 import io.github.alexzhirkevich.qrose.rememberQrCodePainter
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Turns two-factor authentication on (QR code -> first code -> recovery codes) or off (needs a code).
+ * Two-factor authentication is off until the user turns it on here, with one of two methods:
+ * - authenticator app: QR code -> first code -> recovery codes;
+ * - email: a code is emailed -> the user types it.
+ * Turning it off needs a code (from the app, a recovery code, or an emailed one).
  */
 @Composable
 fun TwoFactorSettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (UserResponse) -> Unit, onBack: () -> Unit) {
     var setup by remember { mutableStateOf<TwoFactorSetupResponse?>(null) }
     var recoveryCodes by remember { mutableStateOf<List<String>?>(null) }
+    // True once a code was emailed to turn email 2FA on.
+    var emailSetup by remember { mutableStateOf(false) }
+    // True once a code was emailed to turn email 2FA off.
+    var disableCodeSent by remember { mutableStateOf(false) }
+    var resendWait by remember { mutableIntStateOf(0) }
     var code by remember { mutableStateOf("") }
     var status by remember { mutableStateOf<StatusMessage?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -66,6 +79,14 @@ fun TwoFactorSettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange:
     val uriHandler = LocalUriHandler.current
     val colors = AppTheme.colors
     val typography = AppTheme.typography
+    val allowsRecoveryCode = user.twoFactorMethod == TwoFactorMethod.APP
+
+    LaunchedEffect(resendWait > 0) {
+        while (resendWait > 0) {
+            delay(1_000)
+            resendWait--
+        }
+    }
 
     fun run(action: suspend () -> Unit) {
         busy = true
@@ -86,12 +107,45 @@ fun TwoFactorSettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange:
     @Composable
     fun CodeInput() = AppTextField(
         code,
-        { code = if (user.twoFactorEnabled) it.uppercase().take(11) else it.filter(Char::isDigit).take(6) },
+        { code = if (allowsRecoveryCode) it.uppercase().take(11) else it.filter(Char::isDigit).take(6) },
         stringResource(Res.string.twofa_field_code),
         Modifier.fillMaxWidth(),
         enabled = !busy,
-        keyboardType = if (user.twoFactorEnabled) KeyboardType.Text else KeyboardType.NumberPassword,
+        keyboardType = if (allowsRecoveryCode) KeyboardType.Text else KeyboardType.NumberPassword,
         leadingIcon = Lucide.ShieldCheck,
+    )
+
+    /** Emails a code (to turn email 2FA on or off), then blocks the button for a minute. */
+    fun sendEmailCode(onSent: () -> Unit) = run {
+        api.sendTwoFactorEmailCode()
+        resendWait = 60
+        onSent()
+    }
+
+    @Composable
+    fun SendCodeButton(onSent: () -> Unit) = AppButton(
+        if (resendWait > 0) stringResource(Res.string.verify_resend_wait, resendWait) else stringResource(Res.string.twofa_send_code),
+        { sendEmailCode(onSent) },
+        Modifier.fillMaxWidth(),
+        enabled = !busy && resendWait == 0,
+        variant = AppButtonVariant.Ghost,
+        icon = Lucide.Mail,
+    )
+
+    @Composable
+    fun DisableButton() = AppButton(
+        stringResource(if (busy) Res.string.common_please_wait else Res.string.twofa_disable),
+        {
+            run {
+                onUserChange(api.disableTwoFactor(TwoFactorCodeRequest(code)))
+                code = ""
+                disableCodeSent = false
+                status = StatusMessage(UiText.of(Res.string.twofa_disabled_done), isError = false)
+            }
+        },
+        Modifier.fillMaxWidth(),
+        enabled = !busy && code.isNotBlank(),
+        variant = AppButtonVariant.Secondary,
     )
 
     SubScreenScaffold(title = stringResource(Res.string.twofa_settings_title), onBack = onBack) {
@@ -129,6 +183,20 @@ fun TwoFactorSettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange:
                 AppButton(stringResource(Res.string.twofa_done), onBack, Modifier.fillMaxWidth())
             }
 
+            user.twoFactorMethod == TwoFactorMethod.EMAIL -> {
+                Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Lucide.Mail, contentDescription = null, tint = colors.success, modifier = Modifier.size(28.dp))
+                    Text(stringResource(Res.string.twofa_status_on), style = typography.title, color = colors.textPrimary)
+                }
+                Text(stringResource(Res.string.twofa_email_enabled_body, user.email), style = typography.body, color = colors.textSecondary)
+                Text(stringResource(Res.string.twofa_email_disable_hint), style = typography.bodySmall, color = colors.textSecondary)
+                SendCodeButton { disableCodeSent = true }
+                if (disableCodeSent) {
+                    CodeInput()
+                    DisableButton()
+                }
+            }
+
             user.twoFactorEnabled -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Lucide.ShieldCheck, contentDescription = null, tint = colors.success, modifier = Modifier.size(28.dp))
@@ -137,19 +205,25 @@ fun TwoFactorSettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange:
                 Text(stringResource(Res.string.twofa_enabled_body), style = typography.body, color = colors.textSecondary)
                 Text(stringResource(Res.string.twofa_disable_hint), style = typography.bodySmall, color = colors.textSecondary)
                 CodeInput()
+                DisableButton()
+            }
+
+            emailSetup -> {
+                Text(stringResource(Res.string.twofa_email_setup, user.email), style = typography.body, color = colors.textSecondary)
+                CodeInput()
                 AppButton(
-                    stringResource(if (busy) Res.string.common_please_wait else Res.string.twofa_disable),
+                    stringResource(if (busy) Res.string.common_please_wait else Res.string.twofa_confirm),
                     {
                         run {
-                            onUserChange(api.disableTwoFactor(TwoFactorCodeRequest(code)))
+                            onUserChange(api.enableEmailTwoFactor(TwoFactorCodeRequest(code)))
+                            emailSetup = false
                             code = ""
-                            status = StatusMessage(UiText.of(Res.string.twofa_disabled_done), isError = false)
                         }
                     },
                     Modifier.fillMaxWidth(),
-                    enabled = !busy && code.isNotBlank(),
-                    variant = AppButtonVariant.Secondary,
+                    enabled = !busy && code.length == 6,
                 )
+                SendCodeButton {}
             }
 
             pending != null -> {
@@ -207,11 +281,19 @@ fun TwoFactorSettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange:
                 Text(stringResource(Res.string.twofa_status_off), style = typography.title, color = colors.textPrimary)
                 Text(stringResource(Res.string.twofa_intro), style = typography.body, color = colors.textSecondary)
                 AppButton(
-                    stringResource(if (busy) Res.string.common_please_wait else Res.string.twofa_enable),
+                    stringResource(if (busy) Res.string.common_please_wait else Res.string.twofa_method_app),
                     { run { setup = api.setupTwoFactor() } },
                     Modifier.fillMaxWidth(),
                     enabled = !busy,
                     icon = Lucide.ShieldCheck,
+                )
+                AppButton(
+                    stringResource(Res.string.twofa_method_email),
+                    { sendEmailCode { emailSetup = true } },
+                    Modifier.fillMaxWidth(),
+                    enabled = !busy,
+                    variant = AppButtonVariant.Secondary,
+                    icon = Lucide.Mail,
                 )
             }
         }

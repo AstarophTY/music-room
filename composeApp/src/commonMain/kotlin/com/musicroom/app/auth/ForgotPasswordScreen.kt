@@ -37,6 +37,7 @@ import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.TwoFactorRequiredException
 import com.musicroom.shared.dto.ForgotPasswordRequest
 import com.musicroom.shared.dto.ResetPasswordRequest
+import com.musicroom.shared.dto.TwoFactorMethod
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -52,7 +53,7 @@ fun ForgotPasswordScreen(
     onEmailChange: (String) -> Unit,
     onBack: () -> Unit,
     onAuthenticated: (UserResponse) -> Unit,
-    onTwoFactorRequired: (String) -> Unit,
+    onTwoFactorRequired: (String, TwoFactorMethod) -> Unit,
 ) {
     var codeSent by rememberSaveable { mutableStateOf(false) }
     var code by remember { mutableStateOf("") }
@@ -88,7 +89,7 @@ fun ForgotPasswordScreen(
                 throw e
             } catch (e: TwoFactorRequiredException) {
                 // The password is changed; the account still asks for its 2FA code to log in.
-                onTwoFactorRequired(e.challengeToken)
+                onTwoFactorRequired(e.challengeToken, e.method)
             } catch (e: Exception) {
                 error = UiText.of(e)
             } finally {

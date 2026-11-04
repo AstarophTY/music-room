@@ -169,8 +169,7 @@
     <string name="twofa_settings_title">Double authentification</string>
     <string name="twofa_status_on">Activée</string>
     <string name="twofa_status_off">Désactivée</string>
-    <string name="twofa_intro">Ajoute une deuxième étape à ta connexion : après ton mot de passe, tu entres un code d’une application comme Google Authenticator, Authy ou 1Password.</string>
-    <string name="twofa_enable">Activer</string>
+    <string name="twofa_intro">Ajoute une deuxième étape à ta connexion : après ton mot de passe, tu entres un code d’une application comme Google Authenticator, Authy ou 1Password, ou un code reçu par email.</string>
     <string name="twofa_scan">1. Scanne ce QR code avec ton application d’authentification</string>
     <string name="twofa_or_key">Ou entre cette clé à la main :</string>
     <string name="twofa_copy_key">Copier la clé</string>
@@ -185,6 +184,14 @@
     <string name="twofa_disable_hint">Pour la désactiver, entre un code de l’application ou un code de secours.</string>
     <string name="twofa_disable">Désactiver</string>
     <string name="twofa_disabled_done">La double authentification est désactivée</string>
+    <string name="twofa_email_subtitle">Entre le code à 6 chiffres qu’on vient de t’envoyer par email.</string>
+    <string name="twofa_email_sent">Nouveau code envoyé. Regarde ta boîte mail.</string>
+    <string name="twofa_method_app">Utiliser une application d’authentification</string>
+    <string name="twofa_method_email">Recevoir les codes par email</string>
+    <string name="twofa_email_setup">On a envoyé un code à 6 chiffres à %1$s. Entre-le pour activer les codes par email.</string>
+    <string name="twofa_email_enabled_body">Ton compte demande un code envoyé à %1$s à chaque connexion.</string>
+    <string name="twofa_email_disable_hint">Pour la désactiver, demande un code par email et entre-le.</string>
+    <string name="twofa_send_code">M’envoyer un code</string>
     <string name="common_copied">Copié</string>
     <string name="profile_section_security">Sécurité</string>
     <string name="avatar_title">Photo de profil</string>
@@ -201,4 +208,13 @@
     <string name="error_two_factor_setup_required">Recommence la configuration</string>
     <string name="error_invalid_image">Ce fichier n’est pas une image prise en charge (JPEG ou PNG)</string>
     <string name="error_image_too_large">L’image est trop lourde (5 Mo max)</string>
+    <string name="social_title">Réseaux sociaux</string>
+    <string name="social_section">Réseaux</string>
+    <string name="social_intro">Ajoute tes pseudos pour que les gens de tes salles te retrouvent. Tu peux coller un lien de profil, il est nettoyé.</string>
+    <string name="social_link_cta">Relie tes réseaux</string>
+    <string name="social_edit">Modifier mes réseaux</string>
+    <string name="social_handle">Pseudo</string>
+    <string name="social_saved">Réseaux enregistrés</string>
+    <string name="social_invalid">%1$s : ce pseudo n’est pas valide</string>
+    <string name="validation_social_handle_invalid">Ce pseudo n’est pas valide</string>
 </resources>

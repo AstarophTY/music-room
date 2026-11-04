@@ -29,6 +29,9 @@ class EmailCodes(private val repository: EmailVerificationCodesRepository) {
         return lastSentAt.isBefore(OffsetDateTime.now().minusSeconds(RESEND_COOLDOWN_SECONDS))
     }
 
+    /** True while a code sent for [purpose] can still be used. */
+    suspend fun hasActive(userId: UUID, purpose: EmailCodePurpose): Boolean = repository.findActive(userId, purpose) != null
+
     /** Checks the code and marks it used. Throws a 400 with a precise error code otherwise. */
     suspend fun consume(userId: UUID, purpose: EmailCodePurpose, rawCode: String) {
         val code = AuthValidation.normalizeVerificationCode(rawCode)

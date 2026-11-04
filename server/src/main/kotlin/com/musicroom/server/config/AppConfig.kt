@@ -8,6 +8,7 @@ data class AppConfig(
     val jwt: JwtConfig,
     val oauth: OAuthConfig = OAuthConfig(),
     val mail: MailConfig = MailConfig(),
+    val spotify: SpotifyConfig = SpotifyConfig(),
 ) {
     companion object {
         fun from(config: ApplicationConfig) = AppConfig(
@@ -31,6 +32,11 @@ data class AppConfig(
                 appleClientIds = config.list("oauth.appleClientIds"),
             ),
             mail = mailConfig(config),
+            spotify = SpotifyConfig(
+                clientId = config.string("spotify.clientId"),
+                clientSecret = config.string("spotify.clientSecret"),
+                redirectUri = config.string("spotify.redirectUri").ifEmpty { SpotifyConfig().redirectUri },
+            ),
         )
 
         /** No SMTP_HOST: development mode, every email goes to the local Mailpit inbox. */

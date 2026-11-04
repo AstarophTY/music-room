@@ -43,6 +43,7 @@ sealed interface UiText {
             ValidationError.DISPLAY_NAME_REQUIRED -> of(Res.string.validation_display_name_required)
             ValidationError.DISPLAY_NAME_TOO_LONG -> of(Res.string.validation_display_name_too_long)
             ValidationError.TERMS_NOT_ACCEPTED -> of(Res.string.validation_terms_not_accepted)
+            ValidationError.SOCIAL_HANDLE_INVALID -> of(Res.string.validation_social_handle_invalid)
             ValidationError.CODE_FORMAT -> of(Res.string.validation_code_format, AuthValidation.VERIFICATION_CODE_LENGTH)
         }
 

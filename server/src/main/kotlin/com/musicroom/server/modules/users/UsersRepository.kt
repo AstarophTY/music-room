@@ -1,9 +1,13 @@
 package com.musicroom.server.modules.users
 
 import com.musicroom.server.database.DatabaseModule
+import com.musicroom.server.modules.spotify.entities.SpotifyAccountsTable
 import com.musicroom.server.modules.users.entities.User
+import com.musicroom.server.modules.users.entities.UserSocialLinksTable
 import com.musicroom.server.modules.users.entities.UsersTable
 import com.musicroom.shared.dto.AvatarColor
+import com.musicroom.shared.dto.SocialLink
+import com.musicroom.shared.dto.SocialNetwork
 import org.jetbrains.exposed.v1.core.ResultRow
 import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
@@ -11,6 +15,8 @@ import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.plus
+import org.jetbrains.exposed.v1.jdbc.batchInsert
+import org.jetbrains.exposed.v1.jdbc.deleteWhere
 import org.jetbrains.exposed.v1.jdbc.insertAndGetId
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
@@ -72,6 +78,19 @@ class UsersRepository(private val db: DatabaseModule) {
         }
     }
 
+    /** Replaces all the user's social links. */
+    suspend fun replaceSocialLinks(id: UUID, links: List<SocialLink>): User? = db.query {
+        UserSocialLinksTable.deleteWhere { UserSocialLinksTable.userId eq id }
+        val now = OffsetDateTime.now()
+        UserSocialLinksTable.batchInsert(links) { link ->
+            this[UserSocialLinksTable.userId] = id
+            this[UserSocialLinksTable.network] = link.network.key
+            this[UserSocialLinksTable.handle] = link.handle
+            this[UserSocialLinksTable.createdAt] = now
+        }
+        UsersTable.selectAll().where { UsersTable.id eq id }.singleOrNull()?.toUser()
+    }
+
     suspend fun setAvatarUpdatedAt(id: UUID, updatedAt: OffsetDateTime?): User? =
         update(id) { it[UsersTable.avatarUpdatedAt] = updatedAt }
 
@@ -87,10 +106,18 @@ class UsersRepository(private val db: DatabaseModule) {
         it[UsersTable.twoFactorFailures] = 0
     }
 
-    suspend fun disableTotp(id: UUID): User? = update(id) {
+    suspend fun enableEmailTwoFactor(id: UUID): User? = update(id) {
+        it[UsersTable.emailTwoFactorEnabled] = true
+        it[UsersTable.totpPendingSecret] = null
+        it[UsersTable.twoFactorFailures] = 0
+    }
+
+    /** Turns 2FA off, whatever the method. */
+    suspend fun disableTwoFactor(id: UUID): User? = update(id) {
         it[UsersTable.totpSecret] = null
         it[UsersTable.totpPendingSecret] = null
         it[UsersTable.totpLastStep] = null
+        it[UsersTable.emailTwoFactorEnabled] = false
     }
 
     /** Atomic: false if this step (or a later one) was already used, so a code works only once. */
@@ -142,8 +169,20 @@ class UsersRepository(private val db: DatabaseModule) {
         totpSecret = this[UsersTable.totpSecret],
         totpPendingSecret = this[UsersTable.totpPendingSecret],
         totpLastStep = this[UsersTable.totpLastStep],
+        emailTwoFactorEnabled = this[UsersTable.emailTwoFactorEnabled],
         twoFactorLockedUntil = this[UsersTable.twoFactorLockedUntil],
         avatarColor = AvatarColor.fromKey(this[UsersTable.avatarColor]),
         avatarUpdatedAt = this[UsersTable.avatarUpdatedAt],
+        socialLinks = socialLinks(this[UsersTable.id].value),
+        spotifyConnected = SpotifyAccountsTable.selectAll()
+            .where { SpotifyAccountsTable.userId eq this[UsersTable.id].value }.count() > 0,
     )
+
+    /** Runs inside the caller's transaction. Ordered like SocialNetwork so the profile is stable. */
+    private fun socialLinks(userId: UUID): List<SocialLink> =
+        UserSocialLinksTable.selectAll().where { UserSocialLinksTable.userId eq userId }
+            .mapNotNull { row ->
+                SocialNetwork.fromKey(row[UserSocialLinksTable.network])?.let { SocialLink(it, row[UserSocialLinksTable.handle]) }
+            }
+            .sortedBy { it.network.ordinal }
 }

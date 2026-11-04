@@ -25,7 +25,7 @@ class AuthModule(
     private val emailCodes = EmailCodes(EmailVerificationCodesRepository(database))
     private val mailer = AccountMailer(emailSender)
     val emailVerification = EmailVerificationService(users, emailCodes, mailer)
-    val twoFactor = TwoFactorService(users, RecoveryCodesRepository(database), secretBox, mailer)
+    val twoFactor = TwoFactorService(users, RecoveryCodesRepository(database), secretBox, mailer, emailCodes)
     val service = AuthService(
         users = users,
         refreshTokens = repository,

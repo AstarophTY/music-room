@@ -72,7 +72,9 @@ paths:
     post:
       tags: [auth]
       summary: Log in with email + password
-      description: With 2FA on, answers 202 with a challenge; send it with a code to /api/v1/auth/2fa/verify.
+      description: >-
+        With 2FA on, answers 202 with a challenge; send it with a code to /api/v1/auth/2fa/verify.
+        With email 2FA (method = email), the code is emailed at the same time.
       requestBody:
         required: true
         content:
@@ -306,7 +308,8 @@ paths:
       summary: Second step of a login with 2FA
       description: >-
         code is the 6-digit code of the authenticator app (each code works once) or a recovery code (XXXXX-XXXXX,
-        single use). 5 wrong codes in a row block 2FA codes for 15 minutes.
+        single use); with email 2FA, the 6-digit code from the email (valid 15 minutes, single use).
+        5 wrong codes in a row block 2FA codes for 15 minutes.
       requestBody:
         required: true
         content:
@@ -375,7 +378,7 @@ paths:
   /api/v1/auth/2fa/disable:
     post:
       tags: [auth]
-      summary: Turn 2FA off (needs a code or a recovery code) and email an alert
+      summary: Turn 2FA off, whatever the method (needs a code, a recovery code or an emailed code) and email an alert
       security:
         - bearerAuth: []
       requestBody:
@@ -391,6 +394,104 @@ paths:
               schema: { $ref: "#/components/schemas/UserResponse" }
         "400":
           description: Wrong code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/email/code:
+    post:
+      tags: [auth]
+      summary: Email a code to turn email 2FA on (2FA off) or off (email 2FA on)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Code sent
+        "409":
+          description: 2FA with an authenticator app is on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: A code was sent less than a minute ago
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: The email could not be sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/email/enable:
+    post:
+      tags: [auth]
+      summary: Turn email 2FA on with the emailed code, and email an alert. Off by default.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorCodeRequest" }
+      responses:
+        "200":
+          description: Email 2FA on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Wrong or expired code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: 2FA already on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/email/resend:
+    post:
+      tags: [auth]
+      summary: During a login with email 2FA, email a new code (the previous one stops working)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorResendRequest" }
+      responses:
+        "204":
+          description: Code sent
+        "401":
+          description: Challenge expired
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: A code was sent less than a minute ago
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/users/me/social-links:
+    put:
+      tags: [users]
+      summary: Replace the social networks shown on the profile
+      description: >-
+        One username per network. "@name" and profile links are accepted and cleaned ("https://instagram.com/name" -> "name").
+        An empty username removes the network.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateSocialLinksRequest" }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: A username does not match the network's format (social_handle_invalid)
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -535,14 +636,33 @@ components:
         displayName: { type: string }
         emailVerified: { type: boolean }
         twoFactorEnabled: { type: boolean }
+        twoFactorMethod: { type: string, enum: [app, email], nullable: true, description: "Null when 2FA is off" }
         avatarColor: { type: string, enum: [yellow, tomato, pink, iris, teal, grass] }
         avatarVersion: { type: integer, nullable: true, description: "Changes with each new photo; null without photo" }
+        socialLinks: { type: array, items: { $ref: "#/components/schemas/SocialLink" } }
+    SocialLink:
+      type: object
+      required: [network, handle]
+      properties:
+        network: { type: string, enum: [instagram, tiktok, x, youtube, twitch, discord, spotify, soundcloud] }
+        handle: { type: string, example: swann.music }
+    UpdateSocialLinksRequest:
+      type: object
+      required: [links]
+      properties:
+        links: { type: array, items: { $ref: "#/components/schemas/SocialLink" } }
     TwoFactorChallengeResponse:
       type: object
       required: [challengeToken, expiresInSeconds]
       properties:
         challengeToken: { type: string }
         expiresInSeconds: { type: integer, example: 300 }
+        method: { type: string, enum: [app, email], description: "email: the code was just emailed" }
+    TwoFactorResendRequest:
+      type: object
+      required: [challengeToken]
+      properties:
+        challengeToken: { type: string }
     TwoFactorLoginRequest:
       type: object
       required: [challengeToken, code]

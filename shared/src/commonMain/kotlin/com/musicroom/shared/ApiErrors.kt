@@ -28,6 +28,10 @@ object ApiErrors {
     const val TWO_FACTOR_ALREADY_ENABLED = "two_factor_already_enabled"
     const val TWO_FACTOR_NOT_ENABLED = "two_factor_not_enabled"
     const val TWO_FACTOR_SETUP_REQUIRED = "two_factor_setup_required"
+    const val SPOTIFY_NOT_CONFIGURED = "spotify_not_configured"
+    const val SPOTIFY_NOT_CONNECTED = "spotify_not_connected"
+    const val SPOTIFY_UNAVAILABLE = "spotify_unavailable"
+    const val SPOTIFY_RATE_LIMITED = "spotify_rate_limited"
     const val INVALID_IMAGE = "invalid_image"
     const val IMAGE_TOO_LARGE = "image_too_large"
 

@@ -25,6 +25,7 @@ import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.TwoFactorRequiredException
 import com.musicroom.shared.dto.OAuthLoginRequest
 import com.musicroom.shared.dto.OAuthProvider
+import com.musicroom.shared.dto.TwoFactorMethod
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -42,7 +43,7 @@ fun SocialSignInButtons(
     onBusyChange: (Boolean) -> Unit,
     onError: (UiText?) -> Unit,
     onAuthenticated: (UserResponse) -> Unit,
-    onTwoFactorRequired: (String) -> Unit,
+    onTwoFactorRequired: (String, TwoFactorMethod) -> Unit,
 ) {
     if (socialSignIn.providers.isEmpty()) return
     // Sign-in that is waiting for the user to accept the terms.
@@ -58,7 +59,7 @@ fun SocialSignInButtons(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: TwoFactorRequiredException) {
-                onTwoFactorRequired(e.challengeToken)
+                onTwoFactorRequired(e.challengeToken, e.method)
             } catch (e: Exception) {
                 onError(UiText.of(e))
             } finally {

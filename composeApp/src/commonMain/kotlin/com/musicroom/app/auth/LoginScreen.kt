@@ -32,6 +32,7 @@ import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.TwoFactorRequiredException
 import com.musicroom.shared.dto.LoginRequest
+import com.musicroom.shared.dto.TwoFactorMethod
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -47,7 +48,7 @@ fun LoginScreen(
     onAuthenticated: (UserResponse) -> Unit,
     onSignUp: () -> Unit,
     onForgotPassword: () -> Unit,
-    onTwoFactorRequired: (String) -> Unit,
+    onTwoFactorRequired: (String, TwoFactorMethod) -> Unit,
 ) {
     var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf(initialMessage) }
@@ -69,7 +70,7 @@ fun LoginScreen(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: TwoFactorRequiredException) {
-                onTwoFactorRequired(e.challengeToken)
+                onTwoFactorRequired(e.challengeToken, e.method)
             } catch (e: Exception) {
                 error = UiText.of(e)
             } finally {

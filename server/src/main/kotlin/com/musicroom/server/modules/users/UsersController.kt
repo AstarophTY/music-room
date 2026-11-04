@@ -31,6 +31,9 @@ class UsersController(private val service: UsersService) : Controller {
             patch(ApiRoutes.USERS_ME) {
                 call.respond(service.updateProfile(call.currentUserId(), call.receive()).toResponse())
             }
+            put(ApiRoutes.USERS_ME_SOCIAL_LINKS) {
+                call.respond(service.updateSocialLinks(call.currentUserId(), call.receive()).toResponse())
+            }
             put(ApiRoutes.USERS_ME_AVATAR) {
                 val declared = call.request.contentLength()
                 if (declared != null && declared > AvatarImages.MAX_UPLOAD_BYTES) throw UsersService.imageTooLarge()

@@ -28,6 +28,12 @@ oauth:
   googleClientIds: "$GOOGLE_CLIENT_ID:"
   appleClientIds: "$APPLE_CLIENT_ID:"
 
+# Spotify app from https://developer.spotify.com/dashboard. The redirect URI must be registered there exactly.
+spotify:
+  clientId: "$SPOTIFY_CLIENT_ID:"
+  clientSecret: "$SPOTIFY_CLIENT_SECRET:"
+  redirectUri: "$SPOTIFY_REDIRECT_URI:http://127.0.0.1:8080/api/v1/spotify/callback"
+
 # SMTP_HOST empty: emails go to the local Mailpit started by docker compose (inbox: http://localhost:8025).
 mail:
   host: "$SMTP_HOST:"

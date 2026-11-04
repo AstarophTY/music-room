@@ -169,8 +169,7 @@
     <string name="twofa_settings_title">Two-factor authentication</string>
     <string name="twofa_status_on">On</string>
     <string name="twofa_status_off">Off</string>
-    <string name="twofa_intro">Add a second step to your login: after your password, enter a code from an app like Google Authenticator, Authy or 1Password.</string>
-    <string name="twofa_enable">Turn on</string>
+    <string name="twofa_intro">Add a second step to your login: after your password, enter a code from an app like Google Authenticator, Authy or 1Password, or a code we email you.</string>
     <string name="twofa_scan">1. Scan this QR code with your authenticator app</string>
     <string name="twofa_or_key">Or enter this key by hand:</string>
     <string name="twofa_copy_key">Copy the key</string>
@@ -185,6 +184,14 @@
     <string name="twofa_disable_hint">To turn it off, enter a code from the app or a recovery code.</string>
     <string name="twofa_disable">Turn off</string>
     <string name="twofa_disabled_done">Two-factor authentication is off</string>
+    <string name="twofa_email_subtitle">Enter the 6-digit code we just emailed you.</string>
+    <string name="twofa_email_sent">New code sent. Check your inbox.</string>
+    <string name="twofa_method_app">Use an authenticator app</string>
+    <string name="twofa_method_email">Get codes by email</string>
+    <string name="twofa_email_setup">We sent a 6-digit code to %1$s. Enter it to turn on codes by email.</string>
+    <string name="twofa_email_enabled_body">Your account asks for a code sent to %1$s at each login.</string>
+    <string name="twofa_email_disable_hint">To turn it off, ask for a code by email and enter it.</string>
+    <string name="twofa_send_code">Email me a code</string>
     <string name="common_copied">Copied</string>
     <string name="profile_section_security">Security</string>
     <string name="avatar_title">Profile picture</string>
@@ -201,4 +208,13 @@
     <string name="error_two_factor_setup_required">Start the setup again</string>
     <string name="error_invalid_image">This file is not a supported image (JPEG or PNG)</string>
     <string name="error_image_too_large">The image is too large (5 MB max)</string>
+    <string name="social_title">Social networks</string>
+    <string name="social_section">Networks</string>
+    <string name="social_intro">Add your usernames so people in your rooms can find you. You can paste a profile link, it is cleaned up.</string>
+    <string name="social_link_cta">Link your networks</string>
+    <string name="social_edit">Edit my networks</string>
+    <string name="social_handle">Username</string>
+    <string name="social_saved">Networks saved</string>
+    <string name="social_invalid">%1$s: this username is not valid</string>
+    <string name="validation_social_handle_invalid">This username is not valid</string>
 </resources>

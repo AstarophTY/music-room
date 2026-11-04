@@ -16,6 +16,8 @@ object UsersTable : UUIDTable("users") {
     /** Secret being set up, until the user confirms it with a first code. */
     val totpPendingSecret = varchar("totp_pending_secret", 255).nullable()
     val totpLastStep = long("totp_last_step").nullable()
+    /** Second step by emailed code. Never on together with the TOTP secret. */
+    val emailTwoFactorEnabled = bool("email_two_factor_enabled").default(false)
     val twoFactorFailures = integer("two_factor_failures").default(0)
     val twoFactorLockedUntil = timestampWithTimeZone("two_factor_locked_until").nullable()
 

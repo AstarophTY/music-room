@@ -25,13 +25,17 @@ class AuthController(
                 call.respond(HttpStatusCode.Created, service.register(call.receive(), call.requestLanguage()))
             }
             post(ApiRoutes.AUTH_LOGIN) {
-                call.respondLogin(service.login(call.receive()))
+                call.respondLogin(service.login(call.receive(), call.requestLanguage()))
             }
             post(ApiRoutes.AUTH_OAUTH) {
-                call.respondLogin(service.oauthLogin(call.receive()))
+                call.respondLogin(service.oauthLogin(call.receive(), call.requestLanguage()))
             }
             post(ApiRoutes.AUTH_2FA_VERIFY) {
                 call.respond(service.verifyTwoFactor(call.receive()))
+            }
+            post(ApiRoutes.AUTH_2FA_EMAIL_RESEND) {
+                service.resendTwoFactorEmail(call.receive(), call.requestLanguage())
+                call.respond(HttpStatusCode.NoContent)
             }
             post(ApiRoutes.AUTH_REFRESH) {
                 call.respond(service.refresh(call.receive()))
@@ -64,6 +68,14 @@ class AuthController(
                 post(ApiRoutes.AUTH_2FA_ENABLE) {
                     val request = call.receive<TwoFactorCodeRequest>()
                     call.respond(twoFactor.enable(call.currentUserId(), request.code, call.requestLanguage()))
+                }
+                post(ApiRoutes.AUTH_2FA_EMAIL_CODE) {
+                    twoFactor.sendEmailCode(call.currentUserId(), call.requestLanguage())
+                    call.respond(HttpStatusCode.NoContent)
+                }
+                post(ApiRoutes.AUTH_2FA_EMAIL_ENABLE) {
+                    val request = call.receive<TwoFactorCodeRequest>()
+                    call.respond(twoFactor.enableEmail(call.currentUserId(), request.code, call.requestLanguage()).toResponse())
                 }
                 post(ApiRoutes.AUTH_2FA_DISABLE) {
                     val request = call.receive<TwoFactorCodeRequest>()

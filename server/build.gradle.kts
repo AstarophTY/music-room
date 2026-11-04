@@ -43,6 +43,10 @@ dependencies {
     implementation(libs.ktor.server.cors)
     implementation(libs.ktor.server.default.headers)
     implementation(libs.ktor.server.swagger)
+    // Calls to the Spotify Web API.
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.cio)
+    implementation(libs.ktor.client.content.negotiation)
 
     implementation(libs.exposed.core)
     implementation(libs.exposed.jdbc)

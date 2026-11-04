@@ -9,14 +9,21 @@ import com.musicroom.shared.dto.InfoResponse
 import com.musicroom.shared.dto.LoginRequest
 import com.musicroom.shared.dto.OAuthLoginRequest
 import com.musicroom.shared.dto.RefreshTokenRequest
+import com.musicroom.shared.dto.PlaylistsResponse
 import com.musicroom.shared.dto.RecoveryCodesResponse
 import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.ResetPasswordRequest
+import com.musicroom.shared.dto.SpotifyConnectResponse
+import com.musicroom.shared.dto.SpotifyStatusResponse
+import com.musicroom.shared.dto.TrackPageResponse
+import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.TwoFactorChallengeResponse
 import com.musicroom.shared.dto.TwoFactorCodeRequest
 import com.musicroom.shared.dto.TwoFactorLoginRequest
+import com.musicroom.shared.dto.TwoFactorResendRequest
 import com.musicroom.shared.dto.TwoFactorSetupResponse
 import com.musicroom.shared.dto.UpdateProfileRequest
+import com.musicroom.shared.dto.UpdateSocialLinksRequest
 import com.musicroom.shared.dto.UserResponse
 import com.musicroom.shared.dto.VerifyEmailRequest
 import io.ktor.client.HttpClient
@@ -72,6 +79,9 @@ class MusicRoomApi(
     /** Device language (e.g. "fr"), sent as Accept-Language so server emails and messages match it. */
     var language: String = "en"
 
+    /** Without the Music Room headers: for public files such as album covers. */
+    private val plainHttp: HttpClient = HttpClient(engine)
+
     private var accessToken: String? = null
     private val refreshLock = Mutex()
 
@@ -108,8 +118,23 @@ class MusicRoomApi(
     suspend fun enableTwoFactor(request: TwoFactorCodeRequest): RecoveryCodesResponse =
         authorized(HttpMethod.Post, ApiRoutes.AUTH_2FA_ENABLE) { jsonBody(request) }.bodyOrThrow()
 
+    /** Turns 2FA off (either method). Needs a current code: from the app, a recovery code, or an emailed one. */
     suspend fun disableTwoFactor(request: TwoFactorCodeRequest): UserResponse =
         authorized(HttpMethod.Post, ApiRoutes.AUTH_2FA_DISABLE) { jsonBody(request) }.bodyOrThrow()
+
+    /** Emails a code to turn email 2FA on, or to turn it off. */
+    suspend fun sendTwoFactorEmailCode() {
+        authorized(HttpMethod.Post, ApiRoutes.AUTH_2FA_EMAIL_CODE).throwIfError()
+    }
+
+    /** Turns email 2FA on with the code from [sendTwoFactorEmailCode]. */
+    suspend fun enableEmailTwoFactor(request: TwoFactorCodeRequest): UserResponse =
+        authorized(HttpMethod.Post, ApiRoutes.AUTH_2FA_EMAIL_ENABLE) { jsonBody(request) }.bodyOrThrow()
+
+    /** During a login with email 2FA: emails a new code. */
+    suspend fun resendTwoFactorEmail(request: TwoFactorResendRequest) {
+        postJson(ApiRoutes.AUTH_2FA_EMAIL_RESEND, request).throwIfError()
+    }
 
     /** Uploads a profile photo (JPEG or PNG). The server crops and resizes it. */
     suspend fun uploadAvatar(image: ByteArray, contentType: ContentType): UserResponse =
@@ -117,6 +142,38 @@ class MusicRoomApi(
             contentType(contentType)
             setBody(image)
         }.bodyOrThrow()
+
+    /** Replaces the social links shown on the profile. */
+    suspend fun updateSocialLinks(request: UpdateSocialLinksRequest): UserResponse =
+        authorized(HttpMethod.Put, ApiRoutes.USERS_ME_SOCIAL_LINKS) { jsonBody(request) }.bodyOrThrow()
+
+    suspend fun spotifyStatus(): SpotifyStatusResponse = authorized(HttpMethod.Get, ApiRoutes.SPOTIFY_STATUS).bodyOrThrow()
+
+    /** Returns the Spotify page to open in the browser to connect the account. */
+    suspend fun spotifyConnect(): SpotifyConnectResponse =
+        authorized(HttpMethod.Post, ApiRoutes.SPOTIFY_CONNECT).bodyOrThrow()
+
+    suspend fun spotifyDisconnect(): UserResponse = authorized(HttpMethod.Delete, ApiRoutes.SPOTIFY).bodyOrThrow()
+
+    suspend fun searchTracks(query: String, offset: Int = 0): TrackPageResponse =
+        authorized(HttpMethod.Get, ApiRoutes.MUSIC_SEARCH) {
+            url.parameters.append("q", query)
+            url.parameters.append("offset", offset.toString())
+        }.bodyOrThrow()
+
+    suspend fun track(id: String): TrackResponse = authorized(HttpMethod.Get, ApiRoutes.track(id)).bodyOrThrow()
+
+    suspend fun myPlaylists(): PlaylistsResponse = authorized(HttpMethod.Get, ApiRoutes.MUSIC_MY_PLAYLISTS).bodyOrThrow()
+
+    suspend fun playlistTracks(id: String, offset: Int = 0): TrackPageResponse =
+        authorized(HttpMethod.Get, ApiRoutes.playlistTracks(id)) {
+            url.parameters.append("offset", offset.toString())
+        }.bodyOrThrow()
+
+    suspend fun myTopTracks(): TrackPageResponse = authorized(HttpMethod.Get, ApiRoutes.MUSIC_MY_TOP_TRACKS).bodyOrThrow()
+
+    /** Downloads a public file (album cover...). */
+    suspend fun download(url: String): ByteArray = plainHttp.get(url).bodyOrThrow()
 
     suspend fun deleteAvatar(): UserResponse = authorized(HttpMethod.Delete, ApiRoutes.USERS_ME_AVATAR).bodyOrThrow()
 
@@ -164,7 +221,10 @@ class MusicRoomApi(
     suspend fun changePassword(request: ChangePasswordRequest): UserResponse =
         startSession(authorized(HttpMethod.Post, ApiRoutes.AUTH_PASSWORD) { jsonBody(request) }.bodyOrThrow())
 
-    fun close() = http.close()
+    fun close() {
+        http.close()
+        plainHttp.close()
+    }
 
     private fun startSession(response: AuthResponse): UserResponse {
         accessToken = response.accessToken
@@ -175,7 +235,8 @@ class MusicRoomApi(
     /** 202 = the account has 2FA: no tokens yet, the user must type a code. */
     private suspend fun startSessionOrChallenge(response: HttpResponse): UserResponse {
         if (response.status == HttpStatusCode.Accepted) {
-            throw TwoFactorRequiredException(response.body<TwoFactorChallengeResponse>().challengeToken)
+            val challenge = response.body<TwoFactorChallengeResponse>()
+            throw TwoFactorRequiredException(challenge.challengeToken, challenge.method)
         }
         return startSession(response.bodyOrThrow())
     }

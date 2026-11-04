@@ -19,6 +19,9 @@ import com.musicroom.server.common.websocket.configureWebSockets
 import com.musicroom.server.config.AppConfig
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
+import com.musicroom.server.modules.spotify.SpotifyModule
+import com.musicroom.server.modules.spotify.client.SpotifyApi
+import com.musicroom.server.modules.spotify.client.SpotifyHttpApi
 import com.musicroom.server.modules.system.SystemModule
 import com.musicroom.server.modules.users.UsersModule
 import io.ktor.server.application.Application
@@ -31,7 +34,9 @@ class AppModule(
     passwordHasher: PasswordHasher = PasswordHasher(),
     emailSender: EmailSender = SmtpEmailSender(config.mail),
     oauthVerifier: OAuthTokenVerifier = JwksOAuthTokenVerifier(config.oauth),
+    spotifyApi: SpotifyApi = SpotifyHttpApi(config.spotify),
 ) {
+    private val secretBox = SecretBox(config.jwt.secret)
     val jwtService = JwtService(config.jwt)
     val users = UsersModule(database)
     val auth = AuthModule(
@@ -41,7 +46,7 @@ class AppModule(
         passwordHasher = passwordHasher,
         emailSender = emailSender,
         oauthVerifier = oauthVerifier,
-        secretBox = SecretBox(config.jwt.secret),
+        secretBox = secretBox,
         refreshTokenTtlDays = config.jwt.refreshTokenTtlDays,
     )
 
@@ -49,6 +54,7 @@ class AppModule(
         SystemModule(config, database),
         users,
         auth,
+        SpotifyModule(database, users.repository, config.spotify, spotifyApi, jwtService, secretBox),
     )
 }
 

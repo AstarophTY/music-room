@@ -63,6 +63,31 @@ class AccountMailer(private val sender: EmailSender) {
         )
     }
 
+    suspend fun sendTwoFactorCode(user: User, code: String, ttlMinutes: Long, language: Language) = when (language) {
+        Language.FR -> send(
+            user,
+            subject = "Ton code de connexion Music Room : $code",
+            body = """
+                |Salut ${user.displayName},
+                |
+                |Ton code de double authentification Music Room est : $code
+                |
+                |Il expire dans $ttlMinutes minutes. Si tu n'essaies pas de te connecter, change ton mot de passe : quelqu'un le connaît.
+            """.trimMargin(),
+        )
+        Language.EN -> send(
+            user,
+            subject = "Your Music Room login code: $code",
+            body = """
+                |Hello ${user.displayName},
+                |
+                |Your Music Room two-factor code is: $code
+                |
+                |It expires in $ttlMinutes minutes. If you are not trying to log in, change your password: someone knows it.
+            """.trimMargin(),
+        )
+    }
+
     /** Security alert after a password change. Never fails the request: the change is already done. */
     suspend fun notifyPasswordChanged(user: User, language: Language) {
         try {
@@ -96,12 +121,13 @@ class AccountMailer(private val sender: EmailSender) {
     }
 
     /** Security alert when two-factor authentication is turned on or off. Never fails the request. */
-    suspend fun notifyTwoFactorChanged(user: User, enabled: Boolean, language: Language) {
+    suspend fun notifyTwoFactorChanged(user: User, enabled: Boolean, language: Language, byEmail: Boolean = false) {
         val (subject, body) = when (language) {
             Language.FR -> if (enabled) {
                 "Double authentification activée sur Music Room" to
                     "Salut ${user.displayName},\n\nLa double authentification est maintenant activée sur ton compte. " +
-                    "Garde tes codes de secours en lieu sûr.\n\nSi ce n'est pas toi, change ton mot de passe tout de suite."
+                    (if (byEmail) "Un code te sera envoyé par email à chaque connexion." else "Garde tes codes de secours en lieu sûr.") +
+                    "\n\nSi ce n'est pas toi, change ton mot de passe tout de suite."
             } else {
                 "Double authentification désactivée sur Music Room" to
                     "Salut ${user.displayName},\n\nLa double authentification vient d'être désactivée sur ton compte.\n\n" +
@@ -110,7 +136,8 @@ class AccountMailer(private val sender: EmailSender) {
             Language.EN -> if (enabled) {
                 "Two-factor authentication turned on for Music Room" to
                     "Hello ${user.displayName},\n\nTwo-factor authentication is now on for your account. " +
-                    "Keep your recovery codes somewhere safe.\n\nIf this was not you, change your password right away."
+                    (if (byEmail) "A code will be emailed to you at each login." else "Keep your recovery codes somewhere safe.") +
+                    "\n\nIf this was not you, change your password right away."
             } else {
                 "Two-factor authentication turned off for Music Room" to
                     "Hello ${user.displayName},\n\nTwo-factor authentication was just turned off for your account.\n\n" +
