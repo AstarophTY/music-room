@@ -4,21 +4,21 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import com.musicroom.shared.dto.AvatarColor
 
-/** Radix Colors (radix-ui.com/colors): yellow as the brand color, sand as its matching gray. */
+/** Radix Colors (radix-ui.com/colors): amber as the brand color, sand as its matching gray. */
 private object Palette {
-    // Yellow, light theme
-    val yellow1 = Color(0xFFFDFDF9)
-    val yellow3 = Color(0xFFFFFAB8)
-    val yellow4 = Color(0xFFFFF394)
-    val yellow7 = Color(0xFFE4C767)
-    val yellow9 = Color(0xFFFFE629)
-    val yellow11 = Color(0xFF9E6C00)
+    // Amber, light theme
+    val amber1 = Color(0xFFFEFDFB)
+    val amber3 = Color(0xFFFFF7C2)
+    val amber4 = Color(0xFFFFEE9C)
+    val amber7 = Color(0xFFE9C162)
+    val amber9 = Color(0xFFFFC53D)
+    val amber11 = Color(0xFFAB6400)
 
-    // Yellow, dark theme
-    val yellowDark3 = Color(0xFF2D2305)
-    val yellowDark4 = Color(0xFF362B00)
-    val yellowDark7 = Color(0xFF665417)
-    val yellowDark11 = Color(0xFFF5E147)
+    // Amber, dark theme
+    val amberDark3 = Color(0xFF302008)
+    val amberDark4 = Color(0xFF3F2700)
+    val amberDark7 = Color(0xFF714F19)
+    val amberDark11 = Color(0xFFFFCA16)
 
     // Sand, light theme
     val sand1 = Color(0xFFFDFDFC)
@@ -76,12 +76,10 @@ private object Palette {
     val redDark11 = Color(0xFFFF9592)
     val green11 = Color(0xFF218358)
     val greenDark11 = Color(0xFF3DD68C)
-    val amber11 = Color(0xFFAB6400)
-    val amberDark11 = Color(0xFFFFCA16)
 }
 
 val LightColors = AppColorScheme(
-    background = Palette.yellow1,
+    background = Palette.amber1,
     surface = Palette.sand1,
     surfaceSubtle = Palette.sand3,
     border = Palette.sand6,
@@ -89,18 +87,18 @@ val LightColors = AppColorScheme(
     textPrimary = Palette.sand12,
     textSecondary = Palette.sand11,
     textDisabled = Palette.sand9,
-    accent = Palette.yellow9,
-    // Radix: text on yellow 9 must be dark, in both themes.
+    accent = Palette.amber9,
+    // Radix: text on amber 9 must be dark, in both themes.
     onAccent = Palette.sand12,
-    accentSubtle = Palette.yellow3,
-    accentSubtleStrong = Palette.yellow4,
-    accentBorder = Palette.yellow7,
-    accentText = Palette.yellow11,
+    accentSubtle = Palette.amber3,
+    accentSubtleStrong = Palette.amber4,
+    accentBorder = Palette.amber7,
+    accentText = Palette.amber11,
     error = Palette.red11,
     success = Palette.green11,
     warning = Palette.amber11,
     avatars = mapOf(
-        AvatarColor.YELLOW to AvatarTint(Palette.yellow4, Palette.yellow7, Palette.yellow11),
+        AvatarColor.YELLOW to AvatarTint(Palette.amber4, Palette.amber7, Palette.amber11),
         AvatarColor.TOMATO to AvatarTint(Palette.tomato3, Palette.tomato7, Palette.tomato11),
         AvatarColor.PINK to AvatarTint(Palette.pink3, Palette.pink7, Palette.pink11),
         AvatarColor.IRIS to AvatarTint(Palette.iris3, Palette.iris7, Palette.iris11),
@@ -118,17 +116,17 @@ val DarkColors = AppColorScheme(
     textPrimary = Palette.sandDark12,
     textSecondary = Palette.sandDark11,
     textDisabled = Palette.sandDark9,
-    accent = Palette.yellow9,
+    accent = Palette.amber9,
     onAccent = Palette.sand12,
-    accentSubtle = Palette.yellowDark3,
-    accentSubtleStrong = Palette.yellowDark4,
-    accentBorder = Palette.yellowDark7,
-    accentText = Palette.yellowDark11,
+    accentSubtle = Palette.amberDark3,
+    accentSubtleStrong = Palette.amberDark4,
+    accentBorder = Palette.amberDark7,
+    accentText = Palette.amberDark11,
     error = Palette.redDark11,
     success = Palette.greenDark11,
     warning = Palette.amberDark11,
     avatars = mapOf(
-        AvatarColor.YELLOW to AvatarTint(Palette.yellowDark4, Palette.yellowDark7, Palette.yellowDark11),
+        AvatarColor.YELLOW to AvatarTint(Palette.amberDark4, Palette.amberDark7, Palette.amberDark11),
         AvatarColor.TOMATO to AvatarTint(Palette.tomatoDark3, Palette.tomatoDark7, Palette.tomatoDark11),
         AvatarColor.PINK to AvatarTint(Palette.pinkDark3, Palette.pinkDark7, Palette.pinkDark11),
         AvatarColor.IRIS to AvatarTint(Palette.irisDark3, Palette.irisDark7, Palette.irisDark11),
