@@ -59,7 +59,7 @@ fun App(
         BoxWithConstraints(Modifier.fillMaxSize()) {
             CompositionLocalProvider(WindowSize.Local provides WindowSize.fromWidth(maxWidth)) {
                 Surface(modifier = Modifier.fillMaxSize(), color = Tokens.colors.background) {
-                    Session(api, socialSignIn, session, { session = it }, themeMode) {
+                    Session(api, socialSignIn, session, { session = it }, themeMode, settings) {
                         themeMode = it
                         settings.themeMode = it
                     }

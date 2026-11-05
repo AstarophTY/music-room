@@ -16,12 +16,18 @@ import com.composables.icons.lucide.Lucide
 import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.apple_music_connect
+import com.musicroom.app.generated.resources.apple_music_connected
+import com.musicroom.app.generated.resources.apple_music_connecting
+import com.musicroom.app.generated.resources.apple_music_not_connected
+import com.musicroom.app.generated.resources.audio_providers_title
 import com.musicroom.app.generated.resources.spotify_connected
 import com.musicroom.app.generated.resources.spotify_connected_as
 import com.musicroom.app.generated.resources.spotify_disconnect
 import com.musicroom.app.generated.resources.spotify_playback_note
 import com.musicroom.app.generated.resources.spotify_title
 import com.musicroom.app.music.SpotifyConnectCard
+import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.theme.components.AppCard
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
@@ -31,13 +37,15 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-/** Links or unlinks the Spotify account used for playback and recommendations. */
+/** Manages music provider connections. */
 @Composable
-fun SpotifySettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (UserResponse) -> Unit, onBack: () -> Unit) {
+fun AudioProvidersScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (UserResponse) -> Unit, onBack: () -> Unit) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
+    val appleMusic = AppleMusicConnection.Local.current
     var status by remember { mutableStateOf<SpotifyStatusResponse?>(null) }
     var error by remember { mutableStateOf<UiText?>(null) }
+    var connecting by remember { mutableStateOf(false) }
     LaunchedEffect(user.spotifyConnected) {
         status = try {
             api.spotifyStatus()
@@ -48,7 +56,7 @@ fun SpotifySettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (
         }
     }
 
-    SubScreenScaffold(title = stringResource(Res.string.spotify_title), onBack = onBack) {
+    SubScreenScaffold(title = stringResource(Res.string.audio_providers_title), onBack = onBack) {
         if (!user.spotifyConnected) {
             SpotifyConnectCard(api, onConnected = { onUserChange(user.copy(spotifyConnected = true)) })
         } else {
@@ -77,6 +85,37 @@ fun SpotifySettingsScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (
                     },
                     destructive = true,
                     showChevron = false,
+                )
+            }
+        }
+        if (appleMusic.available) {
+            AppCard(Modifier.fillMaxWidth()) {
+                SettingsRow(
+                    Lucide.AudioLines,
+                    "Apple Music",
+                    onClick = {
+                        error = null
+                        if (connecting) return@SettingsRow
+                        if (appleMusic.connected) {
+                            appleMusic.disconnect()
+                        } else {
+                            scope.launch {
+                                connecting = true
+                                try {
+                                    if (!appleMusic.connect(api.appleMusicDeveloperToken().token)) {
+                                        error = UiText.of(Res.string.apple_music_not_connected)
+                                    }
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    error = UiText.of(e)
+                                } finally {
+                                    connecting = false
+                                }
+                            }
+                        }
+                    },
+                    value = stringResource(if (connecting) Res.string.apple_music_connecting else if (appleMusic.connected) Res.string.apple_music_connected else Res.string.apple_music_connect),
                 )
             }
         }

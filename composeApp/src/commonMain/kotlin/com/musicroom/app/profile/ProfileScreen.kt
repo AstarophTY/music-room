@@ -110,9 +110,8 @@ fun ProfileScreen(
                 AppCard(Modifier.fillMaxWidth()) {
                     SettingsRow(
                         Lucide.AudioLines,
-                        stringResource(Res.string.spotify_title),
+                        stringResource(Res.string.audio_providers_title),
                         { onOpen(ProfileRoute.Spotify) },
-                        value = stringResource(if (user.spotifyConnected) Res.string.spotify_connected else Res.string.spotify_not_connected),
                     )
                     SettingsRow(Lucide.Music, stringResource(Res.string.my_songs_title), { onOpen(ProfileRoute.MySongs) })
                     SettingsRow(Lucide.Sparkles, stringResource(Res.string.premium_title), { onOpen(ProfileRoute.Premium) })
