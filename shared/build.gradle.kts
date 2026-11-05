@@ -10,6 +10,12 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
+    // Web client (the shared tests run with Node, no browser needed).
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+    wasmJs {
+        nodejs()
+    }
+
     sourceSets {
         commonMain.dependencies {
             api(libs.kotlinx.serialization.json)

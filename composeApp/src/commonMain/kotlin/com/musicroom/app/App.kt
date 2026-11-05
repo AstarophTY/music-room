@@ -1,75 +1,69 @@
 package com.musicroom.app
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import com.musicroom.app.theme.AppTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.intl.Locale
+import com.musicroom.app.auth.SocialSignIn
+import com.musicroom.app.common.UiText
+import com.musicroom.app.common.WindowSize
+import com.musicroom.app.settings.AppSettings
+import com.musicroom.app.theme.AppTheme
+import com.musicroom.app.theme.ThemeMode
+import com.musicroom.app.theme.tokens.AppTheme as Tokens
 import com.musicroom.shared.MusicRoomApi
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 
-interface SettingsStore {
-    var backendUrl: String
-}
-
+/**
+ * Root of the app. [onDarkThemeChange] lets the platform match its status bar icons to the theme.
+ */
 @Composable
 fun App(
-    settings: SettingsStore,
-    apiFactory: (baseUrl: String) -> MusicRoomApi,
+    api: MusicRoomApi,
+    socialSignIn: SocialSignIn = SocialSignIn.Unavailable,
+    settings: AppSettings = remember { AppSettings.InMemory() },
+    onDarkThemeChange: (Boolean) -> Unit = {},
 ) {
-    var backendUrl by remember { mutableStateOf(settings.backendUrl) }
-    var status by remember { mutableStateOf("Not tested") }
-    val scope = rememberCoroutineScope()
+    var session by remember { mutableStateOf<SessionState>(SessionState.Loading) }
+    var themeMode by remember { mutableStateOf(settings.themeMode) }
+    val dark = when (themeMode) {
+        ThemeMode.System -> isSystemInDarkTheme()
+        ThemeMode.Light -> false
+        ThemeMode.Dark -> true
+    }
+    val language = Locale.current.language
+    SideEffect { api.language = language }
+    LaunchedEffect(dark) { onDarkThemeChange(dark) }
 
-    AppTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier.safeDrawingPadding().imePadding().padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Text("Music Room", style = MaterialTheme.typography.headlineMedium)
+    LaunchedEffect(api) {
+        session = try {
+            api.restoreSession()?.let { SessionState.LoggedIn(it) } ?: SessionState.LoggedOut()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            SessionState.LoggedOut(message = UiText.of(e))
+        }
+    }
 
-                OutlinedTextField(
-                    value = backendUrl,
-                    onValueChange = { backendUrl = it },
-                    label = { Text("Backend URL") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-
-                Button(onClick = {
-                    settings.backendUrl = backendUrl
-                    status = "Connecting..."
-                    scope.launch {
-                        val api = apiFactory(backendUrl)
-                        status = runCatching { api.health() }
-                            .fold(
-                                onSuccess = { "Server: ${it.status}, database: ${it.database}" },
-                                onFailure = { "Error: ${it.message}" },
-                            )
-                        api.close()
+    AppTheme(dark = dark) {
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(WindowSize.Local provides WindowSize.fromWidth(maxWidth)) {
+                Surface(modifier = Modifier.fillMaxSize(), color = Tokens.colors.background) {
+                    Session(api, socialSignIn, session, { session = it }, themeMode) {
+                        themeMode = it
+                        settings.themeMode = it
                     }
-                }) {
-                    Text("Save and test")
                 }
-
-                Text(status)
             }
         }
     }

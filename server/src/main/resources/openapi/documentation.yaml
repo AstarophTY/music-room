@@ -7,6 +7,7 @@ servers:
   - url: http://localhost:8080
 tags:
   - name: system
+  - name: auth
   - name: users
 paths:
   /health:
@@ -34,6 +35,518 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/InfoResponse" }
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      summary: Create an account (email + password, hashed with bcrypt)
+      description: >-
+        The terms of use must be accepted. A 6-digit code is emailed to the user;
+        the account stays unverified (emailVerified = false) until it is sent to /api/v1/auth/email/verify.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: Account created, the user is logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: Invalid email, password or display name, or terms not accepted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: Email already used
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in with email + password
+      description: >-
+        With 2FA on, answers 202 with a challenge; send it with a code to /api/v1/auth/2fa/verify.
+        With email 2FA (method = email), the code is emailed at the same time.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "202":
+          description: Password right, the account has 2FA
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TwoFactorChallengeResponse" }
+        "401":
+          description: Invalid email or password
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: Too many requests
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/oauth:
+    post:
+      tags: [auth]
+      summary: Sign in or sign up with Google or Apple
+      description: >-
+        The app gets an ID token from the provider's SDK and sends it here. The server checks its signature
+        (provider's public keys), issuer, audience (GOOGLE_CLIENT_ID / APPLE_CLIENT_ID) and expiry.
+        An identity already linked logs in. Otherwise, an account with the same email is linked
+        (if that account never verified its email, its password is removed and its sessions are revoked).
+        Otherwise a new account is created, which requires acceptedTerms = true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OAuthLoginRequest" }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: Provider not configured on the server, or no verified email in the token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Invalid or expired ID token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: "New account: the terms of use must be accepted (error = terms_required)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: The account is already linked to another identity from this provider
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/email/verify:
+    post:
+      tags: [auth]
+      summary: Verify the email with the 6-digit code sent by email
+      description: A code works once, expires after 15 minutes and allows 5 tries.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VerifyEmailRequest" }
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Wrong, expired or locked code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/email/resend:
+    post:
+      tags: [auth]
+      summary: Email a new verification code (the previous one stops working)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Code sent
+        "400":
+          description: Email already verified
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: A code was sent less than a minute ago
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: The email could not be sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: Exchange a refresh token for new tokens (single use, rotated)
+      description: Reusing an already used refresh token revokes every session of the user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshTokenRequest" }
+      responses:
+        "200":
+          description: New tokens
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "401":
+          description: Invalid, expired or revoked refresh token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: Revoke a refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshTokenRequest" }
+      responses:
+        "204":
+          description: Logged out
+  /api/v1/auth/password:
+    post:
+      tags: [auth]
+      summary: Change the password (signs out every other session and emails a security alert)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ChangePasswordRequest" }
+      responses:
+        "200":
+          description: Password changed, new tokens for this device
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: New password too weak
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Missing or invalid token
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Current password is incorrect
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/password/forgot:
+    post:
+      tags: [auth]
+      summary: Email a password reset code
+      description: >-
+        Always answers 204, whether an account uses this email or not (no account enumeration).
+        At most one email per minute. The email is written in the Accept-Language language (en, fr).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForgotPasswordRequest" }
+      responses:
+        "204":
+          description: Done (a code was sent if the account exists)
+  /api/v1/auth/password/reset:
+    post:
+      tags: [auth]
+      summary: Set a new password with the emailed code
+      description: >-
+        The code works once, expires after 15 minutes and allows 5 tries. Signs out every other session,
+        marks the email as verified, emails a security alert, and logs in on this device.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResetPasswordRequest" }
+      responses:
+        "200":
+          description: Password changed, new tokens
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: Wrong, expired or locked code, or weak password
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/verify:
+    post:
+      tags: [auth]
+      summary: Second step of a login with 2FA
+      description: >-
+        code is the 6-digit code of the authenticator app (each code works once) or a recovery code (XXXXX-XXXXX,
+        single use); with email 2FA, the 6-digit code from the email (valid 15 minutes, single use).
+        5 wrong codes in a row block 2FA codes for 15 minutes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorLoginRequest" }
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400":
+          description: Wrong code (invalid_two_factor_code)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Challenge expired (5 minutes)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: Too many wrong codes (two_factor_locked)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/setup:
+    post:
+      tags: [auth]
+      summary: Start 2FA setup (new TOTP secret, not active yet)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Secret and otpauth:// link (to show as a QR code)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TwoFactorSetupResponse" }
+        "409":
+          description: 2FA already on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/enable:
+    post:
+      tags: [auth]
+      summary: Turn 2FA on with a first code; returns 10 recovery codes (shown once) and emails an alert
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorCodeRequest" }
+      responses:
+        "200":
+          description: 2FA on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoveryCodesResponse" }
+        "400":
+          description: Wrong code, or setup not started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/disable:
+    post:
+      tags: [auth]
+      summary: Turn 2FA off, whatever the method (needs a code, a recovery code or an emailed code) and email an alert
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorCodeRequest" }
+      responses:
+        "200":
+          description: 2FA off
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Wrong code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/email/code:
+    post:
+      tags: [auth]
+      summary: Email a code to turn email 2FA on (2FA off) or off (email 2FA on)
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Code sent
+        "409":
+          description: 2FA with an authenticator app is on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: A code was sent less than a minute ago
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "503":
+          description: The email could not be sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/email/enable:
+    post:
+      tags: [auth]
+      summary: Turn email 2FA on with the emailed code, and email an alert. Off by default.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorCodeRequest" }
+      responses:
+        "200":
+          description: Email 2FA on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Wrong or expired code
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: 2FA already on
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/auth/2fa/email/resend:
+    post:
+      tags: [auth]
+      summary: During a login with email 2FA, email a new code (the previous one stops working)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TwoFactorResendRequest" }
+      responses:
+        "204":
+          description: Code sent
+        "401":
+          description: Challenge expired
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "429":
+          description: A code was sent less than a minute ago
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/users/me/social-links:
+    put:
+      tags: [users]
+      summary: Replace the social networks shown on the profile
+      description: >-
+        One username per network. "@name" and profile links are accepted and cleaned ("https://instagram.com/name" -> "name").
+        An empty username removes the network.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateSocialLinksRequest" }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: A username does not match the network's format (social_handle_invalid)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/users/me/avatar:
+    put:
+      tags: [users]
+      summary: Upload a profile photo (JPEG or PNG, 5 MB max)
+      description: The server checks it is an image, crops it to a square and stores a 256x256 JPEG (metadata removed).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: Updated profile (new avatarVersion)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Not an image (invalid_image) or too large (image_too_large)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [users]
+      summary: Remove the profile photo (the initials avatar is shown again)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Updated profile (avatarVersion null)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+  /api/v1/users/{id}/avatar:
+    get:
+      tags: [users]
+      summary: Profile photo of a user (256x256 JPEG)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The photo
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        "404":
+          description: No photo
   /api/v1/users/me:
     get:
       tags: [users]
@@ -53,6 +566,32 @@ paths:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
         "404":
           description: User not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    patch:
+      tags: [users]
+      summary: Update the authenticated user's profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateProfileRequest" }
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserResponse" }
+        "400":
+          description: Invalid display name
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "401":
+          description: Missing or invalid token
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
@@ -96,9 +635,129 @@ components:
         email: { type: string, format: email }
         displayName: { type: string }
         emailVerified: { type: boolean }
+        twoFactorEnabled: { type: boolean }
+        twoFactorMethod: { type: string, enum: [app, email], nullable: true, description: "Null when 2FA is off" }
+        avatarColor: { type: string, enum: [yellow, tomato, pink, iris, teal, grass] }
+        avatarVersion: { type: integer, nullable: true, description: "Changes with each new photo; null without photo" }
+        socialLinks: { type: array, items: { $ref: "#/components/schemas/SocialLink" } }
+    SocialLink:
+      type: object
+      required: [network, handle]
+      properties:
+        network: { type: string, enum: [instagram, tiktok, x, youtube, twitch, discord, spotify, soundcloud] }
+        handle: { type: string, example: swann.music }
+    UpdateSocialLinksRequest:
+      type: object
+      required: [links]
+      properties:
+        links: { type: array, items: { $ref: "#/components/schemas/SocialLink" } }
+    TwoFactorChallengeResponse:
+      type: object
+      required: [challengeToken, expiresInSeconds]
+      properties:
+        challengeToken: { type: string }
+        expiresInSeconds: { type: integer, example: 300 }
+        method: { type: string, enum: [app, email], description: "email: the code was just emailed" }
+    TwoFactorResendRequest:
+      type: object
+      required: [challengeToken]
+      properties:
+        challengeToken: { type: string }
+    TwoFactorLoginRequest:
+      type: object
+      required: [challengeToken, code]
+      properties:
+        challengeToken: { type: string }
+        code: { type: string, example: "123456" }
+    TwoFactorSetupResponse:
+      type: object
+      required: [secret, otpauthUri]
+      properties:
+        secret: { type: string, description: Base32 }
+        otpauthUri: { type: string, example: "otpauth://totp/Music%20Room:alice@example.com?secret=...&issuer=Music%20Room" }
+    TwoFactorCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string }
+    RecoveryCodesResponse:
+      type: object
+      required: [recoveryCodes, user]
+      properties:
+        recoveryCodes: { type: array, items: { type: string, example: "N677E-8X6SG" } }
+        user: { $ref: "#/components/schemas/UserResponse" }
+    RegisterRequest:
+      type: object
+      required: [email, password, displayName, acceptedTerms]
+      properties:
+        email: { type: string, format: email, example: alice@example.com }
+        password: { type: string, format: password, minLength: 8, description: "8+ characters, at least one letter and one digit, max 72 bytes" }
+        displayName: { type: string, maxLength: 64, example: Alice }
+        acceptedTerms: { type: boolean, example: true, description: "Must be true" }
+    OAuthLoginRequest:
+      type: object
+      required: [provider, idToken]
+      properties:
+        provider: { type: string, enum: [google, apple] }
+        idToken: { type: string, description: "ID token (JWT) returned by the provider's SDK" }
+        acceptedTerms: { type: boolean, default: false, description: "Required to create a new account" }
+        displayName: { type: string, maxLength: 64, description: "Optional, used for a new account (Apple does not put the name in the token)" }
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+    ResetPasswordRequest:
+      type: object
+      required: [email, code, newPassword]
+      properties:
+        email: { type: string, format: email }
+        code: { type: string, pattern: "^[0-9]{6}$" }
+        newPassword: { type: string, format: password }
+    VerifyEmailRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: "^[0-9]{6}$", example: "042917" }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, format: password }
+        newPassword: { type: string, format: password }
+    UpdateProfileRequest:
+      type: object
+      description: Fields left out are not changed.
+      properties:
+        displayName: { type: string, maxLength: 64 }
+        avatarColor: { type: string, enum: [yellow, tomato, pink, iris, teal, grass] }
+    AuthResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresInSeconds, user]
+      properties:
+        accessToken: { type: string, description: "JWT, send it as 'Authorization: Bearer <token>'" }
+        refreshToken: { type: string, description: "Opaque token, single use" }
+        expiresInSeconds: { type: integer, example: 900 }
+        user: { $ref: "#/components/schemas/UserResponse" }
     ErrorResponse:
       type: object
       required: [error]
       properties:
-        error: { type: string }
+        error:
+          type: string
+          description: >-
+            Machine-readable code the app translates, e.g. invalid_credentials, email_taken, invalid_code,
+            code_expired, too_many_attempts, wrong_current_password, password_too_short (see ApiErrors and
+            ValidationError in the shared module).
         message: { type: string }

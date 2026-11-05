@@ -20,6 +20,7 @@ fun Application.configureHttpMiddleware() {
         allowMethod(HttpMethod.Delete)
         allowHeader(HttpHeaders.Authorization)
         allowHeader(HttpHeaders.ContentType)
+        allowHeader(HttpHeaders.AcceptLanguage)
         allowHeader(ClientHeaders.PLATFORM)
         allowHeader(ClientHeaders.DEVICE)
         allowHeader(ClientHeaders.APP_VERSION)

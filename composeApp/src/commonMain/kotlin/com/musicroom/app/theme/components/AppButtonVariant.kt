@@ -1,4 +1,4 @@
 package com.musicroom.app.theme.components
 
-
-enum class AppButtonVariant { Primary, Secondary, Ghost }
+/** [OnAccent]: dark button placed on a yellow surface. */
+enum class AppButtonVariant { Primary, Secondary, Ghost, OnAccent }

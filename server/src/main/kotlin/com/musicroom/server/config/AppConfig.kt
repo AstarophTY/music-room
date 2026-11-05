@@ -6,6 +6,9 @@ data class AppConfig(
     val version: String,
     val database: DatabaseConfig,
     val jwt: JwtConfig,
+    val oauth: OAuthConfig = OAuthConfig(),
+    val mail: MailConfig = MailConfig(),
+    val spotify: SpotifyConfig = SpotifyConfig(),
 ) {
     companion object {
         fun from(config: ApplicationConfig) = AppConfig(
@@ -22,26 +25,41 @@ data class AppConfig(
                 audience = config.property("jwt.audience").getString(),
                 realm = config.property("jwt.realm").getString(),
                 accessTokenTtlMinutes = config.property("jwt.accessTokenTtlMinutes").getString().toLong(),
+                refreshTokenTtlDays = config.property("jwt.refreshTokenTtlDays").getString().toLong(),
+            ),
+            oauth = OAuthConfig(
+                googleClientIds = config.list("oauth.googleClientIds"),
+                appleClientIds = config.list("oauth.appleClientIds"),
+            ),
+            mail = mailConfig(config),
+            spotify = SpotifyConfig(
+                clientId = config.string("spotify.clientId"),
+                clientSecret = config.string("spotify.clientSecret"),
+                redirectUri = config.string("spotify.redirectUri").ifEmpty { SpotifyConfig().redirectUri },
             ),
         )
-    }
-}
 
-data class DatabaseConfig(
-    val url: String,
-    val user: String,
-    val password: String,
-    val maxPoolSize: Int = 10,
-)
+        /** No SMTP_HOST: development mode, every email is written to the server logs. */
+        private fun mailConfig(config: ApplicationConfig): MailConfig {
+            val from = config.string("mail.from").ifEmpty { MailConfig().from }
+            val host = config.string("mail.host")
+            if (host.isEmpty()) return MailConfig(from = from)
+            return MailConfig(
+                host = host,
+                port = config.string("mail.port").toIntOrNull() ?: SMTP_SUBMISSION_PORT,
+                user = config.string("mail.user"),
+                password = config.string("mail.password"),
+                from = from,
+            )
+        }
 
-data class JwtConfig(
-    val secret: String,
-    val issuer: String,
-    val audience: String,
-    val realm: String,
-    val accessTokenTtlMinutes: Long = 15,
-) {
-    init {
-        require(secret.length >= 32) { "JWT_SECRET must be at least 32 characters long" }
+        private const val SMTP_SUBMISSION_PORT = 587
+
+        private fun ApplicationConfig.string(path: String): String =
+            propertyOrNull(path)?.getString()?.trim().orEmpty()
+
+        /** Comma-separated value, e.g. "id-1,id-2". */
+        private fun ApplicationConfig.list(path: String): List<String> =
+            string(path).split(',').map { it.trim() }.filter { it.isNotEmpty() }
     }
 }
