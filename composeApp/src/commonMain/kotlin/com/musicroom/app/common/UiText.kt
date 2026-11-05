@@ -108,6 +108,14 @@ sealed interface UiText {
             ApiErrors.SPOTIFY_NO_DEVICE to Res.string.error_spotify_no_device,
             ApiErrors.SPOTIFY_PREMIUM_REQUIRED to Res.string.error_spotify_premium_required,
             ApiErrors.SPOTIFY_PLAYLIST_RESTRICTED to Res.string.error_spotify_playlist_restricted,
+            ApiErrors.PREMIUM_REQUIRED to Res.string.error_premium_required,
+            ApiErrors.ALREADY_PREMIUM to Res.string.error_already_premium,
+            ApiErrors.BILLING_NOT_CONFIGURED to Res.string.error_billing_not_configured,
+            ApiErrors.BILLING_UNAVAILABLE to Res.string.error_billing_unavailable,
+            ApiErrors.INVALID_AUDIO to Res.string.error_invalid_audio,
+            ApiErrors.AUDIO_TOO_LARGE to Res.string.error_audio_too_large,
+            ApiErrors.HOSTED_TRACK_LIMIT to Res.string.error_hosted_track_limit,
+            ApiErrors.HOSTED_TRACK_NOT_ALLOWED to Res.string.error_hosted_track_not_allowed,
         )
     }
 }

@@ -124,8 +124,11 @@ fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> 
                 PlayButton(player, 64.dp)
                 SkipButton(player, forward = true)
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                DeviceButton(player)
+            // An uploaded song plays in the app, not on a Spotify device.
+            if (!player.playingHosted) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    DeviceButton(player)
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 AppButton(

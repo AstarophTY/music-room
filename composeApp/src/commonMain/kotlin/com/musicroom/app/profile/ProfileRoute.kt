@@ -9,4 +9,6 @@ enum class ProfileRoute(val parent: ProfileRoute?) {
     TwoFactor(Profile),
     Appearance(Profile),
     Spotify(Profile),
+    MySongs(Profile),
+    Premium(Profile),
 }

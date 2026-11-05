@@ -18,10 +18,12 @@ import com.composables.icons.lucide.Languages
 import com.composables.icons.lucide.Link
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Music
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.ShieldCheck
+import com.composables.icons.lucide.Sparkles
 import com.musicroom.app.auth.TermsDialog
 import com.musicroom.app.common.Reveal
 import com.musicroom.app.common.icon
@@ -112,6 +114,8 @@ fun ProfileScreen(
                         { onOpen(ProfileRoute.Spotify) },
                         value = stringResource(if (user.spotifyConnected) Res.string.spotify_connected else Res.string.spotify_not_connected),
                     )
+                    SettingsRow(Lucide.Music, stringResource(Res.string.my_songs_title), { onOpen(ProfileRoute.MySongs) })
+                    SettingsRow(Lucide.Sparkles, stringResource(Res.string.premium_title), { onOpen(ProfileRoute.Premium) })
                 }
             }
         }

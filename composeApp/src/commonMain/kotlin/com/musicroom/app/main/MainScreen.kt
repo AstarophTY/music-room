@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -57,6 +58,8 @@ import com.musicroom.app.profile.ProfileRoute
 import com.musicroom.app.profile.ProfileScreen
 import com.musicroom.app.profile.SettingsSideBar
 import com.musicroom.app.profile.SocialLinksScreen
+import com.musicroom.app.profile.MySongsScreen
+import com.musicroom.app.profile.PremiumScreen
 import com.musicroom.app.profile.SpotifySettingsScreen
 import com.musicroom.app.profile.TwoFactorSettingsScreen
 import com.musicroom.app.search.SearchScreen
@@ -111,6 +114,8 @@ fun MainScreen(
     val eventFocus = remember(api) { EventFocus(api, player, scope) }
     val locate = rememberLocationProvider()
     LaunchedEffect(eventFocus) { eventFocus.run() }
+    // An uploaded song plays in the app: it stops with the signed-in screens (logout).
+    DisposableEffect(player) { onDispose { player.release() } }
     // Listening to an event plays on the user's Spotify: only with Premium.
     LaunchedEffect(eventFocus, user.spotifyConnected) {
         val status = if (!user.spotifyConnected) {
@@ -148,7 +153,8 @@ fun MainScreen(
                 tab = MainTab.Events
             })
             AnimatedVisibility(
-                visible = user.spotifyConnected && (player.track != null || player.error != null),
+                // Uploaded songs play without Spotify.
+                visible = (user.spotifyConnected || player.playingHosted) && (player.track != null || player.error != null),
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
@@ -176,8 +182,8 @@ fun MainScreen(
         }
     }
 
-    // The player page shows while Spotify is linked; it closes with the account.
-    val nowPlayingShown = showNowPlaying && user.spotifyConnected
+    // The player page shows while Spotify is linked (or an uploaded song plays); it closes with the account.
+    val nowPlayingShown = showNowPlaying && (user.spotifyConnected || player.playingHosted)
     val closeNowPlaying = { showNowPlaying = false }
 
     // Opens a social page on top of the others; one already open comes back to the top.
@@ -282,6 +288,8 @@ fun MainScreen(
             ProfileRoute.TwoFactor -> TwoFactorSettingsScreen(api, user, onUserChange, onBack = back)
             ProfileRoute.Appearance -> AppearanceScreen(themeMode, onThemeModeChange, onBack = back)
             ProfileRoute.Spotify -> SpotifySettingsScreen(api, user, onUserChange, onBack = back)
+            ProfileRoute.MySongs -> MySongsScreen(api, user, player, onOpenPremium = { profileRoute = ProfileRoute.Premium }, onBack = back)
+            ProfileRoute.Premium -> PremiumScreen(api, onBack = back)
         }
     }
 
@@ -319,7 +327,7 @@ fun MainScreen(
                 onFindPeople = findPeople,
             )
             is SocialPage.Chat -> ChatScreen(api, social, user.id, page.userId, socialBack, openUser)
-            is SocialPage.Profile -> UserProfileScreen(api, social, page.userId, socialBack, openChat)
+            is SocialPage.Profile -> UserProfileScreen(api, social, player, page.userId, socialBack, openChat)
         }
     }
     val socialKey = socialPages.lastOrNull()

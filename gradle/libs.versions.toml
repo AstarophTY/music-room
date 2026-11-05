@@ -22,11 +22,14 @@ qrose = "1.1.1"
 testcontainers = "1.21.4"
 junit = "6.1.3"
 androidx-activity = "1.13.0"
+# MP3 decoding for the desktop app (Java Sound reads only WAV on its own).
+mp3spi = "1.9.5.4"
 android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
 
 [libraries]
+mp3spi = { module = "com.googlecode.soundlibs:mp3spi", version.ref = "mp3spi" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
