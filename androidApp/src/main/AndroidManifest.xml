@@ -5,15 +5,21 @@
     <!-- Events whose votes are limited to an area: the server checks where the user is. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <queries>
+        <package android:name="com.apple.android.music" />
+    </queries>
 
     <application
+            tools:replace="android:allowBackup"
             android:allowBackup="false"
             android:dataExtractionRules="@xml/data_extraction_rules"
             android:icon="@drawable/ic_launcher"
-            android:label="Music Room"
+            android:label="@string/app_name"
             android:supportsRtl="true"
             android:usesCleartextTraffic="true"
             android:theme="@android:style/Theme.Material.Light.NoActionBar" tools:ignore="DataExtractionRules">
+        <activity android:name="com.apple.android.sdk.authentication.SDKUriHandlerActivity"
+            android:theme="@style/MusicKitAuthTheme" tools:node="merge" />
         <activity
             android:name=".MainActivity"
             android:exported="true">

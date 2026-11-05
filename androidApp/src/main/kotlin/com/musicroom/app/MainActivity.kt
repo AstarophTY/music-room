@@ -5,7 +5,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.view.WindowCompat
+import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.shared.ClientInfo
 import com.musicroom.shared.MusicRoomApi
 import io.ktor.client.engine.okhttp.OkHttp
@@ -25,8 +27,10 @@ class MainActivity : ComponentActivity() {
         api = MusicRoomApi(AppEnv.BACKEND_URL, clientInfo, OkHttp, AndroidTokenStore(this))
         val socialSignIn = AndroidSocialSignIn(this, AppEnv.GOOGLE_CLIENT_ID)
         val settings = AndroidAppSettings(this)
+        val appleMusic = AndroidAppleMusicConnection(this)
 
         setContent {
+            CompositionLocalProvider(AppleMusicConnection.Local provides appleMusic) {
             App(
                 api = api,
                 socialSignIn = socialSignIn,
@@ -39,6 +43,7 @@ class MainActivity : ComponentActivity() {
                     }
                 },
             )
+            }
         }
     }
 

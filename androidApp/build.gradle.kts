@@ -28,6 +28,11 @@ android {
 }
 
 dependencies {
+    implementation(files("libs/MusicKitAuth-release-1.1.5.aar"))
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.6.1")
+    implementation("com.squareup.picasso:picasso:2.5.2")
+    implementation("com.google.code.gson:gson:2.8.6")
     implementation(project(":composeApp"))
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
