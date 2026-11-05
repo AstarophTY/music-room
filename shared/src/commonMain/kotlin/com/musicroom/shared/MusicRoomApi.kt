@@ -7,6 +7,18 @@ import com.musicroom.shared.dto.ArtistDetailResponse
 import com.musicroom.shared.dto.AuthResponse
 import com.musicroom.shared.dto.ChangePasswordRequest
 import com.musicroom.shared.dto.CreatePlaylistRequest
+import com.musicroom.shared.dto.ConversationsResponse
+import com.musicroom.shared.dto.FriendsResponse
+import com.musicroom.shared.dto.MessageResponse
+import com.musicroom.shared.dto.MessagesResponse
+import com.musicroom.shared.dto.NotificationsResponse
+import com.musicroom.shared.dto.PublicUserResponse
+import com.musicroom.shared.dto.SendMessageRequest
+import com.musicroom.shared.dto.SocialClientEvent
+import com.musicroom.shared.dto.SocialEvent
+import com.musicroom.shared.dto.SocialCountsResponse
+import com.musicroom.shared.dto.UserProfileResponse
+import com.musicroom.shared.dto.UsersResponse
 import com.musicroom.shared.dto.DevicesResponse
 import com.musicroom.shared.dto.ErrorResponse
 import com.musicroom.shared.dto.ForgotPasswordRequest
@@ -52,6 +64,7 @@ import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
@@ -65,6 +78,11 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.http.takeFrom
+import io.ktor.websocket.Frame
+import io.ktor.websocket.readText
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.launch
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -288,6 +306,88 @@ class MusicRoomApi(
     /** Removes a member (owner), or leaves the playlist when [userId] is the user's own id. */
     suspend fun removePlaylistMember(id: String, userId: String) {
         authorized(HttpMethod.Delete, ApiRoutes.playlistMember(id, userId)).throwIfError()
+    }
+
+    /** Adds one of the user's friends to the playlist (they get a notification). */
+    suspend fun addPlaylistFriend(id: String, userId: String, access: PlaylistAccess): PlaylistDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.playlistMembers(id)) {
+            jsonBody(AddPlaylistMemberRequest(access = access, userId = userId))
+        }.bodyOrThrow()
+
+    /** Users whose name contains [query], with how they relate to the user. */
+    suspend fun searchUsers(query: String): UsersResponse =
+        authorized(HttpMethod.Get, ApiRoutes.USERS_SEARCH) { url.parameters.append("q", query) }.bodyOrThrow()
+
+    suspend fun userProfile(userId: String): UserProfileResponse =
+        authorized(HttpMethod.Get, ApiRoutes.userProfile(userId)).bodyOrThrow()
+
+    suspend fun friends(): FriendsResponse = authorized(HttpMethod.Get, ApiRoutes.FRIENDS).bodyOrThrow()
+
+    /** Asks [userId] to be friends, or accepts their request. Returns them with the new status. */
+    suspend fun addFriend(userId: String): PublicUserResponse =
+        authorized(HttpMethod.Post, ApiRoutes.friend(userId)).bodyOrThrow()
+
+    /** Removes a friend, takes back a request, or declines one. */
+    suspend fun removeFriend(userId: String) {
+        authorized(HttpMethod.Delete, ApiRoutes.friend(userId)).throwIfError()
+    }
+
+    suspend fun conversations(): ConversationsResponse = authorized(HttpMethod.Get, ApiRoutes.CONVERSATIONS).bodyOrThrow()
+
+    /** A page of the chat with [userId], oldest first; [before] (epoch ms) loads older messages. */
+    suspend fun messages(userId: String, before: Long? = null): MessagesResponse =
+        authorized(HttpMethod.Get, ApiRoutes.conversationMessages(userId)) {
+            before?.let { url.parameters.append("before", it.toString()) }
+        }.bodyOrThrow()
+
+    suspend fun sendMessage(userId: String, body: String): MessageResponse =
+        authorized(HttpMethod.Post, ApiRoutes.conversationMessages(userId)) { jsonBody(SendMessageRequest(body)) }.bodyOrThrow()
+
+    /** The user saw the chat with [userId]. */
+    suspend fun markConversationRead(userId: String) {
+        authorized(HttpMethod.Post, ApiRoutes.conversationRead(userId)).throwIfError()
+    }
+
+    suspend fun notifications(): NotificationsResponse = authorized(HttpMethod.Get, ApiRoutes.NOTIFICATIONS).bodyOrThrow()
+
+    suspend fun markNotificationsRead() {
+        authorized(HttpMethod.Post, ApiRoutes.NOTIFICATIONS_READ).throwIfError()
+    }
+
+    suspend fun socialCounts(): SocialCountsResponse = authorized(HttpMethod.Get, ApiRoutes.SOCIAL_COUNTS).bodyOrThrow()
+
+    /**
+     * Listens to the live social events until the connection closes (or the caller is cancelled): [onOpen] runs
+     * once connected, [onEvent] for each event, and what arrives in [outgoing] is sent to the server.
+     * A first API call makes sure the access token is fresh, since a WebSocket cannot refresh it.
+     */
+    suspend fun socialEvents(
+        outgoing: ReceiveChannel<SocialClientEvent>,
+        onOpen: suspend () -> Unit,
+        onEvent: suspend (SocialEvent) -> Unit,
+    ) {
+        socialCounts()
+        val token = accessToken ?: throw notLoggedIn()
+        val wsUrl = url(ApiRoutes.SOCIAL_WS).replaceFirst("http", "ws")
+        http.webSocket({
+            url.takeFrom(wsUrl)
+            url.parameters.append("token", token)
+        }) {
+            val sender = launch {
+                for (event in outgoing) send(Frame.Text(MusicRoomJson.encodeToString(SocialClientEvent.serializer(), event)))
+            }
+            try {
+                onOpen()
+                for (frame in incoming) {
+                    if (frame !is Frame.Text) continue
+                    // An event this version does not know is skipped.
+                    val event = runCatching { MusicRoomJson.decodeFromString(SocialEvent.serializer(), frame.readText()) }.getOrNull()
+                    if (event != null) onEvent(event)
+                }
+            } finally {
+                sender.cancel()
+            }
+        }
     }
 
     /** Downloads a public file (album cover...). */

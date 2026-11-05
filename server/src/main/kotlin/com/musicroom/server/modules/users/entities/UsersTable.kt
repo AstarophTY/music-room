@@ -6,6 +6,7 @@ import org.jetbrains.exposed.v1.javatime.timestampWithTimeZone
 object UsersTable : UUIDTable("users") {
     val email = varchar("email", 320).uniqueIndex()
     val passwordHash = varchar("password_hash", 255).nullable()
+    /** Unique whatever the case (index on lower(display_name), see V11). */
     val displayName = varchar("display_name", 64)
     val emailVerified = bool("email_verified").default(false)
     val termsAcceptedAt = timestampWithTimeZone("terms_accepted_at").nullable()

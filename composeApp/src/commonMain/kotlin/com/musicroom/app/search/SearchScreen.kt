@@ -62,6 +62,7 @@ import com.musicroom.app.generated.resources.genre_pop
 import com.musicroom.app.generated.resources.genre_rock
 import com.musicroom.app.generated.resources.search_browse
 import com.musicroom.app.generated.resources.search_load_more
+import com.musicroom.app.generated.resources.search_no_people
 import com.musicroom.app.generated.resources.search_no_results
 import com.musicroom.app.generated.resources.search_placeholder
 import com.musicroom.app.generated.resources.search_see_all
@@ -71,6 +72,9 @@ import com.musicroom.app.music.SpotifyConnectCard
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
+import com.musicroom.app.social.FriendButton
+import com.musicroom.app.social.PersonRow
+import com.musicroom.app.social.SocialController
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.components.AppChip
@@ -79,6 +83,7 @@ import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.PublicUserResponse
 import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.UserResponse
@@ -88,8 +93,9 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Search in the Spotify catalog (songs, artists and albums). Typing searches after a short pause; a mood tile
- * searches its genre. "All" shows a few of each kind, the chips one kind only (songs page by page).
+ * Search in the Spotify catalog (songs, artists and albums) and among Music Room users by name. Typing searches
+ * after a short pause; a mood tile searches its genre. "All" shows a few of each kind, the chips one kind only
+ * (songs page by page). People can be found without a Spotify account; tapping one opens their profile ([onOpenUser]).
  * Tapping a song plays it with the other songs queued after it; its "..." or a swipe to the right adds it to
  * the queue. Artists and albums open their page in place of the results; back returns to them.
  */
@@ -99,7 +105,9 @@ fun SearchScreen(
     api: MusicRoomApi,
     user: UserResponse,
     player: PlayerController,
+    social: SocialController,
     onSpotifyConnected: () -> Unit,
+    onOpenUser: (String) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var mood by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -109,6 +117,9 @@ fun SearchScreen(
     var nextOffset by remember { mutableStateOf<Int?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiText?>(null) }
+    // Music Room users whose name matches; null while not searched.
+    var people by remember { mutableStateOf<List<PublicUserResponse>?>(null) }
+    var peopleError by remember { mutableStateOf<UiText?>(null) }
     // Artist and album pages opened from the results, the last one on top: "artist|<id>|<name>".
     var pages by rememberSaveable { mutableStateOf(listOf<String>()) }
     var opening by remember { mutableStateOf(true) }
@@ -132,6 +143,10 @@ fun SearchScreen(
     val tileColors = listOf(colors.accentSubtle, colors.accentSubtleStrong, colors.surfaceSubtle)
     val selectedMood = mood?.let { moods.getOrNull(it) }
     val searchQuery = selectedMood?.let { "genre:\"${it.third}\"" } ?: query.trim()
+    // A mood is a Spotify genre: no one to find.
+    val peopleQuery = if (selectedMood == null) query.trim() else ""
+    // Topped by the user with exactly this name (names are unique).
+    val topPeopleCount = 3
 
     LaunchedEffect(searchQuery, user.spotifyConnected) {
         found = null
@@ -153,6 +168,20 @@ fun SearchScreen(
             error = UiText.of(e)
         }
         loading = false
+    }
+
+    LaunchedEffect(peopleQuery) {
+        people = null
+        peopleError = null
+        if (peopleQuery.isEmpty()) return@LaunchedEffect
+        delay(350)
+        try {
+            people = api.searchUsers(peopleQuery).items
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            peopleError = UiText.of(e)
+        }
     }
 
     fun loadMoreTracks(offset: Int) {
@@ -223,6 +252,32 @@ fun SearchScreen(
         }
     }
 
+    // People found, each with the friendship button; the status changes in place.
+    val peopleRows: @Composable (List<PublicUserResponse>) -> Unit = { shown ->
+        Column {
+            shown.forEach { person ->
+                PersonRow(api, person, onClick = { onOpenUser(person.id) }) {
+                    FriendButton(
+                        social,
+                        person,
+                        onChange = { status -> people = people?.map { if (it.id == person.id) it.copy(friendship = status) else it } },
+                        onError = { peopleError = it },
+                    )
+                }
+            }
+        }
+    }
+    val peopleResults: @Composable () -> Unit = {
+        val found = people
+        val failure = peopleError
+        when {
+            failure != null -> Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
+            found == null -> Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+            found.isEmpty() -> Text(stringResource(Res.string.search_no_people), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+            else -> peopleRows(found)
+        }
+    }
+
     val results: @Composable () -> Unit = {
         TabContent {
             AppTextField(
@@ -236,6 +291,13 @@ fun SearchScreen(
                 leadingIcon = Lucide.Search,
             )
             if (!user.spotifyConnected) {
+                // Without Spotify, only people can be searched.
+                if (peopleQuery.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                        SectionTitle(stringResource(SearchFilter.People.label))
+                        peopleResults()
+                    }
+                }
                 SpotifyConnectCard(api, onConnected = onSpotifyConnected)
             } else if (searchQuery.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
@@ -244,7 +306,7 @@ fun SearchScreen(
                             Modifier.weight(1f).horizontalScroll(rememberScrollState()),
                             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
                         ) {
-                            SearchFilter.entries.forEach {
+                            SearchFilter.entries.filter { it != SearchFilter.People || peopleQuery.isNotEmpty() }.forEach {
                                 AppChip(stringResource(it.label), selected = filter == it, onClick = { filter = it })
                             }
                         }
@@ -256,13 +318,15 @@ fun SearchScreen(
                     }
                     val result = found
                     val failure = error
+                    val foundPeople = people.orEmpty()
                     when {
+                        filter == SearchFilter.People -> peopleResults()
                         result == null && loading ->
                             Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
                         result == null && failure != null ->
                             Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
                         result == null -> Unit
-                        tracks.isEmpty() && result.artists.isEmpty() && result.albums.isEmpty() ->
+                        tracks.isEmpty() && result.artists.isEmpty() && result.albums.isEmpty() && foundPeople.isEmpty() ->
                             Text(stringResource(Res.string.search_no_results), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
                         else -> AnimatedContent(
                             filter,
@@ -271,6 +335,15 @@ fun SearchScreen(
                             Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg)) {
                                 when (shown) {
                                     SearchFilter.All -> {
+                                        if (foundPeople.isNotEmpty()) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                                                sectionHeader(
+                                                    stringResource(SearchFilter.People.label),
+                                                    SearchFilter.People.takeIf { foundPeople.size > topPeopleCount },
+                                                )
+                                                peopleRows(foundPeople.take(topPeopleCount))
+                                            }
+                                        }
                                         if (tracks.isNotEmpty()) {
                                             Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
                                                 sectionHeader(stringResource(SearchFilter.Tracks.label), SearchFilter.Tracks.takeIf { tracks.size > topTrackCount })
@@ -316,6 +389,8 @@ fun SearchScreen(
                                         val artist = result.artists[index]
                                         ArtistCard(api, artist, { open(artistPage, artist.id, artist.name) }, modifier)
                                     }
+                                    // Shown above, outside the Spotify results.
+                                    SearchFilter.People -> Unit
                                     SearchFilter.Albums -> grid(result.albums.size, if (compact) 2 else 4) { index, modifier ->
                                         val album = result.albums[index]
                                         AlbumCard(api, album, { open(albumPage, album.id, album.name) }, modifier)

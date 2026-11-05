@@ -81,7 +81,7 @@ class EmailTwoFactorTest {
 
     private suspend fun HttpClient.register(): Pair<String, String> {
         val email = "user-${UUID.randomUUID()}@example.com"
-        val auth = postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, PASSWORD, "Alice", acceptedTerms = true)).body<AuthResponse>()
+        val auth = postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, PASSWORD, "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true)).body<AuthResponse>()
         return email to auth.accessToken
     }
 

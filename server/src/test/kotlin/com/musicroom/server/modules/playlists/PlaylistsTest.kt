@@ -87,7 +87,7 @@ class PlaylistsTest {
         val email = "user-${UUID.randomUUID()}@example.com"
         val auth: AuthResponse = post(ApiRoutes.AUTH_REGISTER) {
             contentType(ContentType.Application.Json)
-            setBody(RegisterRequest(email, "hunter42abc", "Alice", acceptedTerms = true))
+            setBody(RegisterRequest(email, "hunter42abc", "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true))
         }.body()
         val connect: SpotifyConnectResponse = post(ApiRoutes.SPOTIFY_CONNECT) { bearerAuth(auth.accessToken) }.body()
         get(ApiRoutes.SPOTIFY_CALLBACK) {
@@ -130,7 +130,7 @@ class PlaylistsTest {
         client.addTrack(owner, created.id, "t1")
         val detail: PlaylistDetailResponse = client.addTrack(owner, created.id, "t2").body()
         assertEquals(listOf("t1", "t2"), detail.tracks.map { it.track.id })
-        assertEquals("Alice", detail.tracks.first().addedBy)
+        assertEquals(detail.playlist.owner.displayName, detail.tracks.first().addedBy)
         assertEquals(detail.playlist.owner.userId, detail.tracks.first().addedById)
 
         val again = client.addTrack(owner, created.id, "t1")

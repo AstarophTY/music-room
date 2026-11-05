@@ -85,4 +85,29 @@ object ApiRoutes {
     const val USER_AVATAR = "$USERS/{id}/avatar"
 
     fun userAvatar(userId: String) = "$USERS/$userId/avatar"
+
+    const val USERS_SEARCH = "$USERS/search"
+    const val USER_PROFILE = "$USERS/{id}"
+
+    fun userProfile(userId: String) = "$USERS/$userId"
+
+    const val FRIENDS = "$API_V1/friends"
+    const val FRIEND = "$FRIENDS/{userId}"
+
+    fun friend(userId: String) = "$FRIENDS/$userId"
+
+    const val CONVERSATIONS = "$API_V1/conversations"
+    const val CONVERSATION_MESSAGES = "$CONVERSATIONS/{userId}/messages"
+    const val CONVERSATION_READ = "$CONVERSATIONS/{userId}/read"
+
+    fun conversationMessages(userId: String) = "$CONVERSATIONS/$userId/messages"
+
+    fun conversationRead(userId: String) = "$CONVERSATIONS/$userId/read"
+
+    const val NOTIFICATIONS = "$API_V1/notifications"
+    const val NOTIFICATIONS_READ = "$NOTIFICATIONS/read"
+    const val SOCIAL_COUNTS = "$API_V1/social/counts"
+
+    /** WebSocket of live social events; the access token goes in the "token" query parameter. */
+    const val SOCIAL_WS = "$API_V1/social/ws"
 }

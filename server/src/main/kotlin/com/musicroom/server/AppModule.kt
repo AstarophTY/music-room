@@ -21,6 +21,7 @@ import com.musicroom.server.config.AppConfig
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
 import com.musicroom.server.modules.playlists.PlaylistsModule
+import com.musicroom.server.modules.social.SocialModule
 import com.musicroom.server.modules.spotify.SpotifyModule
 import com.musicroom.server.modules.spotify.client.SpotifyApi
 import com.musicroom.server.modules.spotify.client.SpotifyHttpApi
@@ -54,12 +55,15 @@ class AppModule(
 
     val spotify = SpotifyModule(database, users.repository, config.spotify, spotifyApi, jwtService, secretBox)
 
+    val social = SocialModule(database, users.repository, jwtService)
+
     val modules: List<Module> = listOf(
         SystemModule(config, database),
         users,
         auth,
         spotify,
-        PlaylistsModule(database, users.repository, spotify.service),
+        PlaylistsModule(database, users.repository, spotify.service, social.service),
+        social,
     )
 }
 

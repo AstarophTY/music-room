@@ -81,7 +81,7 @@ class PasswordResetTest {
     private fun codeIn(mail: Mail) = Regex("\\b\\d{6}\\b").find(mail.subject)!!.value
 
     private suspend fun HttpClient.signUp(email: String): AuthResponse =
-        postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, OLD, "Alice", acceptedTerms = true)).body()
+        postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, OLD, "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true)).body()
 
     @Test
     fun `reset code sets a new password, signs out other devices and sends an alert`() = testApplication {

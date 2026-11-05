@@ -9,6 +9,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,6 +25,7 @@ import com.composables.icons.lucide.Mail
 import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.X
 import com.musicroom.app.common.MemberAvatar
+import com.musicroom.app.common.PersonAvatar
 import com.musicroom.app.common.SectionTitle
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
@@ -31,6 +33,7 @@ import com.musicroom.app.generated.resources.playlist_access_read
 import com.musicroom.app.generated.resources.playlist_access_write
 import com.musicroom.app.generated.resources.playlist_invite
 import com.musicroom.app.generated.resources.playlist_invite_email
+import com.musicroom.app.generated.resources.playlist_invite_friends
 import com.musicroom.app.generated.resources.playlist_leave
 import com.musicroom.app.generated.resources.playlist_member_remove
 import com.musicroom.app.generated.resources.playlist_members
@@ -46,14 +49,16 @@ import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistAccess
 import com.musicroom.shared.dto.PlaylistDetailResponse
 import com.musicroom.shared.dto.PlaylistMemberResponse
+import com.musicroom.shared.dto.PublicUserResponse
 import com.musicroom.shared.dto.PlaylistType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Who is in the playlist and what they can do. The owner adds people by email with "can listen" or
- * "can edit" (only for a shared playlist), changes their rights and removes them; a member can leave.
+ * Who is in the playlist and what they can do. The owner adds friends in one tap (they get a notification) or
+ * anyone by email, with "can listen" or "can edit" (only for a shared playlist), changes their rights and
+ * removes them; a member can leave.
  */
 @Composable
 fun PlaylistMembersSection(
@@ -72,6 +77,18 @@ fun PlaylistMembersSection(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiText?>(null) }
     val inviteAccess = if (shared) access else PlaylistAccess.READ
+    // The owner's friends, to invite in one tap. Null until loaded (or when it failed: the email still works).
+    var friends by remember { mutableStateOf<List<PublicUserResponse>?>(null) }
+    LaunchedEffect(playlist.isOwner) {
+        if (!playlist.isOwner) return@LaunchedEffect
+        friends = try {
+            api.friends().friends
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            null
+        }
+    }
 
     fun run(action: suspend () -> Unit) {
         busy = true
@@ -141,6 +158,35 @@ fun PlaylistMembersSection(
         }
 
         if (playlist.isOwner) {
+            val memberIds = detail.members.map { it.userId }.toSet() + playlist.owner.userId
+            val invitable = friends.orEmpty().filter { it.id !in memberIds }
+            if (invitable.isNotEmpty()) {
+                Text(stringResource(Res.string.playlist_invite_friends), style = AppTheme.typography.label, color = colors.textSecondary)
+                invitable.forEach { friend ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PersonAvatar(api, friend.id, friend.displayName, friend.avatarColor, friend.avatarVersion)
+                        Text(
+                            friend.displayName,
+                            style = AppTheme.typography.label,
+                            color = colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        AppButton(
+                            stringResource(Res.string.playlist_invite),
+                            { run { onChange(api.addPlaylistFriend(playlist.id, friend.id, inviteAccess)) } },
+                            enabled = !busy,
+                            variant = AppButtonVariant.Secondary,
+                            icon = Lucide.UserPlus,
+                        )
+                    }
+                }
+            }
             AppTextField(
                 email,
                 { email = it },

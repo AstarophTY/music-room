@@ -55,7 +55,7 @@ class SocialLinksTest {
 
     private suspend fun HttpClient.signUp(): AuthResponse = post(ApiRoutes.AUTH_REGISTER) {
         contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("user-${UUID.randomUUID()}@example.com", "hunter42abc", "Alice", acceptedTerms = true))
+        setBody(RegisterRequest("user-${UUID.randomUUID()}@example.com", "hunter42abc", "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true))
     }.body()
 
     private suspend fun HttpClient.putLinks(token: String, vararg links: SocialLink) = put(ApiRoutes.USERS_ME_SOCIAL_LINKS) {

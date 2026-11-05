@@ -43,6 +43,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @Testcontainers(disabledWithoutDocker = true)
 class AvatarTest {
@@ -62,7 +63,7 @@ class AvatarTest {
 
     private suspend fun HttpClient.signUp(): AuthResponse = post(ApiRoutes.AUTH_REGISTER) {
         contentType(ContentType.Application.Json)
-        setBody(RegisterRequest("user-${UUID.randomUUID()}@example.com", "hunter42abc", "Alice", acceptedTerms = true))
+        setBody(RegisterRequest("user-${UUID.randomUUID()}@example.com", "hunter42abc", "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true))
     }.body()
 
     private fun png(width: Int, height: Int): ByteArray =
@@ -114,6 +115,6 @@ class AvatarTest {
             setBody(UpdateProfileRequest(avatarColor = AvatarColor.IRIS))
         }
         assertEquals(AvatarColor.IRIS, response.body<UserResponse>().avatarColor)
-        assertEquals("Alice", response.body<UserResponse>().displayName)
+        assertTrue(response.body<UserResponse>().displayName.startsWith("Alice "))
     }
 }
