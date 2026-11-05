@@ -96,6 +96,8 @@ kotlin {
                 )
                 implementation(libs.ktor.client.okhttp)
                 implementation(libs.kotlinx.coroutines.swing)
+                // Plays the songs uploaded to Music Room (MP3).
+                implementation(libs.mp3spi.get().toString()) { exclude(group = "junit") }
             }
         }
         androidMain.dependencies {

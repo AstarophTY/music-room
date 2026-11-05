@@ -27,12 +27,16 @@ import com.composables.icons.lucide.KeyRound
 import com.composables.icons.lucide.Link
 import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Music
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Pencil
 import com.composables.icons.lucide.ShieldCheck
+import com.composables.icons.lucide.Sparkles
 import com.musicroom.app.auth.TermsDialog
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.logout
+import com.musicroom.app.generated.resources.my_songs_title
+import com.musicroom.app.generated.resources.premium_title
 import com.musicroom.app.generated.resources.profile_appearance
 import com.musicroom.app.generated.resources.profile_edit
 import com.musicroom.app.generated.resources.profile_password
@@ -92,6 +96,8 @@ fun SettingsSideBar(
 
         section(stringResource(Res.string.profile_section_music))
         page(ProfileRoute.Spotify, Lucide.AudioLines, stringResource(Res.string.spotify_title))
+        page(ProfileRoute.MySongs, Lucide.Music, stringResource(Res.string.my_songs_title))
+        page(ProfileRoute.Premium, Lucide.Sparkles, stringResource(Res.string.premium_title))
 
         section(stringResource(Res.string.profile_section_security))
         page(ProfileRoute.ChangePassword, Lucide.KeyRound, stringResource(Res.string.profile_password))

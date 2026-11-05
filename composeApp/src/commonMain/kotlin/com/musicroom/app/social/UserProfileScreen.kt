@@ -30,7 +30,11 @@ import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.friend_count
 import com.musicroom.app.generated.resources.message_write
 import com.musicroom.app.generated.resources.social_section
+import com.musicroom.app.generated.resources.user_profile_songs
 import com.musicroom.app.generated.resources.user_profile_title
+import com.musicroom.app.music.TrackMoreButton
+import com.musicroom.app.music.TrackRow
+import com.musicroom.app.player.PlayerController
 import com.musicroom.app.profile.SettingsRow
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
@@ -38,18 +42,20 @@ import com.musicroom.app.theme.components.AppCard
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.FriendshipStatus
+import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.UserProfileResponse
 import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Another user's page: photo, name, how many friends they have, their social links, and the friendship button.
- * Friends also get a button to chat.
+ * Friends also get a button to chat. The songs they uploaded to Music Room come last, playable in the app.
  */
 @Composable
 fun UserProfileScreen(
     api: MusicRoomApi,
     social: SocialController,
+    player: PlayerController,
     userId: String,
     onBack: () -> Unit,
     onOpenChat: (String) -> Unit,
@@ -58,6 +64,8 @@ fun UserProfileScreen(
     val uriHandler = LocalUriHandler.current
     var profile by remember(userId) { mutableStateOf<UserProfileResponse?>(null) }
     var error by remember { mutableStateOf<UiText?>(null) }
+    // The songs they uploaded to Music Room.
+    var songs by remember(userId) { mutableStateOf<List<TrackResponse>>(emptyList()) }
     val pop = remember { Animatable(0f) }
 
     // Loaded again when the friendship changes from elsewhere (a request accepted on another device...).
@@ -68,6 +76,15 @@ fun UserProfileScreen(
             throw e
         } catch (e: Exception) {
             error = UiText.of(e)
+        }
+    }
+    LaunchedEffect(userId) {
+        songs = try {
+            api.userTracks(userId).items
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            emptyList()
         }
     }
     LaunchedEffect(profile != null) {
@@ -151,6 +168,25 @@ fun UserProfileScreen(
                                 onClick = { if (url != null) runCatching { uriHandler.openUri(url) } },
                                 value = "@${link.handle}",
                                 showChevron = url != null,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        if (songs.isNotEmpty()) {
+            Reveal(5) {
+                Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                    Text(stringResource(Res.string.user_profile_songs), style = AppTheme.typography.label, color = colors.textSecondary)
+                    Column {
+                        songs.forEachIndexed { index, song ->
+                            TrackRow(
+                                api,
+                                song,
+                                playing = player.track?.id == song.id,
+                                onClick = { player.play(songs, index) },
+                                trailing = { TrackMoreButton(api, player, song) },
+                                onSwipeRight = { player.addToQueue(listOf(song)) },
                             )
                         }
                     }

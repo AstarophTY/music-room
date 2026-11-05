@@ -36,6 +36,11 @@ import kotlin.time.TimeSource
  * Spotify cannot reorder or remove songs from its queue, so songs added in the app wait in [upNext], in the
  * order the user chooses. The first one is handed to Spotify shortly before the current track ends (or on
  * "next"); from then on it can no longer move ([sentKey]).
+ *
+ * Songs uploaded to Music Room are played by the app itself ([HostedPlayback]), Spotify waiting paused meanwhile
+ * ([playingHosted]). A list holding some of them is played by the app song after song ([appList]): each Spotify song
+ * is started on its own, and the next one starts when it ends. An uploaded song queued during a Spotify album or
+ * playlist pauses it, which goes on afterwards ([resumeSpotify]).
  */
 @Stable
 class PlayerController(private val api: MusicRoomApi, private val scope: CoroutineScope) {
@@ -91,6 +96,27 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** A command sent by the focused event, allowed while [lockedByEvent]. */
     private var eventCommand = false
 
+    /** The song playing was uploaded to Music Room: the app plays it, Spotify waits paused. */
+    var playingHosted by mutableStateOf(false)
+        private set
+
+    /** A list the app plays song after song, as it holds uploaded songs; null while Spotify plays on its own. */
+    private var appList by mutableStateOf<List<TrackResponse>?>(null)
+    private var appIndex by mutableStateOf(0)
+
+    /** Spotify was paused in an album or playlist for uploaded songs: it goes on after them. */
+    private var resumeSpotify = false
+
+    private val hosted = HostedPlayback(
+        api,
+        scope,
+        onEnded = { advance() },
+        onError = { e ->
+            error = UiText.of(e)
+            state?.let { update(it.copy(isPlaying = false)) }
+        },
+    )
+
     private var queueChanges by mutableStateOf(0)
     private var noticeJob: Job? = null
     private var nextKey = 0L
@@ -117,6 +143,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** What Spotify plays after [upNext] on its own; the song already handed to it is left out. */
     val following: List<TrackResponse>
         get() {
+            appList?.let { return it.drop(appIndex + 1) }
+            if (playingHosted && !resumeSpotify) return emptyList()
             val sentId = upNext.firstOrNull { it.key == sentKey }?.track?.id ?: return spotifyQueue
             val index = spotifyQueue.indexOfFirst { it.id == sentId }
             return if (index < 0) spotifyQueue else spotifyQueue.toMutableList().apply { removeAt(index) }
@@ -125,18 +153,29 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** Position in the track, moving forward between two syncs while it plays. */
     fun positionMs(): Long {
         val current = state ?: return 0
+        if (playingHosted) return current.track?.durationMs?.let { hosted.positionMs().coerceAtMost(it) } ?: hosted.positionMs()
         val elapsed = if (current.isPlaying) syncedAt.elapsedNow().inWholeMilliseconds else 0
         val position = current.progressMs + elapsed
         return current.track?.durationMs?.let { position.coerceAtMost(it) } ?: position
     }
 
-    /** Plays [tracks] from [index]; the rest of the list follows as the queue. */
+    /**
+     * Plays [tracks] from [index]; the rest of the list follows as the queue. Spotify plays a list of Spotify songs
+     * on its own; with uploaded songs in it, the app plays it song after song.
+     */
     fun play(tracks: List<TrackResponse>, index: Int) {
-        if (!requireSpotify()) return
         val track = tracks.getOrNull(index) ?: return
-        update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = state?.deviceName))
-        waitFor(track.id)
-        command { api.play(tracks.map { it.uri }, index) }
+        if (tracks.none { it.hosted }) {
+            if (!requireSpotify()) return
+            appList = null
+            playOnSpotify(track) { api.play(tracks.map { it.uri }, index) }
+            return
+        }
+        if (!allowed()) return
+        appList = tracks
+        appIndex = index
+        resumeSpotify = false
+        playSingle(track)
     }
 
     /** Plays [playlist] as a whole from [index]; [tracks] (when Spotify listed them) shows the track right away. */
@@ -152,15 +191,24 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     private fun playContext(uri: String, tracks: List<TrackResponse>, index: Int) {
         if (!requireSpotify()) return
         val track = tracks.getOrNull(index)
+        val device = spotifyDevice()
+        appList = null
+        resumeSpotify = false
+        leaveHosted()
         track?.let {
-            update(PlaybackStateResponse(active = true, isPlaying = true, track = it, deviceName = state?.deviceName))
+            update(PlaybackStateResponse(active = true, isPlaying = true, track = it, deviceName = device))
         }
         waitFor(track?.id)
         command { api.play(index = index, contextUri = uri) }
     }
 
     /** Plays [following] from its track at [index]; the tracks after it follow. */
-    fun playFollowing(index: Int) = play(following, index)
+    fun playFollowing(index: Int) {
+        val list = appList ?: return play(following, index)
+        if (!allowed()) return
+        appIndex += 1 + index
+        list.getOrNull(appIndex)?.let { playSingle(it) }
+    }
 
     /** Adds [tracks] at the end of [upNext], proposed by [proposer] (the user by default). */
     fun addToQueue(tracks: List<TrackResponse>, proposer: Proposer? = null) =
@@ -173,7 +221,13 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>) {
         val toEvent = proposeToEvent
         if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
-        if (songs.isEmpty() || !requireSpotify()) return
+        if (songs.isEmpty()) return
+        // Uploaded songs play without Spotify.
+        if (songs.all { it.first.hosted }) {
+            if (!allowed()) return
+        } else if (!requireSpotify()) {
+            return
+        }
         var added = songs.map { (track, proposer) -> QueueEntry(nextKey++, track, proposer) }
         upNext = upNext + added
         if (track == null) {
@@ -227,7 +281,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             }
             else -> {
                 removeFromQueue(entry.key)
-                play(listOf(entry.track), 0)
+                if (appDriven()) playSingle(entry.track) else play(listOf(entry.track), 0)
             }
         }
     }
@@ -254,7 +308,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Moves playback to [device], playing there unless it was paused. */
     fun transferTo(device: DeviceResponse) {
-        if (device.isActive) return
+        // An uploaded song plays in the app, not on a Spotify device.
+        if (device.isActive || playingHosted) return
         val play = state?.track == null || isPlaying
         devices = devices?.map { it.copy(isActive = it.id == device.id) }
         state?.let { update(it.copy(deviceName = device.name, progressMs = positionMs())) }
@@ -266,25 +321,140 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     fun togglePlay() {
         if (!allowed()) return
         val current = state ?: return
+        if (playingHosted) {
+            if (current.isPlaying) hosted.pause() else hosted.resume()
+            update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
+            return
+        }
         update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
         command { if (current.isPlaying) api.pause() else api.play() }
     }
 
-    /** Skips to the first [upNext] song, handing it to Spotify first, or to Spotify's next track. */
+    /** Skips to the first [upNext] song, or to the next song of the list. */
     fun next() {
-        if (!allowed()) return
-        val first = upNext.firstOrNull()
-        if (first != null && sentKey == null) send(first) { api.skipNext() } else command { api.skipNext() }
+        if (allowed()) advance()
     }
 
+    /** Back to the previous song of a list the app plays (at its start), else to the start of the song. */
     fun previous() {
-        if (allowed()) command { api.skipPrevious() }
+        if (!allowed()) return
+        val list = appList
+        when {
+            list != null && appIndex > 0 && positionMs() < RESTART_THRESHOLD.inWholeMilliseconds -> {
+                appIndex--
+                playSingle(list[appIndex])
+            }
+            playingHosted || list != null -> seek(0)
+            else -> command { api.skipPrevious() }
+        }
     }
 
     fun seek(positionMs: Long) {
         if (!allowed()) return
         state?.let { update(it.copy(progressMs = positionMs)) }
-        command { api.seek(positionMs) }
+        if (playingHosted) hosted.seek(positionMs) else command { api.seek(positionMs) }
+    }
+
+    /**
+     * Goes to what comes next: the first [upNext] song (handed to Spotify when Spotify plays on its own), else the next
+     * song of [appList], else Spotify's next track. At the end of the list, the last song stays, paused.
+     */
+    private fun advance() {
+        val first = upNext.firstOrNull()?.takeIf { sentKey == null }
+        val list = appList
+        when {
+            // Back to the paused Spotify album or playlist: the Spotify song goes before what it plays next.
+            first != null && playingHosted && resumeSpotify && !first.track.hosted -> {
+                leaveHosted()
+                resumeSpotify = false
+                send(first) { api.skipNext() }
+            }
+            first != null && appDriven() -> {
+                if (list == null && !playingHosted && first.track.hosted) resumeSpotify = true
+                upNext = upNext - first
+                playSingle(first.track)
+            }
+            first != null -> send(first) { api.skipNext() }
+            list != null && appIndex < list.lastIndex -> {
+                appIndex++
+                playSingle(list[appIndex])
+            }
+            playingHosted && resumeSpotify -> {
+                leaveHosted()
+                resumeSpotify = false
+                command { api.skipNext() }
+            }
+            playingHosted || list != null -> stopAtEnd()
+            else -> command { api.skipNext() }
+        }
+    }
+
+    /** The app chooses each song (a list with uploaded songs, or an uploaded song playing or next). */
+    private fun appDriven() = appList != null || playingHosted || upNext.firstOrNull()?.track?.hosted == true
+
+    /** Plays one song: in the app if it was uploaded to Music Room, else on Spotify. */
+    private fun playSingle(track: TrackResponse) {
+        if (track.hosted) {
+            startHosted(track)
+        } else if (requireSpotify()) {
+            playOnSpotify(track) { api.play(listOf(track.uri), 0) }
+        } else {
+            // No Spotify to play it: the list stops there.
+            stopAtEnd()
+        }
+    }
+
+    private fun playOnSpotify(track: TrackResponse, start: suspend () -> Unit) {
+        val device = spotifyDevice()
+        leaveHosted()
+        update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = device))
+        waitFor(track.id)
+        command(action = start)
+    }
+
+    private fun startHosted(track: TrackResponse) {
+        // Spotify goes quiet while the app plays.
+        if (!playingHosted && isPlaying) command { api.pause() }
+        playingHosted = true
+        stopWaiting()
+        update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
+        hosted.play(track)
+    }
+
+    private fun leaveHosted() {
+        if (!playingHosted) return
+        hosted.stop()
+        playingHosted = false
+    }
+
+    /** The list is over: its last song stays shown, paused at its start. */
+    private fun stopAtEnd() {
+        if (playingHosted) {
+            hosted.pause()
+            hosted.seek(0)
+        }
+        state?.let { update(it.copy(isPlaying = false, progressMs = 0)) }
+    }
+
+    /** The Spotify device last known (not the app, while it plays an uploaded song). */
+    private fun spotifyDevice(): String? = if (playingHosted) null else state?.deviceName
+
+    /** The app plays the list, or an uploaded song comes next: near the end of a Spotify song, it starts the next one. */
+    private fun advanceIfSpotifyEnding() {
+        if (!spotifyEndsSoon(END_MARGIN.inWholeMilliseconds)) return
+        advance()
+    }
+
+    private fun spotifyEndsSoon(withinMs: Long): Boolean {
+        if (lockedByEvent || playingHosted || !isPlaying || sentKey != null) return false
+        if (appList == null && upNext.firstOrNull()?.track?.hosted != true) return false
+        val duration = track?.durationMs ?: return false
+        return duration - positionMs() <= withinMs
+    }
+
+    /** Stops an uploaded song playing in the app (leaving the signed-in screens). Spotify plays on its own. */
+    fun release() {
+        leaveHosted()
     }
 
     /** Asks the user to link Spotify (e.g. to host an event's music). */
@@ -342,8 +512,12 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
                     val shown = state?.track
                     if (fetched.active && fetched.isPlaying && fetched.track == null && shown != null) fetched.copy(track = shown) else fetched
                 }
-                if (!isStillStarting(fetched)) update(fetched)
-                sendIfEnding()
+                // While the app plays an uploaded song, Spotify (paused) does not say what is shown.
+                if (!playingHosted) {
+                    if (!isStillStarting(fetched)) update(fetched)
+                    sendIfEnding()
+                    advanceIfSpotifyEnding()
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -351,6 +525,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             }
             val interval = when {
                 pendingUntil != null -> 1.seconds
+                // The app starts the next song itself: it watches the end closely.
+                spotifyEndsSoon(WATCH_END.inWholeMilliseconds) -> 500.milliseconds
                 isPlaying -> 5.seconds
                 else -> 15.seconds
             }
@@ -407,9 +583,9 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Hands the first [upNext] song to Spotify when the current track is about to end. */
     private fun sendIfEnding() {
-        // The event chooses what plays next.
-        if (lockedByEvent) return
-        val first = upNext.firstOrNull() ?: return
+        // The event chooses what plays next; the app starts the songs of its own lists and the uploaded ones.
+        if (lockedByEvent || playingHosted || appList != null) return
+        val first = upNext.firstOrNull()?.takeUnless { it.track.hosted } ?: return
         val duration = track?.durationMs ?: return
         if (sentKey != null || duration - positionMs() > SEND_BEFORE_END.inWholeMilliseconds) return
         send(first)
@@ -463,6 +639,18 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
         /** How long the confirmation of songs added to the queue stays. */
         private val NOTICE_DURATION = 4.seconds
+
+        /** Shown as the device while the app plays an uploaded song. */
+        const val HOSTED_DEVICE = "Music Room"
+
+        /** How long before the end of a Spotify song the app starts the next one of its list. */
+        private val END_MARGIN = 1.seconds
+
+        /** From how long before the end of a Spotify song the app checks it often. */
+        private val WATCH_END = 8.seconds
+
+        /** "Previous" restarts the song after this, and goes to the previous one before. */
+        private val RESTART_THRESHOLD = 3.seconds
 
         /** Opens the Spotify app on phones; on computers the web player, which also counts as a device. */
         const val SPOTIFY_WEB_URL = "https://open.spotify.com"

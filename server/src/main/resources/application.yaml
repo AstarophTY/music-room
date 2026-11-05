@@ -34,6 +34,16 @@ spotify:
   clientSecret: "$SPOTIFY_CLIENT_SECRET:"
   redirectUri: "$SPOTIFY_REDIRECT_URI:http://127.0.0.1:8080/api/v1/spotify/callback"
 
+# Music Room Premium, sold with Stripe (https://dashboard.stripe.com/apikeys). Leave STRIPE_SECRET_KEY empty to turn it off.
+# STRIPE_PRICE_ID: the monthly price of the Premium product. Webhook endpoint: <server>/api/v1/billing/webhook
+stripe:
+  secretKey: "$STRIPE_SECRET_KEY:"
+  webhookSecret: "$STRIPE_WEBHOOK_SECRET:"
+  priceId: "$STRIPE_PRICE_ID:"
+  returnUrl: "$STRIPE_RETURN_URL:http://127.0.0.1:8080/api/v1/billing/return"
+  # true: Stripe Tax adds the VAT at checkout (turn on Stripe Tax and add a registration first).
+  automaticTax: "$STRIPE_AUTOMATIC_TAX:false"
+
 # SMTP_HOST empty: emails are not sent, they are written to the server logs (make logs).
 mail:
   host: "$SMTP_HOST:"

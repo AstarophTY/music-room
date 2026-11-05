@@ -64,6 +64,24 @@ object ApiErrors {
     const val INVALID_IMAGE = "invalid_image"
     const val IMAGE_TOO_LARGE = "image_too_large"
 
+    /** Music Room Premium is needed (uploading songs). */
+    const val PREMIUM_REQUIRED = "premium_required"
+    const val ALREADY_PREMIUM = "already_premium"
+
+    /** The server has no Stripe account: Premium cannot be bought. */
+    const val BILLING_NOT_CONFIGURED = "billing_not_configured"
+
+    /** Stripe could not be reached or refused the request. */
+    const val BILLING_UNAVAILABLE = "billing_unavailable"
+
+    /** Uploaded songs: not an MP3 file, too big, or too many. */
+    const val INVALID_AUDIO = "invalid_audio"
+    const val AUDIO_TOO_LARGE = "audio_too_large"
+    const val HOSTED_TRACK_LIMIT = "hosted_track_limit"
+
+    /** Events play on Spotify: songs uploaded to Music Room cannot be proposed there. */
+    const val HOSTED_TRACK_NOT_ALLOWED = "hosted_track_not_allowed"
+
     /** Set by the client when the refresh token is no longer valid. */
     const val SESSION_EXPIRED = "session_expired"
 }

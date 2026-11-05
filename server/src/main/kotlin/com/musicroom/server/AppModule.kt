@@ -22,6 +22,9 @@ import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
 import com.musicroom.server.modules.events.EventsModule
 import com.musicroom.server.modules.playlists.PlaylistsModule
+import com.musicroom.server.modules.premium.PremiumModule
+import com.musicroom.server.modules.premium.stripe.StripeApi
+import com.musicroom.server.modules.premium.stripe.StripeHttpApi
 import com.musicroom.server.modules.social.SocialModule
 import com.musicroom.server.modules.spotify.SpotifyModule
 import com.musicroom.server.modules.spotify.client.SpotifyApi
@@ -39,6 +42,7 @@ class AppModule(
     emailSender: EmailSender = if (config.mail.host.isEmpty()) LogEmailSender() else SmtpEmailSender(config.mail),
     oauthVerifier: OAuthTokenVerifier = JwksOAuthTokenVerifier(config.oauth),
     spotifyApi: SpotifyApi = SpotifyHttpApi(config.spotify),
+    stripeApi: StripeApi = StripeHttpApi(config.stripe),
 ) {
     private val secretBox = SecretBox(config.jwt.secret)
     val jwtService = JwtService(config.jwt)
@@ -58,6 +62,8 @@ class AppModule(
 
     val social = SocialModule(database, users.repository, jwtService)
 
+    val premium = PremiumModule(database, users.repository, config.stripe, stripeApi)
+
     val events = EventsModule(database, spotify.service, social.service, jwtService)
 
     val modules: List<Module> = listOf(
@@ -65,9 +71,10 @@ class AppModule(
         users,
         auth,
         spotify,
-        PlaylistsModule(database, users.repository, spotify.service, social.service),
+        PlaylistsModule(database, users.repository, spotify.service, premium.tracks, social.service),
         social,
         events,
+        premium,
     )
 }
 
