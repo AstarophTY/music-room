@@ -85,6 +85,9 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     var lockedByEvent by mutableStateOf(false)
         private set
 
+    /** Proposes songs to the focused event; while [lockedByEvent], songs added to the queue go there. Set by the focus. */
+    var proposeToEvent: ((List<TrackResponse>) -> Unit)? = null
+
     /** A command sent by the focused event, allowed while [lockedByEvent]. */
     private var eventCommand = false
 
@@ -163,8 +166,13 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     fun addToQueue(tracks: List<TrackResponse>, proposer: Proposer? = null) =
         addProposed(tracks.map { it to (proposer ?: me) })
 
-    /** Adds songs at the end of [upNext], each with who proposed it, and confirms it in [queueNotice]. */
+    /**
+     * Adds songs at the end of [upNext], each with who proposed it, and confirms it in [queueNotice]. While an event
+     * is focused, the event's queue is the queue: the songs are proposed to it instead.
+     */
     fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>) {
+        val toEvent = proposeToEvent
+        if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
         if (songs.isEmpty() || !requireSpotify()) return
         var added = songs.map { (track, proposer) -> QueueEntry(nextKey++, track, proposer) }
         upNext = upNext + added
