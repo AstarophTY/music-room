@@ -32,8 +32,10 @@ val androidSdk: String? = localProps.getProperty("sdk.dir")
     ?: System.getenv("ANDROID_HOME")
     ?: System.getenv("ANDROID_SDK_ROOT")
 
+// Desktop and web don't need the Android SDK, so :composeApp is always built.
+include(":composeApp")
 if (androidSdk != null && file(androidSdk).exists()) {
-    include(":composeApp", ":androidApp")
+    include(":androidApp")
 } else {
-    logger.lifecycle("[music-room] No Android SDK found: skipping :composeApp and :androidApp modules.")
+    logger.lifecycle("[music-room] No Android SDK found: skipping the :androidApp module.")
 }
