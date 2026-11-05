@@ -52,7 +52,7 @@ class UsersControllerTest {
     @Test
     fun `me returns the authenticated user`() = testApplication {
         setup()
-        val user = users.repository.create("alice-${UUID.randomUUID()}@example.com", "Alice", passwordHash = null)
+        val user = users.repository.create("alice-${UUID.randomUUID()}@example.com", "Alice ${UUID.randomUUID().toString().take(8)}", passwordHash = null)
         val token = appModule.jwtService.createAccessToken(user.id)
 
         val response = jsonClient().get(ApiRoutes.USERS_ME) { bearerAuth(token) }

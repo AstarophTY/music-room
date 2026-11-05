@@ -7,10 +7,12 @@ import com.musicroom.server.config.AppConfig
 import com.musicroom.server.config.DatabaseConfig
 import com.musicroom.server.config.JwtConfig
 import com.musicroom.server.database.TestDatabase
+import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiRoutes
 import com.musicroom.shared.MusicRoomJson
 import com.musicroom.shared.dto.AuthResponse
 import com.musicroom.shared.dto.ChangePasswordRequest
+import com.musicroom.shared.dto.ErrorResponse
 import com.musicroom.shared.dto.LoginRequest
 import com.musicroom.shared.dto.RefreshTokenRequest
 import com.musicroom.shared.dto.RegisterRequest
@@ -74,19 +76,23 @@ class AuthControllerTest {
         email: String = newEmail(),
         password: String = PASSWORD,
         acceptedTerms: Boolean = true,
-    ): HttpResponse = postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, password, "Alice", acceptedTerms))
+        displayName: String = newName(),
+    ): HttpResponse = postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, password, displayName, acceptedTerms))
+
+    private fun newName() = "Alice ${UUID.randomUUID().toString().take(8)}"
 
     @Test
     fun `register returns tokens and stores a bcrypt hash`() = testApplication {
         val client = client()
         val email = newEmail()
 
-        val response = client.register(email)
+        val name = newName()
+        val response = client.register(email, displayName = name)
 
         assertEquals(HttpStatusCode.Created, response.status)
         val auth = response.body<AuthResponse>()
         assertEquals(email, auth.user.email)
-        assertEquals("Alice", auth.user.displayName)
+        assertEquals(name, auth.user.displayName)
         val stored = appModule.users.repository.findByEmail(email)!!.passwordHash!!
         assertTrue(stored.startsWith("\$2a\$"))
         assertNotEquals(PASSWORD, stored)
@@ -108,6 +114,34 @@ class AuthControllerTest {
         client.register(email)
 
         assertEquals(HttpStatusCode.Conflict, client.register(email.uppercase()).status)
+    }
+
+    @Test
+    fun `display names are unique whatever the case`() = testApplication {
+        val client = client()
+        val name = newName()
+        client.register(displayName = name)
+
+        val taken = client.register(displayName = "  ${name.uppercase()} ")
+        assertEquals(HttpStatusCode.Conflict, taken.status)
+        assertEquals(ApiErrors.DISPLAY_NAME_TAKEN, taken.body<ErrorResponse>().error)
+
+        val other = client.register().body<AuthResponse>()
+        val renamed = client.patch(ApiRoutes.USERS_ME) {
+            contentType(ContentType.Application.Json)
+            setBody(UpdateProfileRequest(name.lowercase()))
+            bearerAuth(other.accessToken)
+        }
+        assertEquals(HttpStatusCode.Conflict, renamed.status)
+        assertEquals(ApiErrors.DISPLAY_NAME_TAKEN, renamed.body<ErrorResponse>().error)
+
+        // Keeping one's own name (even with another case) is fine.
+        val same = client.patch(ApiRoutes.USERS_ME) {
+            contentType(ContentType.Application.Json)
+            setBody(UpdateProfileRequest(other.user.displayName.uppercase()))
+            bearerAuth(other.accessToken)
+        }
+        assertEquals(HttpStatusCode.OK, same.status)
     }
 
     @Test
@@ -205,15 +239,16 @@ class AuthControllerTest {
     fun `update profile changes the display name`() = testApplication {
         val client = client()
         val auth = client.register().body<AuthResponse>()
+        val bob = "Bob ${UUID.randomUUID().toString().take(8)}"
 
         val response = client.patch(ApiRoutes.USERS_ME) {
             contentType(ContentType.Application.Json)
-            setBody(UpdateProfileRequest("  Bob  "))
+            setBody(UpdateProfileRequest("  $bob  "))
             bearerAuth(auth.accessToken)
         }
 
         assertEquals(HttpStatusCode.OK, response.status)
-        assertEquals("Bob", response.body<UserResponse>().displayName)
+        assertEquals(bob, response.body<UserResponse>().displayName)
         assertFalse(
             client.patch(ApiRoutes.USERS_ME) {
                 contentType(ContentType.Application.Json)

@@ -36,6 +36,7 @@ class PlaylistsService(
     private val tracks: PlaylistTracksRepository,
     private val users: UsersRepository,
     private val spotify: SpotifyService,
+    private val friends: PlaylistFriends,
 ) {
 
     suspend fun list(userId: UUID): PlaylistListResponse =
@@ -104,14 +105,23 @@ class PlaylistsService(
         return detail(userId, playlistId)
     }
 
+    /** Adds one of the owner's friends ([AddPlaylistMemberRequest.userId]) or a user by email; they get a notification. */
     suspend fun addMember(userId: UUID, playlistId: UUID, request: AddPlaylistMemberRequest): PlaylistDetailResponse {
         val playlist = owned(userId, playlistId)
         checkAccessAllowed(playlist, request.access)
-        val user = users.findByEmail(AuthValidation.normalizeEmail(request.email))
-            ?: throw NotFoundException("No Music Room account uses this email", ApiErrors.USER_NOT_FOUND)
+        val friendId = request.userId?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+        val user = if (request.userId != null) {
+            if (friendId == null || !friends.areFriends(userId, friendId)) {
+                throw ForbiddenException("You can only invite your friends", ApiErrors.NOT_FRIENDS)
+            }
+            users.findById(friendId)
+        } else {
+            users.findByEmail(AuthValidation.normalizeEmail(request.email))
+        } ?: throw NotFoundException("No Music Room account uses this email", ApiErrors.USER_NOT_FOUND)
         if (user.id == playlist.ownerId || !members.add(playlistId, user.id, request.access)) {
             throw ConflictException("This user already is in the playlist", ApiErrors.ALREADY_MEMBER)
         }
+        friends.memberAdded(playlistId, userId, user.id)
         return detail(userId, playlistId)
     }
 

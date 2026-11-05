@@ -63,6 +63,7 @@ class AuthService(
             AuthValidation.termsError(request.acceptedTerms),
         )
         if (users.findByEmail(email) != null) throw ConflictException(EMAIL_TAKEN, ApiErrors.EMAIL_TAKEN)
+        if (users.isDisplayNameTaken(displayName)) throw ConflictException(DISPLAY_NAME_TAKEN, ApiErrors.DISPLAY_NAME_TAKEN)
 
         val passwordHash = passwordHasher.hash(request.password)
         val user = createUser { users.create(email, displayName, passwordHash, termsAcceptedAt = OffsetDateTime.now()) }
@@ -159,10 +160,11 @@ class AuthService(
             .map { it.trim() }
             .firstOrNull { AuthValidation.displayNameError(it) == null }
             ?: email.substringBefore('@').take(AuthValidation.DISPLAY_NAME_MAX_LENGTH)
+        // Names are unique: "Gina Google" becomes "Gina Google 2" when someone already has it.
         return createUser {
             users.create(
                 email = email,
-                displayName = displayName,
+                displayName = users.availableDisplayName(displayName, AuthValidation.DISPLAY_NAME_MAX_LENGTH),
                 passwordHash = null,
                 emailVerified = true,
                 termsAcceptedAt = OffsetDateTime.now(),
@@ -170,11 +172,15 @@ class AuthService(
         }
     }
 
-    /** Two sign-ups with the same email at the same time: the UNIQUE constraint decides. */
+    /** Two sign-ups with the same email or name at the same time: the UNIQUE constraints decide. */
     private suspend fun createUser(create: suspend () -> User): User = try {
         create()
     } catch (e: ExposedSQLException) {
-        if (e.sqlState == UNIQUE_VIOLATION) throw ConflictException(EMAIL_TAKEN, ApiErrors.EMAIL_TAKEN) else throw e
+        if (e.sqlState != UNIQUE_VIOLATION) throw e
+        if (e.message.orEmpty().contains(DISPLAY_NAME_INDEX)) {
+            throw ConflictException(DISPLAY_NAME_TAKEN, ApiErrors.DISPLAY_NAME_TAKEN)
+        }
+        throw ConflictException(EMAIL_TAKEN, ApiErrors.EMAIL_TAKEN)
     }
 
     suspend fun login(request: LoginRequest, language: Language): LoginResult {
@@ -272,6 +278,10 @@ class AuthService(
     private companion object {
         const val UNIQUE_VIOLATION = "23505"
         const val EMAIL_TAKEN = "An account already exists with this email"
+        const val DISPLAY_NAME_TAKEN = "This name is already taken"
+
+        /** Unique index on lower(display_name), see V11__unique_display_names.sql. */
+        const val DISPLAY_NAME_INDEX = "users_display_name_lower_idx"
         const val INVALID_REFRESH = "Invalid or expired refresh token"
     }
 }

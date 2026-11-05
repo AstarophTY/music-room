@@ -63,7 +63,7 @@ class EmailVerificationTest {
 
     private suspend fun HttpClient.signUp(email: String): AuthResponse = post(ApiRoutes.AUTH_REGISTER) {
         contentType(ContentType.Application.Json)
-        setBody(RegisterRequest(email, "hunter42abc", "Alice", acceptedTerms = true))
+        setBody(RegisterRequest(email, "hunter42abc", "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true))
     }.body()
 
     private suspend fun HttpClient.verify(token: String, code: String) = post(ApiRoutes.AUTH_EMAIL_VERIFY) {

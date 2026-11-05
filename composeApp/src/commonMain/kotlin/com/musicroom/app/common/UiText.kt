@@ -62,6 +62,8 @@ sealed interface UiText {
         private val apiErrors = mapOf(
             ApiErrors.INVALID_CREDENTIALS to Res.string.error_invalid_credentials,
             ApiErrors.EMAIL_TAKEN to Res.string.error_email_taken,
+            ApiErrors.DISPLAY_NAME_TAKEN to Res.string.error_display_name_taken,
+            ApiErrors.NOT_FRIENDS to Res.string.error_not_friends,
             ApiErrors.TERMS_REQUIRED to Res.string.error_terms_required,
             ApiErrors.WRONG_CURRENT_PASSWORD to Res.string.error_wrong_current_password,
             ApiErrors.INVALID_CODE to Res.string.error_invalid_code,

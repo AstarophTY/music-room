@@ -20,12 +20,15 @@ import com.composables.icons.lucide.LogOut
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Pencil
+import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.ShieldCheck
 import com.musicroom.app.auth.TermsDialog
 import com.musicroom.app.common.Reveal
 import com.musicroom.app.common.icon
 import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.friends_pending
+import com.musicroom.app.generated.resources.friends_title
 import com.musicroom.app.generated.resources.*
 import com.musicroom.app.theme.ThemeMode
 import com.musicroom.app.theme.components.AppCard
@@ -41,8 +44,10 @@ fun ProfileScreen(
     api: MusicRoomApi,
     user: UserResponse,
     themeMode: ThemeMode,
+    pendingRequests: Int,
     onBack: () -> Unit,
     onOpen: (ProfileRoute) -> Unit,
+    onOpenFriends: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val colors = AppTheme.colors
@@ -64,6 +69,12 @@ fun ProfileScreen(
                 Text(stringResource(Res.string.profile_section_account), style = AppTheme.typography.label, color = colors.textSecondary)
                 AppCard(Modifier.fillMaxWidth()) {
                     SettingsRow(Lucide.Pencil, stringResource(Res.string.profile_edit), { onOpen(ProfileRoute.EditProfile) })
+                    SettingsRow(
+                        Lucide.Users,
+                        stringResource(Res.string.friends_title),
+                        onOpenFriends,
+                        value = if (pendingRequests > 0) stringResource(Res.string.friends_pending, pendingRequests) else null,
+                    )
                 }
             }
         }

@@ -1,6 +1,7 @@
 package com.musicroom.server.modules.users
 
 import com.musicroom.server.common.exceptions.BadRequestException
+import com.musicroom.server.common.exceptions.ConflictException
 import com.musicroom.server.common.exceptions.NotFoundException
 import com.musicroom.server.common.exceptions.ValidationException
 import com.musicroom.server.modules.users.entities.User
@@ -12,6 +13,7 @@ import com.musicroom.shared.dto.UpdateProfileRequest
 import com.musicroom.shared.dto.UpdateSocialLinksRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -23,7 +25,13 @@ class UsersService(private val repository: UsersRepository, private val avatars:
     suspend fun updateProfile(id: UUID, request: UpdateProfileRequest): User {
         val displayName = request.displayName?.trim()
         displayName?.let { AuthValidation.displayNameError(it)?.let { error -> throw ValidationException(error) } }
-        return repository.updateProfile(id, displayName, request.avatarColor) ?: throw NotFoundException("User not found")
+        if (displayName != null && repository.isDisplayNameTaken(displayName, excluding = id)) throw displayNameTaken()
+        return try {
+            repository.updateProfile(id, displayName, request.avatarColor) ?: throw NotFoundException("User not found")
+        } catch (e: ExposedSQLException) {
+            // Someone took the name between the check and the update.
+            if (e.sqlState == UNIQUE_VIOLATION) throw displayNameTaken() else throw e
+        }
     }
 
     /** Cleans each username (accepts "@name" or a profile link), checks its format, keeps one per network. */
@@ -56,6 +64,10 @@ class UsersService(private val repository: UsersRepository, private val avatars:
     suspend fun avatar(id: UUID): ByteArray = avatars.find(id) ?: throw NotFoundException("No profile photo")
 
     companion object {
+        private const val UNIQUE_VIOLATION = "23505"
+
+        private fun displayNameTaken() = ConflictException("This name is already taken", ApiErrors.DISPLAY_NAME_TAKEN)
+
         fun imageTooLarge() = BadRequestException("The image is too large (5 MB max)", ApiErrors.IMAGE_TOO_LARGE)
     }
 }

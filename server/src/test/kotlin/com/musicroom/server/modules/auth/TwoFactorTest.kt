@@ -72,7 +72,7 @@ class TwoFactorTest {
     /** Signs up and turns 2FA on. Returns the email, the TOTP secret and the recovery codes. */
     private suspend fun HttpClient.userWithTwoFactor(): Triple<String, String, List<String>> {
         val email = "user-${UUID.randomUUID()}@example.com"
-        val auth = postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, PASSWORD, "Alice", acceptedTerms = true)).body<AuthResponse>()
+        val auth = postJson(ApiRoutes.AUTH_REGISTER, RegisterRequest(email, PASSWORD, "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true)).body<AuthResponse>()
         val setup = post(ApiRoutes.AUTH_2FA_SETUP) { bearerAuth(auth.accessToken) }.body<TwoFactorSetupResponse>()
         assertTrue(setup.otpauthUri.startsWith("otpauth://totp/"))
         val enabled = postJson(ApiRoutes.AUTH_2FA_ENABLE, TwoFactorCodeRequest(codeAt(setup.secret)), auth.accessToken)

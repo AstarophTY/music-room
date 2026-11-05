@@ -13,6 +13,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.lowerCase
 import org.jetbrains.exposed.v1.core.or
 import org.jetbrains.exposed.v1.core.plus
 import org.jetbrains.exposed.v1.jdbc.batchInsert
@@ -31,6 +32,28 @@ class UsersRepository(private val db: DatabaseModule) {
 
     suspend fun findByEmail(email: String): User? = db.query {
         UsersTable.selectAll().where { UsersTable.email eq email }.singleOrNull()?.toUser()
+    }
+
+    /** True when another user than [excluding] has [displayName], whatever the case. */
+    suspend fun isDisplayNameTaken(displayName: String, excluding: UUID? = null): Boolean = db.query {
+        UsersTable.selectAll()
+            .where { UsersTable.displayName.lowerCase() eq displayName.lowercase() }
+            .any { it[UsersTable.id].value != excluding }
+    }
+
+    /**
+     * [base] if no one uses it, else [base] followed by the first free number ("Gina 2", "Gina 3"...),
+     * cut so it fits in [maxLength].
+     */
+    suspend fun availableDisplayName(base: String, maxLength: Int): String {
+        if (!isDisplayNameTaken(base)) return base
+        var number = 2
+        while (true) {
+            val suffix = " $number"
+            val candidate = base.take(maxLength - suffix.length).trimEnd() + suffix
+            if (!isDisplayNameTaken(candidate)) return candidate
+            number++
+        }
     }
 
     suspend fun create(

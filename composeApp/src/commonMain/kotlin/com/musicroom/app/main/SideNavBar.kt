@@ -24,13 +24,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.PanelLeftClose
 import com.composables.icons.lucide.PanelLeftOpen
 import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.UserAvatar
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.app_name
+import com.musicroom.app.generated.resources.messages_title
+import com.musicroom.app.generated.resources.notifications_title
 import com.musicroom.app.generated.resources.profile_open
 import com.musicroom.app.generated.resources.sidebar_collapse
 import com.musicroom.app.generated.resources.sidebar_expand
@@ -38,6 +42,8 @@ import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.app.social.SocialPage
+import com.musicroom.shared.dto.SocialCountsResponse
 import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
@@ -45,6 +51,7 @@ import org.jetbrains.compose.resources.stringResource
  * Side menu that replaces the bottom bar on large screens. The profile stays at the top left.
  * [collapsed] shrinks it to icons only; the button at the bottom toggles it.
  * [selected] is null while a profile page is open: the profile row is highlighted instead of a tab.
+ * Under the tabs, messages and notifications with their [counts]; [socialOpen] is the social page shown, if any.
  */
 @Composable
 fun SideNavBar(
@@ -55,6 +62,10 @@ fun SideNavBar(
     onToggleCollapsed: () -> Unit,
     onSelect: (MainTab) -> Unit,
     onOpenProfile: () -> Unit,
+    counts: SocialCountsResponse,
+    socialOpen: SocialPage?,
+    onOpenNotifications: () -> Unit,
+    onOpenMessages: () -> Unit,
 ) {
     val colors = AppTheme.colors
     val border = AppTheme.spacing.border
@@ -101,8 +112,25 @@ fun SideNavBar(
         }
         Spacer(Modifier.padding(top = AppTheme.spacing.md))
         MainTab.entries.forEach { tab ->
-            SideNavItem(tab, selected = tab == selected, collapsed = collapsed, onClick = { onSelect(tab) })
+            SideNavItem(tab, selected = tab == selected && socialOpen == null, collapsed = collapsed, onClick = { onSelect(tab) })
         }
+        Spacer(Modifier.padding(top = AppTheme.spacing.sm))
+        SideNavAction(
+            Lucide.MessageCircle,
+            stringResource(Res.string.messages_title),
+            counts.unreadMessages,
+            selected = socialOpen != null && socialOpen != SocialPage.Notifications,
+            collapsed = collapsed,
+            onClick = onOpenMessages,
+        )
+        SideNavAction(
+            Lucide.Bell,
+            stringResource(Res.string.notifications_title),
+            counts.unreadNotifications,
+            selected = socialOpen == SocialPage.Notifications,
+            collapsed = collapsed,
+            onClick = onOpenNotifications,
+        )
         Spacer(Modifier.weight(1f))
         Row(
             Modifier.fillMaxWidth(),

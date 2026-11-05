@@ -9,6 +9,8 @@ tags:
   - name: system
   - name: auth
   - name: users
+  - name: social
+    description: Friends, one-to-one chat between friends, notifications.
 paths:
   /health:
     get:
@@ -590,11 +592,116 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: Another account already has this display name, whatever the case (display_name_taken)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
         "401":
           description: Missing or invalid token
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/users/search:
+    get:
+      tags: [social]
+      summary: Find users by name (any case); the exact name first
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: q, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Users with how they relate to the user (friendship)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UsersResponse" }
+  /api/v1/friends:
+    get:
+      tags: [social]
+      summary: Friends, requests received and requests sent
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/FriendsResponse" }
+  /api/v1/friends/{userId}:
+    post:
+      tags: [social]
+      summary: Ask to be friends, or accept their request
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The user with the new friendship status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PublicUserResponse" }
+    delete:
+      tags: [social]
+      summary: Remove a friend, take back or decline a request
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Done
+  /api/v1/conversations/{userId}/messages:
+    get:
+      tags: [social]
+      summary: A page of the chat with a friend (40 messages, oldest first)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: before, schema: { type: integer, format: int64 }, description: "Older than this date (epoch ms)" }
+      responses:
+        "200":
+          description: OK
+        "403":
+          description: Not friends (not_friends)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [social]
+      summary: Send a message to a friend
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "201":
+          description: Sent
+        "403":
+          description: Not friends (not_friends)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/notifications:
+    get:
+      tags: [social]
+      summary: Latest 50 notifications (friend_request, friend_accepted, playlist_invite)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: OK
+  /api/v1/social/ws:
+    get:
+      tags: [social]
+      summary: WebSocket of live social events (messages, typing, read receipts, notifications, counts)
+      parameters:
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "101":
+          description: Switching to the WebSocket protocol
 components:
   securitySchemes:
     bearerAuth:
@@ -761,3 +868,22 @@ components:
             code_expired, too_many_attempts, wrong_current_password, password_too_short (see ApiErrors and
             ValidationError in the shared module).
         message: { type: string }
+    PublicUserResponse:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        avatarColor: { type: string }
+        avatarVersion: { type: integer, format: int64, nullable: true }
+        friendship: { type: string, enum: [NONE, FRIENDS, REQUEST_SENT, REQUEST_RECEIVED, SELF] }
+    UsersResponse:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }
+    FriendsResponse:
+      type: object
+      properties:
+        friends: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }
+        received: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }
+        sent: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }

@@ -36,6 +36,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import java.util.UUID
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -90,11 +91,22 @@ class OAuthLoginTest {
         assertEquals(HttpStatusCode.OK, created.status)
         val user = created.body<AuthResponse>().user
         assertTrue(user.emailVerified)
-        assertEquals("Gina Google", user.displayName)
+        assertTrue(user.displayName.startsWith("Gina Google"))
 
         val again = client.google(token)
         assertEquals(HttpStatusCode.OK, again.status)
         assertEquals(user.id, again.body<AuthResponse>().user.id)
+    }
+
+    @Test
+    fun `a new account whose name is taken gets a number after it`() = testApplication {
+        val client = client()
+        val first = client.google("sub-${UUID.randomUUID()}|${newEmail()}", acceptedTerms = true).body<AuthResponse>().user
+        val second = client.google("sub-${UUID.randomUUID()}|${newEmail()}", acceptedTerms = true).body<AuthResponse>().user
+
+        assertTrue(first.displayName.startsWith("Gina Google"))
+        assertTrue(second.displayName.startsWith("Gina Google "))
+        assertNotEquals(first.displayName.lowercase(), second.displayName.lowercase())
     }
 
     @Test
@@ -107,7 +119,7 @@ class OAuthLoginTest {
         val client = client()
         val email = newEmail()
         val registered = client.postJson(
-            ApiRoutes.AUTH_REGISTER, RegisterRequest(email, PASSWORD, "Alice", acceptedTerms = true),
+            ApiRoutes.AUTH_REGISTER, RegisterRequest(email, PASSWORD, "Alice ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true),
         ).body<AuthResponse>()
         appModule.users.repository.markEmailVerified(UUID.fromString(registered.user.id))
 

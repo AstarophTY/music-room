@@ -8,6 +8,9 @@ object ApiErrors {
     const val INVALID_CREDENTIALS = "invalid_credentials"
     const val EMAIL_TAKEN = "email_taken"
 
+    /** Another account already uses this display name (names are unique, whatever the case). */
+    const val DISPLAY_NAME_TAKEN = "display_name_taken"
+
     /** OAuth sign-in for a new account: ask the user to accept the terms, then retry with acceptedTerms = true. */
     const val TERMS_REQUIRED = "terms_required"
     const val WRONG_CURRENT_PASSWORD = "wrong_current_password"
@@ -41,6 +44,7 @@ object ApiErrors {
     /** No Music Room account has the email of the member to add. */
     const val USER_NOT_FOUND = "user_not_found"
     const val ALREADY_MEMBER = "already_member"
+    const val NOT_FRIENDS = "not_friends"
 
     /** Only listeners can be added to a personal playlist: make it shared to let members edit it. */
     const val PERSONAL_PLAYLIST_READ_ONLY = "personal_playlist_read_only"
