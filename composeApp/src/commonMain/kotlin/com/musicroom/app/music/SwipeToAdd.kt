@@ -22,7 +22,9 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.Radio
 import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.event_propose_title
 import com.musicroom.app.generated.resources.queue_add
 import com.musicroom.app.theme.tokens.AppTheme
 import kotlinx.coroutines.launch
@@ -30,11 +32,12 @@ import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
 /**
- * Lets [content] be swiped to the right to add the song to the queue ([onQueue]): an accent band with the
- * queue icon follows the finger, and past the threshold, releasing adds it. The row slides back either way.
+ * Lets [content] be swiped to the right to add the song ([onSwipe]): an accent band follows the finger, with the
+ * queue icon, or the event icon when it goes to an event ([toEvent]). Past the threshold, releasing adds it.
+ * The row slides back either way.
  */
 @Composable
-fun SwipeToQueue(onQueue: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+fun SwipeToAdd(onSwipe: () -> Unit, modifier: Modifier = Modifier, toEvent: Boolean = false, content: @Composable () -> Unit) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
     val offset = remember { Animatable(0f) }
@@ -59,15 +62,15 @@ fun SwipeToQueue(onQueue: () -> Unit, modifier: Modifier = Modifier, content: @C
                 rememberDraggableState { delta -> scope.launch { offset.snapTo((offset.value + delta).coerceIn(0f, max)) } },
                 Orientation.Horizontal,
                 onDragStopped = {
-                    if (offset.value >= threshold) onQueue()
+                    if (offset.value >= threshold) onSwipe()
                     offset.animateTo(0f)
                 },
             ),
     ) {
         if (offset.value > 0f) {
             Icon(
-                Lucide.ListPlus,
-                contentDescription = stringResource(Res.string.queue_add),
+                if (toEvent) Lucide.Radio else Lucide.ListPlus,
+                contentDescription = stringResource(if (toEvent) Res.string.event_propose_title else Res.string.queue_add),
                 tint = colors.onAccent,
                 modifier = Modifier.align(Alignment.CenterStart).padding(start = AppTheme.spacing.md).alpha(progress),
             )

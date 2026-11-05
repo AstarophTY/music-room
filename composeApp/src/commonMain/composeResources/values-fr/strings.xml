@@ -433,8 +433,7 @@
     <string name="event_paused">En pause</string>
     <string name="event_now_playing">En cours</string>
     <string name="event_nothing_playing">Rien ne joue pour l’instant.</string>
-    <string name="event_host_streams">La musique passe sur le Spotify de %1$s : tu n’as qu’à voter.</string>
-    <string name="event_listen_mine">Écouter aussi sur mon Spotify</string>
+    <string name="event_host_streams">%1$s lance la musique : écoute l’événement pour l’entendre sur ton Spotify, ou contente-toi de voter.</string>
     <string name="event_start">Lancer la musique</string>
     <string name="event_resume">Reprendre</string>
     <string name="event_pause">Pause</string>
@@ -449,6 +448,13 @@
     <string name="event_propose_title">Proposer un son</string>
     <string name="event_propose_added">Proposé</string>
     <string name="event_proposed_by">proposé par %1$s</string>
+    <string name="event_focus">Écouter cet événement</string>
+    <string name="event_unfocus">Ne plus écouter</string>
+    <string name="event_focus_hint">Ton Spotify suit sa musique, et swiper un son vers la droite le propose ici.</string>
+    <string name="event_focus_premium">Écouter un événement demande un compte Spotify Premium lié.</string>
+    <string name="player_locked_by_event">Tu écoutes un événement : arrête de l’écouter pour jouer ta propre musique.</string>
+    <string name="event_focus_listening">Tu écoutes %1$s</string>
+    <string name="event_focus_proposed">%1$s proposé</string>
     <string name="event_track_remove">Retirer de la file</string>
     <string name="event_vote">Voter</string>
     <string name="event_vote_remove">Retirer mon vote</string>

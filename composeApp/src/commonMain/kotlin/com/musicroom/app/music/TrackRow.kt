@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.RemoteImage
+import com.musicroom.app.events.EventFocus
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
@@ -24,7 +25,7 @@ import com.musicroom.shared.dto.TrackResponse
 /**
  * Track in a list: cover, title, artists, and its length (an equalizer instead while it plays).
  * [trailing] adds an action at the end of the row (add, remove...). With [onSwipeRight], swiping the row
- * to the right adds the song to the queue.
+ * to the right adds the song to the queue, or proposes it to the focused event ([EventFocus]) when there is one.
  */
 @Composable
 fun TrackRow(
@@ -37,7 +38,11 @@ fun TrackRow(
     onSwipeRight: (() -> Unit)? = null,
 ) {
     if (onSwipeRight != null) {
-        SwipeToQueue(onSwipeRight, modifier) { TrackRow(api, track, playing, onClick, trailing = trailing) }
+        val focus = EventFocus.Local.current
+        val toEvent = focus?.event != null
+        SwipeToAdd({ if (focus != null && toEvent) focus.propose(track) else onSwipeRight() }, modifier, toEvent) {
+            TrackRow(api, track, playing, onClick, trailing = trailing)
+        }
         return
     }
     val colors = AppTheme.colors

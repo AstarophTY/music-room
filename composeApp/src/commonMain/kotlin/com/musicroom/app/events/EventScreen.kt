@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.CircleStop
 import com.composables.icons.lucide.Globe
+import com.composables.icons.lucide.HeadphoneOff
 import com.composables.icons.lucide.Headphones
 import com.composables.icons.lucide.Lock
 import com.composables.icons.lucide.Lucide
@@ -63,7 +64,10 @@ import com.musicroom.app.generated.resources.event_license_area_short
 import com.musicroom.app.generated.resources.event_license_area_until
 import com.musicroom.app.generated.resources.event_license_everyone_short
 import com.musicroom.app.generated.resources.event_license_invited_short
-import com.musicroom.app.generated.resources.event_listen_mine
+import com.musicroom.app.generated.resources.event_focus
+import com.musicroom.app.generated.resources.event_focus_hint
+import com.musicroom.app.generated.resources.event_focus_premium
+import com.musicroom.app.generated.resources.event_unfocus
 import com.musicroom.app.generated.resources.event_listeners
 import com.musicroom.app.generated.resources.event_next
 import com.musicroom.app.generated.resources.event_pause
@@ -94,8 +98,6 @@ import com.musicroom.shared.dto.EventStatus
 import com.musicroom.shared.dto.EventVisibility
 import com.musicroom.shared.dto.EventVoteLicense
 import com.musicroom.shared.dto.UserResponse
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -277,23 +279,24 @@ fun EventScreen(
                                 style = AppTheme.typography.bodySmall,
                                 color = colors.textSecondary,
                             )
-                            val playing = detail.nowPlaying
-                            if (playing != null && event.status == EventStatus.PLAYING) {
-                                // Optional: play the same song, at the same moment, on the user's own Spotify.
-                                AppButton(
-                                    stringResource(Res.string.event_listen_mine),
-                                    {
-                                        player.play(listOf(playing.track), 0)
-                                        if (player.spotifyConnected) {
-                                            scope.launch {
-                                                delay(1_500)
-                                                player.seek(detail.progressMs + (kotlin.time.Clock.System.now().toEpochMilliseconds() - detail.sentAt))
-                                            }
-                                        }
-                                    },
-                                    Modifier.fillMaxWidth(),
-                                    variant = AppButtonVariant.Secondary,
-                                    icon = Lucide.Headphones,
+                        }
+                        // Listening to the event: the user's Spotify follows its music, and swiped songs go to it.
+                        val focus = EventFocus.Local.current
+                        if (focus != null) {
+                            val focused = focus.event?.id == event.id
+                            AppButton(
+                                stringResource(if (focused) Res.string.event_unfocus else Res.string.event_focus),
+                                { if (focused) focus.unfocus() else focus.focus(event) },
+                                Modifier.fillMaxWidth(),
+                                enabled = focused || focus.canFocus,
+                                variant = if (focused) AppButtonVariant.Ghost else AppButtonVariant.Secondary,
+                                icon = if (focused) Lucide.HeadphoneOff else Lucide.Headphones,
+                            )
+                            if (!focused) {
+                                Text(
+                                    stringResource(if (focus.canFocus) Res.string.event_focus_hint else Res.string.event_focus_premium),
+                                    style = AppTheme.typography.bodySmall,
+                                    color = colors.textSecondary,
                                 )
                             }
                         }

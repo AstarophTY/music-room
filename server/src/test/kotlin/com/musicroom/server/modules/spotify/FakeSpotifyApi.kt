@@ -18,6 +18,8 @@ import com.musicroom.server.modules.spotify.client.model.SpotifyUser
 
 /** In-memory Spotify for tests: records what the server asks and answers with the configured data. */
 class FakeSpotifyApi : SpotifyApi {
+    /** Plan of the linked account: playback control needs "premium". */
+    var product: String? = "premium"
     var topTracks: List<SpotifyTrack> = emptyList()
     var topArtists: List<SpotifyArtist> = emptyList()
     /** Search results by query. */
@@ -58,7 +60,7 @@ class FakeSpotifyApi : SpotifyApi {
 
     override suspend fun appToken() = SpotifyTokenResponse(accessToken = "app", expiresIn = 3600)
 
-    override suspend fun me(accessToken: String) = SpotifyUser("spotify-user", "Alice")
+    override suspend fun me(accessToken: String) = SpotifyUser("spotify-user", "Alice", product)
 
     override suspend fun searchTracks(accessToken: String, query: String, offset: Int, limit: Int): SpotifyPaging<SpotifyTrack> {
         searches += query
