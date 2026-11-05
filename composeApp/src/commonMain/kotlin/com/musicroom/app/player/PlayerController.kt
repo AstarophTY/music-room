@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import com.musicroom.app.common.UiText
+import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.player_locked_by_event
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
@@ -75,6 +77,16 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** Confirmation of the last songs added to the queue, cleared after a few seconds. */
     var queueNotice by mutableStateOf<QueueNotice?>(null)
         private set
+
+    /**
+     * An event is focused: only the event's music plays ([forEvent]); the user's own commands (play, pause, skip,
+     * queue...) are refused with an [error] until they stop listening to it.
+     */
+    var lockedByEvent by mutableStateOf(false)
+        private set
+
+    /** A command sent by the focused event, allowed while [lockedByEvent]. */
+    private var eventCommand = false
 
     private var queueChanges by mutableStateOf(0)
     private var noticeJob: Job? = null
@@ -198,6 +210,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Plays an [upNext] entry now; the current album or playlist goes on after it. */
     fun playNow(entry: QueueEntry) {
+        if (!allowed()) return
         when (sentKey) {
             entry.key -> next()
             null -> {
@@ -243,6 +256,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     }
 
     fun togglePlay() {
+        if (!allowed()) return
         val current = state ?: return
         update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
         command { if (current.isPlaying) api.pause() else api.play() }
@@ -250,13 +264,17 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Skips to the first [upNext] song, handing it to Spotify first, or to Spotify's next track. */
     fun next() {
+        if (!allowed()) return
         val first = upNext.firstOrNull()
         if (first != null && sentKey == null) send(first) { api.skipNext() } else command { api.skipNext() }
     }
 
-    fun previous() = command { api.skipPrevious() }
+    fun previous() {
+        if (allowed()) command { api.skipPrevious() }
+    }
 
     fun seek(positionMs: Long) {
+        if (!allowed()) return
         state?.let { update(it.copy(progressMs = positionMs)) }
         command { api.seek(positionMs) }
     }
@@ -272,8 +290,33 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** False (and asks to link Spotify) when the user has no Spotify account linked. */
     private fun requireSpotify(): Boolean {
+        if (!allowed()) return false
         if (!spotifyConnected) needsSpotify = true
         return spotifyConnected
+    }
+
+    /** Locks the player for a focused event ([lockedByEvent]), or gives it back to the user. */
+    fun lockForEvent(locked: Boolean) {
+        lockedByEvent = locked
+        if (!locked && error == LOCKED_ERROR) dismissError()
+    }
+
+    /** Runs [commands] for the focused event: they pass the lock. */
+    fun forEvent(commands: () -> Unit) {
+        eventCommand = true
+        try {
+            commands()
+        } finally {
+            eventCommand = false
+        }
+    }
+
+    /** False, with an explanation, for the user's own commands while an event is focused. */
+    private fun allowed(): Boolean {
+        if (!lockedByEvent || eventCommand) return true
+        needsDevice = false
+        error = LOCKED_ERROR
+        return false
     }
 
     fun dismissError() {
@@ -356,6 +399,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Hands the first [upNext] song to Spotify when the current track is about to end. */
     private fun sendIfEnding() {
+        // The event chooses what plays next.
+        if (lockedByEvent) return
         val first = upNext.firstOrNull() ?: return
         val duration = track?.durationMs ?: return
         if (sentKey != null || duration - positionMs() > SEND_BEFORE_END.inWholeMilliseconds) return
@@ -399,6 +444,9 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     }
 
     companion object {
+        /** Shown when the user plays music themselves while an event is focused. */
+        private val LOCKED_ERROR = UiText.of(Res.string.player_locked_by_event)
+
         /** How long a play command may take to show up in Spotify's state. */
         private val START_TIMEOUT = 8.seconds
 

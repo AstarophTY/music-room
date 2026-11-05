@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -36,7 +37,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import com.musicroom.app.common.WindowSize
+import com.musicroom.app.common.rememberLocationProvider
 import com.musicroom.app.create.CreateSheet
+import com.musicroom.app.events.EventFocus
+import com.musicroom.app.events.EventFocusBar
 import com.musicroom.app.events.EventsScreen
 import com.musicroom.app.home.HomeScreen
 import com.musicroom.app.player.NowPlayingScreen
@@ -68,6 +72,7 @@ import com.musicroom.app.theme.ThemeMode
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.UserResponse
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -102,6 +107,25 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val player = remember(api) { PlayerController(api, scope) }
     val social = remember(api, user.id) { SocialController(api, user.id, scope) }
+    // The event the user listens to: its music plays on their Spotify too, and swiped songs are proposed to it.
+    val eventFocus = remember(api) { EventFocus(api, player, scope) }
+    val locate = rememberLocationProvider()
+    LaunchedEffect(eventFocus) { eventFocus.run() }
+    // Listening to an event plays on the user's Spotify: only with Premium.
+    LaunchedEffect(eventFocus, user.spotifyConnected) {
+        val status = if (!user.spotifyConnected) {
+            null
+        } else {
+            try {
+                api.spotifyStatus()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                null
+            }
+        }
+        eventFocus.updateCanFocus(status?.connected == true && status.product == "premium")
+    }
     // Live friends, messages and notifications while logged in.
     LaunchedEffect(social) { social.run() }
     // Songs the user adds to the queue show their profile picture.
@@ -109,17 +133,27 @@ fun MainScreen(
         player.me = Proposer.of(user)
         // Without Spotify, playing a song asks to link it.
         player.spotifyConnected = user.spotifyConnected
+        eventFocus.locate = locate
     }
     // Follows what Spotify plays while an account is linked.
     LaunchedEffect(user.spotifyConnected) { if (user.spotifyConnected) player.sync() }
     val onSpotifyConnected = { onUserChange(user.copy(spotifyConnected = true)) }
     val playerBar: @Composable () -> Unit = {
-        AnimatedVisibility(
-            visible = user.spotifyConnected && (player.track != null || player.error != null),
-            enter = slideInVertically { it } + fadeIn(),
-            exit = slideOutVertically { it } + fadeOut(),
-        ) {
-            PlayerBar(api, player, onOpen = { showNowPlaying = true })
+        Column {
+            EventFocusBar(eventFocus, onOpen = { id ->
+                profileRoute = null
+                socialPages = emptyList()
+                showNowPlaying = false
+                openEvent = id
+                tab = MainTab.Events
+            })
+            AnimatedVisibility(
+                visible = user.spotifyConnected && (player.track != null || player.error != null),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+            ) {
+                PlayerBar(api, player, onOpen = { showNowPlaying = true })
+            }
         }
     }
     // Confirms songs added to the queue, at the bottom of the page (above the player bar).
@@ -302,120 +336,122 @@ fun MainScreen(
     }
 
     val route = profileRoute
-    Box(Modifier.fillMaxSize()) {
-        if (wide) {
-            // Large screen: side menu on the left instead of the top and bottom bars. It stays visible on the
-            // profile pages; a second menu with the settings categories opens next to it, and the chosen
-            // page shows on the right in place of the tab (the account page first).
-            val settingsPage = if (route == ProfileRoute.Profile) ProfileRoute.EditProfile else route
-            Row(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
-                SideNavBar(
-                    api,
-                    user,
-                    selected = if (route == null) tab else null,
-                    collapsed = sideNavCollapsed,
-                    onToggleCollapsed = { sideNavCollapsed = !sideNavCollapsed },
-                    onSelect = {
-                        profileRoute = null
-                        closeNowPlaying()
-                        selectTab(it)
-                    },
-                    onOpenProfile = openProfile,
-                    counts = social.counts,
-                    socialOpen = if (route == null) socialPages.firstOrNull()?.let(SocialPage::parse) else null,
-                    onOpenNotifications = {
-                        socialPages = emptyList()
-                        openSocial(SocialPage.Notifications)
-                    },
-                    onOpenMessages = {
-                        socialPages = emptyList()
-                        openSocial(SocialPage.Conversations)
-                    },
-                )
-                // The settings categories unfold next to the side menu.
-                if (settingsPage != null) lastSettingsPage = settingsPage
-                AnimatedVisibility(settingsPage != null, enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
-                    SettingsSideBar(selected = lastSettingsPage, onOpen = { profileRoute = it }, onLogout = logout)
-                }
-                Column(Modifier.weight(1f).fillMaxHeight()) {
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
-                        // Changing page fades the new one in while it rises a little, like the tabs.
-                        AnimatedContent(
-                            settingsPage?.name ?: socialKey ?: if (nowPlayingShown) nowPlayingKey else tabsKey,
-                            transitionSpec = {
-                                (fadeIn(tween(220, delayMillis = 60)) + slideInVertically(tween(260)) { it / 30 })
-                                    .togetherWith(fadeOut(tween(120)))
-                            },
-                        ) { shown ->
-                            when (shown) {
-                                tabsKey -> Box(Modifier.fillMaxSize().safeDrawingPadding()) { content() }
-                                nowPlayingKey -> NowPlayingScreen(api, player, onBack = closeNowPlaying)
-                                else -> SocialPage.parse(shown)?.let { socialPage(it) } ?: profilePage(ProfileRoute.valueOf(shown))
-                            }
-                        }
-                        queueToast()
+    CompositionLocalProvider(EventFocus.Local provides eventFocus) {
+        Box(Modifier.fillMaxSize()) {
+            if (wide) {
+                // Large screen: side menu on the left instead of the top and bottom bars. It stays visible on the
+                // profile pages; a second menu with the settings categories opens next to it, and the chosen
+                // page shows on the right in place of the tab (the account page first).
+                val settingsPage = if (route == ProfileRoute.Profile) ProfileRoute.EditProfile else route
+                Row(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
+                    SideNavBar(
+                        api,
+                        user,
+                        selected = if (route == null) tab else null,
+                        collapsed = sideNavCollapsed,
+                        onToggleCollapsed = { sideNavCollapsed = !sideNavCollapsed },
+                        onSelect = {
+                            profileRoute = null
+                            closeNowPlaying()
+                            selectTab(it)
+                        },
+                        onOpenProfile = openProfile,
+                        counts = social.counts,
+                        socialOpen = if (route == null) socialPages.firstOrNull()?.let(SocialPage::parse) else null,
+                        onOpenNotifications = {
+                            socialPages = emptyList()
+                            openSocial(SocialPage.Notifications)
+                        },
+                        onOpenMessages = {
+                            socialPages = emptyList()
+                            openSocial(SocialPage.Conversations)
+                        },
+                    )
+                    // The settings categories unfold next to the side menu.
+                    if (settingsPage != null) lastSettingsPage = settingsPage
+                    AnimatedVisibility(settingsPage != null, enter = expandHorizontally() + fadeIn(), exit = shrinkHorizontally() + fadeOut()) {
+                        SettingsSideBar(selected = lastSettingsPage, onOpen = { profileRoute = it }, onLogout = logout)
                     }
-                    playerBar()
-                }
-            }
-        } else {
-            // Phones: profile pages replace the tabs (instead of covering them) so touches cannot reach the tabs
-            // below. A deeper page slides in from the right and going back slides it away; the player page rises
-            // from the bottom.
-            fun depth(screen: String) = when {
-                screen == tabsKey -> 0
-                screen == nowPlayingKey -> 1
-                // A social page that was just closed is no longer in the list: it was the deepest.
-                SocialPage.parse(screen) != null -> 1 + socialPages.indexOf(screen).let { if (it < 0) socialPages.size else it }
-                else -> if (ProfileRoute.valueOf(screen).parent == null) 1 else 2
-            }
-            AnimatedContent(
-                route?.name ?: socialKey ?: if (nowPlayingShown) nowPlayingKey else tabsKey,
-                transitionSpec = {
-                    val forward = depth(targetState) > depth(initialState)
-                    when {
-                        nowPlayingKey in setOf(initialState, targetState) && tabsKey in setOf(initialState, targetState) ->
-                            if (forward) {
-                                slideInVertically(tween(320)) { it / 3 } + fadeIn(tween(220)) togetherWith fadeOut(tween(160))
-                            } else {
-                                fadeIn(tween(220)) togetherWith slideOutVertically(tween(280)) { it / 3 } + fadeOut(tween(200))
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            // Changing page fades the new one in while it rises a little, like the tabs.
+                            AnimatedContent(
+                                settingsPage?.name ?: socialKey ?: if (nowPlayingShown) nowPlayingKey else tabsKey,
+                                transitionSpec = {
+                                    (fadeIn(tween(220, delayMillis = 60)) + slideInVertically(tween(260)) { it / 30 })
+                                        .togetherWith(fadeOut(tween(120)))
+                                },
+                            ) { shown ->
+                                when (shown) {
+                                    tabsKey -> Box(Modifier.fillMaxSize().safeDrawingPadding()) { content() }
+                                    nowPlayingKey -> NowPlayingScreen(api, player, onBack = closeNowPlaying)
+                                    else -> SocialPage.parse(shown)?.let { socialPage(it) } ?: profilePage(ProfileRoute.valueOf(shown))
+                                }
                             }
-                        forward ->
-                            slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)) togetherWith
-                                slideOutHorizontally(tween(300)) { -it / 4 } + fadeOut(tween(250))
-                        else ->
-                            (slideInHorizontally(tween(300)) { -it / 4 } + fadeIn(tween(250)) togetherWith
-                                slideOutHorizontally(tween(300)) { it } + fadeOut(tween(200)))
-                                .apply { targetContentZIndex = -1f }
-                    }
-                },
-            ) { shown ->
-                when (shown) {
-                    tabsKey -> Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
-                        MainTopBar(
-                            api,
-                            user,
-                            counts = social.counts,
-                            onOpenProfile = openProfile,
-                            onOpenNotifications = { openSocial(SocialPage.Notifications) },
-                            onOpenMessages = { openSocial(SocialPage.Conversations) },
-                        )
-                        Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
-                            content()
                             queueToast()
                         }
                         playerBar()
-                        BottomNavBar(selected = tab, onSelect = selectTab)
                     }
-                    nowPlayingKey -> Box(Modifier.fillMaxSize()) {
-                        NowPlayingScreen(api, player, onBack = closeNowPlaying)
-                        Box(Modifier.align(Alignment.BottomCenter).safeDrawingPadding()) { queueToast() }
+                }
+            } else {
+                // Phones: profile pages replace the tabs (instead of covering them) so touches cannot reach the tabs
+                // below. A deeper page slides in from the right and going back slides it away; the player page rises
+                // from the bottom.
+                fun depth(screen: String) = when {
+                    screen == tabsKey -> 0
+                    screen == nowPlayingKey -> 1
+                    // A social page that was just closed is no longer in the list: it was the deepest.
+                    SocialPage.parse(screen) != null -> 1 + socialPages.indexOf(screen).let { if (it < 0) socialPages.size else it }
+                    else -> if (ProfileRoute.valueOf(screen).parent == null) 1 else 2
+                }
+                AnimatedContent(
+                    route?.name ?: socialKey ?: if (nowPlayingShown) nowPlayingKey else tabsKey,
+                    transitionSpec = {
+                        val forward = depth(targetState) > depth(initialState)
+                        when {
+                            nowPlayingKey in setOf(initialState, targetState) && tabsKey in setOf(initialState, targetState) ->
+                                if (forward) {
+                                    slideInVertically(tween(320)) { it / 3 } + fadeIn(tween(220)) togetherWith fadeOut(tween(160))
+                                } else {
+                                    fadeIn(tween(220)) togetherWith slideOutVertically(tween(280)) { it / 3 } + fadeOut(tween(200))
+                                }
+                            forward ->
+                                slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)) togetherWith
+                                    slideOutHorizontally(tween(300)) { -it / 4 } + fadeOut(tween(250))
+                            else ->
+                                (slideInHorizontally(tween(300)) { -it / 4 } + fadeIn(tween(250)) togetherWith
+                                    slideOutHorizontally(tween(300)) { it } + fadeOut(tween(200)))
+                                    .apply { targetContentZIndex = -1f }
+                        }
+                    },
+                ) { shown ->
+                    when (shown) {
+                        tabsKey -> Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
+                            MainTopBar(
+                                api,
+                                user,
+                                counts = social.counts,
+                                onOpenProfile = openProfile,
+                                onOpenNotifications = { openSocial(SocialPage.Notifications) },
+                                onOpenMessages = { openSocial(SocialPage.Conversations) },
+                            )
+                            Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
+                                content()
+                                queueToast()
+                            }
+                            playerBar()
+                            BottomNavBar(selected = tab, onSelect = selectTab)
+                        }
+                        nowPlayingKey -> Box(Modifier.fillMaxSize()) {
+                            NowPlayingScreen(api, player, onBack = closeNowPlaying)
+                            Box(Modifier.align(Alignment.BottomCenter).safeDrawingPadding()) { queueToast() }
+                        }
+                        else -> SocialPage.parse(shown)?.let { socialPage(it) } ?: profilePage(ProfileRoute.valueOf(shown))
                     }
-                    else -> SocialPage.parse(shown)?.let { socialPage(it) } ?: profilePage(ProfileRoute.valueOf(shown))
                 }
             }
+            banner()
         }
-        banner()
     }
 
     if (player.needsSpotify) {

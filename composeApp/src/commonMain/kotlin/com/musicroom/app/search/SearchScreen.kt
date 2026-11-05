@@ -97,7 +97,7 @@ import org.jetbrains.compose.resources.stringResource
  * after a short pause; a mood tile searches its genre. "All" shows a few of each kind, the chips one kind only
  * (songs page by page). People can be found without a Spotify account; tapping one opens their profile ([onOpenUser]).
  * Tapping a song plays it with the other songs queued after it; its "..." or a swipe to the right adds it to
- * the queue. Artists and albums open their page in place of the results; back returns to them.
+ * the queue (or proposes it to the focused event). Artists and albums open their page in place of the results; back returns to them.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable

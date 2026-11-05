@@ -22,6 +22,9 @@ import org.slf4j.LoggerFactory
 
 /**
  * Plays an event's music on its owner's Spotify: only the owner streams, the other people only propose and vote.
+ * When the owner has no linked Spotify Premium account, the event still runs on a clock instead ([streams]): each
+ * song "plays" for its length, then the most voted one follows, and the people listening to the event hear it on
+ * their own Spotify.
  *
  * Every few seconds ([run]) it looks at what the owner's Spotify plays. Shortly before the current song ends, the
  * most voted queued song is handed to Spotify's queue (it becomes "next" and stops moving); when Spotify starts it,
@@ -89,7 +92,11 @@ class EventPlayer(
     suspend fun start(event: Event) = lock(event.id).withLock {
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
         when {
-            event.status == EventStatus.PAUSED && current != null -> spotify.play(event.ownerId, PlayRequest())
+            event.status == EventStatus.PAUSED && current != null -> {
+                if (streams(event)) spotify.play(event.ownerId, PlayRequest())
+                // The clock goes on from where it was paused.
+                positions[event.id] = progressMs(event) to System.currentTimeMillis()
+            }
             current != null -> playTrack(event, current)
             else -> playTop(event, current = null, next = tracks.withStatus(event.id, EventTracksTable.NEXT))
         }
@@ -99,7 +106,7 @@ class EventPlayer(
     }
 
     suspend fun pause(event: Event) = lock(event.id).withLock {
-        spotify.pause(event.ownerId)
+        if (streams(event)) spotify.pause(event.ownerId)
         positions[event.id] = progressMs(event) to System.currentTimeMillis()
         events.setStatus(event.id, EventStatus.PAUSED)
         onChange(event.id)
@@ -116,7 +123,7 @@ class EventPlayer(
     /** Stops the event's music: the current song counts as played, the next one goes back to the vote. */
     suspend fun stop(event: Event) = lock(event.id).withLock {
         try {
-            spotify.pause(event.ownerId)
+            if (streams(event)) spotify.pause(event.ownerId)
         } catch (e: HttpException) {
             // Nothing to pause on Spotify: stopping the event is enough.
         }
@@ -142,6 +149,7 @@ class EventPlayer(
     }
 
     private suspend fun check(event: Event) {
+        if (!streams(event)) return checkClock(event)
         val state = spotify.playbackState(event.ownerId)
         positions[event.id] = state.progressMs to System.currentTimeMillis()
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
@@ -170,6 +178,22 @@ class EventPlayer(
         }
     }
 
+    /** Without the owner's Spotify: the song ends when its length has passed, and the best one follows. */
+    private suspend fun checkClock(event: Event) {
+        val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+        val next = tracks.withStatus(event.id, EventTracksTable.NEXT)
+        when {
+            current == null -> if (next != null || tracks.top(event.id) != null) playTop(event, null, next)
+            progressMs(event) >= current.track.durationMs -> playTop(event, current, next)
+        }
+    }
+
+    /** The owner's Spotify plays the event: a linked Premium account (playback control needs Premium). */
+    private suspend fun streams(event: Event): Boolean {
+        val status = spotify.status(event.ownerId)
+        return status.configured && status.connected && status.product == PREMIUM
+    }
+
     /** Hands the most voted song to Spotify's queue: it plays after the current one. */
     private suspend fun queueTop(event: Event) {
         val top = tracks.top(event.id) ?: return
@@ -192,7 +216,7 @@ class EventPlayer(
     }
 
     private suspend fun playTrack(event: Event, track: EventTrack) {
-        spotify.play(event.ownerId, PlayRequest(uris = listOf(track.track.uri)))
+        if (streams(event)) spotify.play(event.ownerId, PlayRequest(uris = listOf(track.track.uri)))
         tracks.setStatus(track.id, EventTracksTable.PLAYING)
         startedAt[event.id] = TimeSource.Monotonic.markNow()
         positions[event.id] = 0L to System.currentTimeMillis()
@@ -221,5 +245,7 @@ class EventPlayer(
         const val END_MARGIN_MS = 2_000L
 
         const val START_GRACE_MS = 10_000L
+
+        const val PREMIUM = "premium"
     }
 }

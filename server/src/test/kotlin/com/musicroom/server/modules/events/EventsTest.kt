@@ -308,14 +308,31 @@ class EventsTest {
     }
 
     @Test
-    fun `starting needs the owner's Spotify`() = testApplication {
+    fun `without the owner's Spotify Premium, the event plays on a clock`() = testApplication {
         val client = client()
         val owner = client.user()
         val event = client.create(owner).event
+        spotify.tracks = spotify.tracks + ("short" to FakeSpotifyApi.track("short", "Daft Punk").copy(durationMs = 50))
+        client.propose(owner, event.id, "short")
+        spotify.plays.clear()
+
+        // Starting does not ask for Spotify: the song "plays" for its length, nothing is sent to Spotify.
+        val started = client.json(HttpMethodCall.POST, ApiRoutes.eventPlay(event.id), owner)
+        assertEquals(HttpStatusCode.OK, started.status)
+        val detail = started.body<EventDetailResponse>()
+        assertEquals(EventStatus.PLAYING, detail.event.status)
+        assertEquals("short", detail.nowPlaying?.track?.id)
+        assertTrue(spotify.plays.isEmpty())
+
+        // Once its length has passed, the next most voted song follows.
         client.propose(owner, event.id, "t1")
-        val refused = client.json(HttpMethodCall.POST, ApiRoutes.eventPlay(event.id), owner)
-        assertEquals(ApiErrors.SPOTIFY_NOT_CONNECTED, refused.body<ErrorResponse>().error)
-        assertEquals(EventStatus.WAITING, client.detail(owner, event.id).event.status)
+        Thread.sleep(100)
+        appModule.events.service.player.tick(UUID.fromString(event.id))
+        assertEquals("t1", client.detail(owner, event.id).nowPlaying?.track?.id)
+        assertTrue(spotify.plays.isEmpty())
+
+        val paused: EventDetailResponse = client.json(HttpMethodCall.POST, ApiRoutes.eventPause(event.id), owner).body()
+        assertEquals(EventStatus.PAUSED, paused.event.status)
     }
 
     @Test

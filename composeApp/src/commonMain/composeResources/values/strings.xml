@@ -433,8 +433,7 @@
     <string name="event_paused">Paused</string>
     <string name="event_now_playing">Now playing</string>
     <string name="event_nothing_playing">Nothing plays yet.</string>
-    <string name="event_host_streams">The music plays on %1$s’s Spotify: you only need to vote.</string>
-    <string name="event_listen_mine">Listen on my Spotify too</string>
+    <string name="event_host_streams">%1$s runs the music: listen to the event to hear it on your Spotify, or just vote.</string>
     <string name="event_start">Start the music</string>
     <string name="event_resume">Resume</string>
     <string name="event_pause">Pause</string>
@@ -449,6 +448,13 @@
     <string name="event_propose_title">Propose a song</string>
     <string name="event_propose_added">Proposed</string>
     <string name="event_proposed_by">proposed by %1$s</string>
+    <string name="event_focus">Listen to this event</string>
+    <string name="event_unfocus">Stop listening</string>
+    <string name="event_focus_hint">Your Spotify follows its music, and swiping a song to the right proposes it here.</string>
+    <string name="event_focus_premium">Listening to an event needs a linked Spotify Premium account.</string>
+    <string name="player_locked_by_event">You are listening to an event: stop listening to it to play your own music.</string>
+    <string name="event_focus_listening">Listening to %1$s</string>
+    <string name="event_focus_proposed">%1$s proposed</string>
     <string name="event_track_remove">Remove from the queue</string>
     <string name="event_vote">Vote</string>
     <string name="event_vote_remove">Remove my vote</string>
