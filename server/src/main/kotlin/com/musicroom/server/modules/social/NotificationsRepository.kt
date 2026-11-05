@@ -1,6 +1,7 @@
 package com.musicroom.server.modules.social
 
 import com.musicroom.server.database.DatabaseModule
+import com.musicroom.server.modules.events.entities.EventsTable
 import com.musicroom.server.modules.playlists.entities.PlaylistsTable
 import com.musicroom.server.modules.social.entities.NotificationsTable
 import com.musicroom.server.modules.users.entities.UsersTable
@@ -23,12 +24,13 @@ import org.jetbrains.exposed.v1.jdbc.update
 /** Notifications of each user, with who caused them and the playlist they are about. */
 class NotificationsRepository(private val db: DatabaseModule) {
 
-    suspend fun add(userId: UUID, type: NotificationType, actorId: UUID?, playlistId: UUID? = null): UUID = db.query {
+    suspend fun add(userId: UUID, type: NotificationType, actorId: UUID?, playlistId: UUID? = null, eventId: UUID? = null): UUID = db.query {
         NotificationsTable.insertAndGetId {
             it[NotificationsTable.userId] = userId
             it[NotificationsTable.type] = type.name.lowercase()
             it[NotificationsTable.actorId] = actorId
             it[NotificationsTable.playlistId] = playlistId
+            it[NotificationsTable.eventId] = eventId
             it[createdAt] = OffsetDateTime.now()
         }.value
     }
@@ -68,6 +70,7 @@ class NotificationsRepository(private val db: DatabaseModule) {
         NotificationsTable
             .join(UsersTable, JoinType.LEFT, NotificationsTable.actorId, UsersTable.id)
             .join(PlaylistsTable, JoinType.LEFT, NotificationsTable.playlistId, PlaylistsTable.id)
+            .join(EventsTable, JoinType.LEFT, NotificationsTable.eventId, EventsTable.id)
             .selectAll().where { where }
             .orderBy(NotificationsTable.createdAt to SortOrder.DESC)
             .limit(limit)
@@ -83,6 +86,8 @@ class NotificationsRepository(private val db: DatabaseModule) {
             actor = this.getOrNull(UsersTable.id)?.let { PeopleRepository.publicUser(this) },
             playlistId = this[NotificationsTable.playlistId]?.value?.toString(),
             playlistName = this.getOrNull(PlaylistsTable.name),
+            eventId = this[NotificationsTable.eventId]?.value?.toString(),
+            eventName = this.getOrNull(EventsTable.name),
             createdAt = this[NotificationsTable.createdAt].toInstant().toEpochMilli(),
             read = this[NotificationsTable.readAt] != null,
         )

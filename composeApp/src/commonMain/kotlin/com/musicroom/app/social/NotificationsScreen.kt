@@ -48,7 +48,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * The latest notifications, newest first; unread ones have a dot until the page marks them read.
- * A friend request can be answered here; a playlist invitation opens it, the others the profile.
+ * A friend request can be answered here; a playlist or event invitation opens it, the others the profile.
  */
 @Composable
 fun NotificationsScreen(
@@ -57,6 +57,7 @@ fun NotificationsScreen(
     onBack: () -> Unit,
     onOpenUser: (String) -> Unit,
     onOpenPlaylist: (String) -> Unit,
+    onOpenEvent: (String) -> Unit,
 ) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
@@ -107,7 +108,9 @@ fun NotificationsScreen(
                     val text = notificationText(item)
                     val open = {
                         val playlistId = item.playlistId
+                        val eventId = item.eventId
                         when {
+                            item.type == NotificationType.EVENT_INVITE && eventId != null -> onOpenEvent(eventId)
                             item.type == NotificationType.PLAYLIST_INVITE && playlistId != null -> onOpenPlaylist(playlistId)
                             actor != null -> onOpenUser(actor.id)
                         }

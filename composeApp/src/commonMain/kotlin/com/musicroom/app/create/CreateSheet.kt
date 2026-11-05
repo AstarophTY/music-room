@@ -35,32 +35,45 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * The Create button: a card sliding up from the bottom with the three services of the project. Picking
- * "Playlist" slides to its form inside the same card.
+ * "Playlist" or "Event" slides to its form inside the same card.
  */
 @Composable
-fun CreateSheet(api: MusicRoomApi, onDismiss: () -> Unit, onPlaylistCreated: (PlaylistResponse) -> Unit) {
-    var playlistForm by remember { mutableStateOf(false) }
+fun CreateSheet(
+    api: MusicRoomApi,
+    onDismiss: () -> Unit,
+    onPlaylistCreated: (PlaylistResponse) -> Unit,
+    onEventCreated: (String) -> Unit,
+) {
+    // The form shown: "playlist", "event", or the menu (empty).
+    var form by remember { mutableStateOf("") }
     AppBottomSheet(onDismiss) { _ ->
         AnimatedContent(
-            playlistForm,
+            form,
             transitionSpec = {
-                val forward = targetState
+                val forward = targetState.isNotEmpty()
                 (slideInHorizontally(tween(260)) { if (forward) it / 3 else -it / 3 } + fadeIn(tween(260)))
                     .togetherWith(slideOutHorizontally(tween(200)) { if (forward) -it / 3 else it / 3 } + fadeOut(tween(150)))
             },
-        ) { showForm ->
+        ) { shown ->
             Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
-                if (showForm) {
-                    NewPlaylistForm(api, onBack = { playlistForm = false }, onCreated = onPlaylistCreated)
+                if (shown == "playlist") {
+                    NewPlaylistForm(api, onBack = { form = "" }, onCreated = onPlaylistCreated)
+                } else if (shown == "event") {
+                    NewEventForm(api, onBack = { form = "" }, onCreated = onEventCreated)
                 } else {
                     Text(stringResource(Res.string.create_title), style = AppTheme.typography.title, color = AppTheme.colors.textPrimary)
                     CreateOptionCard(
                         Lucide.ListMusic,
                         stringResource(Res.string.create_playlist_title),
                         stringResource(Res.string.create_playlist_body),
-                        onClick = { playlistForm = true },
+                        onClick = { form = "playlist" },
                     )
-                    CreateOptionCard(Lucide.Vote, stringResource(Res.string.create_event_title), stringResource(Res.string.create_event_body))
+                    CreateOptionCard(
+                        Lucide.Vote,
+                        stringResource(Res.string.create_event_title),
+                        stringResource(Res.string.create_event_body),
+                        onClick = { form = "event" },
+                    )
                     CreateOptionCard(
                         Lucide.SlidersHorizontal,
                         stringResource(Res.string.create_control_title),

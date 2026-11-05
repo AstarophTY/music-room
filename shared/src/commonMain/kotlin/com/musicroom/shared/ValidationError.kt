@@ -19,5 +19,10 @@ enum class ValidationError(val code: String, val message: String) {
     SOCIAL_HANDLE_INVALID("social_handle_invalid", "This username is not valid"),
     PLAYLIST_NAME_REQUIRED("playlist_name_required", "Give the playlist a name"),
     PLAYLIST_NAME_TOO_LONG("playlist_name_too_long", "The playlist name is too long"),
+    EVENT_NAME_REQUIRED("event_name_required", "Give the event a name"),
+    EVENT_NAME_TOO_LONG("event_name_too_long", "The event name is too long"),
+    EVENT_DESCRIPTION_TOO_LONG("event_description_too_long", "The description is too long"),
+    EVENT_AREA_REQUIRED("event_area_required", "Choose where people must be to vote"),
+    EVENT_HOURS_INVALID("event_hours_invalid", "The event must end after it starts"),
     CODE_FORMAT("code_format", "Enter the ${AuthValidation.VERIFICATION_CODE_LENGTH}-digit code from the email"),
 }

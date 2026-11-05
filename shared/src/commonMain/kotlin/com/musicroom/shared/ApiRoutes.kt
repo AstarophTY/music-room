@@ -110,4 +110,39 @@ object ApiRoutes {
 
     /** WebSocket of live social events; the access token goes in the "token" query parameter. */
     const val SOCIAL_WS = "$API_V1/social/ws"
+
+    /** Events: rooms where people propose songs and vote; the owner's Spotify plays the most voted one. */
+    const val EVENTS = "$API_V1/events"
+    const val EVENT = "$EVENTS/{id}"
+    const val EVENT_TRACKS = "$EVENT/tracks"
+    const val EVENT_TRACK = "$EVENT_TRACKS/{trackId}"
+    const val EVENT_TRACK_VOTE = "$EVENT_TRACK/vote"
+    const val EVENT_INVITED = "$EVENT/invited/{userId}"
+    const val EVENT_PLAY = "$EVENT/play"
+    const val EVENT_PAUSE = "$EVENT/pause"
+    const val EVENT_SKIP = "$EVENT/skip"
+    const val EVENT_STOP = "$EVENT/stop"
+
+    /** WebSocket of an event's state; the access token goes in the "token" query parameter. */
+    const val EVENT_WS = "$EVENT/ws"
+
+    fun event(id: String) = "$EVENTS/$id"
+
+    fun eventTracks(id: String) = "$EVENTS/$id/tracks"
+
+    fun eventTrack(id: String, trackId: String) = "$EVENTS/$id/tracks/$trackId"
+
+    fun eventTrackVote(id: String, trackId: String) = "$EVENTS/$id/tracks/$trackId/vote"
+
+    fun eventInvited(id: String, userId: String) = "$EVENTS/$id/invited/$userId"
+
+    fun eventPlay(id: String) = "$EVENTS/$id/play"
+
+    fun eventPause(id: String) = "$EVENTS/$id/pause"
+
+    fun eventSkip(id: String) = "$EVENTS/$id/skip"
+
+    fun eventStop(id: String) = "$EVENTS/$id/stop"
+
+    fun eventWs(id: String) = "$EVENTS/$id/ws"
 }

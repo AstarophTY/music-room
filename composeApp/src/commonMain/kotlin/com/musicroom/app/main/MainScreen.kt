@@ -90,6 +90,8 @@ fun MainScreen(
     var sideNavCollapsed by rememberSaveable { mutableStateOf(false) }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var openRoomPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
+    // The event open in the Events tab.
+    var openEvent by rememberSaveable { mutableStateOf<String?>(null) }
     var showNowPlaying by rememberSaveable { mutableStateOf(false) }
     var lastSettingsPage by remember { mutableStateOf(ProfileRoute.EditProfile) }
     // Social pages opened over the tabs (friends, chats, notifications, profiles), the last one on top: SocialPage keys.
@@ -187,7 +189,15 @@ fun MainScreen(
                 onSpotifyConnected,
                 onOpenUser = { openSocial(SocialPage.Profile(it)) },
             )
-            MainTab.Events -> EventsScreen(onCreate = openCreate)
+            MainTab.Events -> EventsScreen(
+                api,
+                user,
+                player,
+                openEventId = openEvent,
+                onOpenEvent = { openEvent = it },
+                onOpenUser = { openSocial(SocialPage.Profile(it)) },
+                onCreate = openCreate,
+            )
             MainTab.Playlists -> PlaylistsScreen(
                 api,
                 user,
@@ -256,6 +266,12 @@ fun MainScreen(
                     closeSocialAnd {
                         openRoomPlaylist = id
                         tab = MainTab.Playlists
+                    }
+                },
+                onOpenEvent = { id ->
+                    closeSocialAnd {
+                        openEvent = id
+                        tab = MainTab.Events
                     }
                 },
             )
@@ -417,6 +433,14 @@ fun MainScreen(
                 closeNowPlaying()
                 openRoomPlaylist = playlist.id
                 tab = MainTab.Playlists
+            },
+            onEventCreated = { id ->
+                showCreate = false
+                profileRoute = null
+                socialPages = emptyList()
+                closeNowPlaying()
+                openEvent = id
+                tab = MainTab.Events
             },
         )
     }

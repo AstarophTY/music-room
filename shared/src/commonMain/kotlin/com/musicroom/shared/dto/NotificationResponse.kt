@@ -10,6 +10,8 @@ data class NotificationResponse(
     val actor: PublicUserResponse? = null,
     val playlistId: String? = null,
     val playlistName: String? = null,
+    val eventId: String? = null,
+    val eventName: String? = null,
     val createdAt: Long,
     val read: Boolean = false,
 )

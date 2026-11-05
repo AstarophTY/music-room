@@ -3,6 +3,8 @@ package com.musicroom.app.social
 import androidx.compose.runtime.Composable
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.notification_a_playlist
+import com.musicroom.app.generated.resources.notification_an_event
+import com.musicroom.app.generated.resources.notification_event_invite
 import com.musicroom.app.generated.resources.notification_friend_accepted
 import com.musicroom.app.generated.resources.notification_friend_request
 import com.musicroom.app.generated.resources.notification_playlist_invite
@@ -22,6 +24,11 @@ fun notificationText(item: NotificationResponse): String {
             Res.string.notification_playlist_invite,
             name,
             item.playlistName ?: stringResource(Res.string.notification_a_playlist),
+        )
+        NotificationType.EVENT_INVITE -> stringResource(
+            Res.string.notification_event_invite,
+            name,
+            item.eventName ?: stringResource(Res.string.notification_an_event),
         )
     }
 }

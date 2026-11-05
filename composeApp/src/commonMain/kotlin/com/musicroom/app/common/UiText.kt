@@ -46,6 +46,11 @@ sealed interface UiText {
             ValidationError.SOCIAL_HANDLE_INVALID -> of(Res.string.validation_social_handle_invalid)
             ValidationError.PLAYLIST_NAME_REQUIRED -> of(Res.string.validation_playlist_name_required)
             ValidationError.PLAYLIST_NAME_TOO_LONG -> of(Res.string.validation_playlist_name_too_long)
+            ValidationError.EVENT_NAME_REQUIRED -> of(Res.string.validation_event_name_required)
+            ValidationError.EVENT_NAME_TOO_LONG -> of(Res.string.validation_event_name_too_long)
+            ValidationError.EVENT_DESCRIPTION_TOO_LONG -> of(Res.string.validation_event_description_too_long)
+            ValidationError.EVENT_AREA_REQUIRED -> of(Res.string.validation_event_area_required)
+            ValidationError.EVENT_HOURS_INVALID -> of(Res.string.validation_event_hours_invalid)
             ValidationError.CODE_FORMAT -> of(Res.string.validation_code_format, AuthValidation.VERIFICATION_CODE_LENGTH)
         }
 
@@ -64,6 +69,11 @@ sealed interface UiText {
             ApiErrors.EMAIL_TAKEN to Res.string.error_email_taken,
             ApiErrors.DISPLAY_NAME_TAKEN to Res.string.error_display_name_taken,
             ApiErrors.NOT_FRIENDS to Res.string.error_not_friends,
+            ApiErrors.EVENT_VOTE_NOT_ALLOWED to Res.string.error_event_vote_not_allowed,
+            ApiErrors.EVENT_LOCATION_REQUIRED to Res.string.error_event_location_required,
+            ApiErrors.EVENT_OUT_OF_AREA to Res.string.error_event_out_of_area,
+            ApiErrors.EVENT_CLOSED to Res.string.error_event_closed,
+            ApiErrors.EVENT_PROPOSAL_LIMIT to Res.string.error_event_proposal_limit,
             ApiErrors.TERMS_REQUIRED to Res.string.error_terms_required,
             ApiErrors.WRONG_CURRENT_PASSWORD to Res.string.error_wrong_current_password,
             ApiErrors.INVALID_CODE to Res.string.error_invalid_code,

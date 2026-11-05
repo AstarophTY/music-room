@@ -3,6 +3,7 @@ package com.musicroom.server.modules.social
 import com.musicroom.server.common.exceptions.BadRequestException
 import com.musicroom.server.common.exceptions.ForbiddenException
 import com.musicroom.server.common.exceptions.NotFoundException
+import com.musicroom.server.modules.events.EventFriends
 import com.musicroom.server.modules.playlists.PlaylistFriends
 import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.shared.ApiErrors
@@ -34,7 +35,7 @@ class SocialService(
     private val notifications: NotificationsRepository,
     private val users: UsersRepository,
     private val hub: SocialHub,
-) : PlaylistFriends {
+) : PlaylistFriends, EventFriends {
 
     suspend fun search(me: UUID, query: String): UsersResponse {
         val text = query.trim().take(MAX_QUERY)
@@ -155,8 +156,11 @@ class SocialService(
     override suspend fun memberAdded(playlistId: UUID, ownerId: UUID, memberId: UUID) =
         notify(memberId, NotificationType.PLAYLIST_INVITE, ownerId, playlistId)
 
-    private suspend fun notify(userId: UUID, type: NotificationType, actorId: UUID, playlistId: UUID? = null) {
-        val id = notifications.add(userId, type, actorId, playlistId)
+    override suspend fun invitedToEvent(eventId: UUID, ownerId: UUID, userId: UUID) =
+        notify(userId, NotificationType.EVENT_INVITE, ownerId, eventId = eventId)
+
+    private suspend fun notify(userId: UUID, type: NotificationType, actorId: UUID, playlistId: UUID? = null, eventId: UUID? = null) {
+        val id = notifications.add(userId, type, actorId, playlistId, eventId)
         notifications.get(id)?.let { hub.send(userId, SocialEvent.Notification(withActorStatus(userId, listOf(it)).single())) }
         pushCounts(userId)
     }
