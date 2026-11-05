@@ -53,6 +53,7 @@ import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.ResetPasswordRequest
 import com.musicroom.shared.dto.SpotifyConnectResponse
+import com.musicroom.shared.dto.AppleMusicDeveloperToken
 import com.musicroom.shared.dto.SpotifyStatusResponse
 import com.musicroom.shared.dto.TrackPageResponse
 import com.musicroom.shared.dto.TrackResponse
@@ -197,6 +198,9 @@ class MusicRoomApi(
         authorized(HttpMethod.Put, ApiRoutes.USERS_ME_SOCIAL_LINKS) { jsonBody(request) }.bodyOrThrow()
 
     suspend fun spotifyStatus(): SpotifyStatusResponse = authorized(HttpMethod.Get, ApiRoutes.SPOTIFY_STATUS).bodyOrThrow()
+
+    suspend fun appleMusicDeveloperToken(): AppleMusicDeveloperToken =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_DEVELOPER_TOKEN).bodyOrThrow()
 
     /** Returns the Spotify page to open in the browser to connect the account. */
     suspend fun spotifyConnect(): SpotifyConnectResponse =

@@ -20,6 +20,7 @@ import com.musicroom.server.common.websocket.configureWebSockets
 import com.musicroom.server.config.AppConfig
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
+import com.musicroom.server.modules.applemusic.AppleMusicModule
 import com.musicroom.server.modules.events.EventsModule
 import com.musicroom.server.modules.playlists.PlaylistsModule
 import com.musicroom.server.modules.premium.PremiumModule
@@ -71,6 +72,7 @@ class AppModule(
         users,
         auth,
         spotify,
+        AppleMusicModule(config.appleMusic),
         PlaylistsModule(database, users.repository, spotify.service, premium.tracks, social.service),
         social,
         events,

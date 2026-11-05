@@ -28,6 +28,7 @@ object ApiRoutes {
     const val SPOTIFY_STATUS = "$SPOTIFY/status"
     const val SPOTIFY_CONNECT = "$SPOTIFY/connect"
     const val SPOTIFY_CALLBACK = "$SPOTIFY/callback"
+    const val APPLE_MUSIC_DEVELOPER_TOKEN = "$API_V1/apple-music/developer-token"
 
     const val MUSIC = "$API_V1/music"
     const val MUSIC_SEARCH = "$MUSIC/search"
