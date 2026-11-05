@@ -2,7 +2,7 @@ package com.musicroom.app.player
 
 import com.musicroom.shared.MusicRoomApi
 
-class SpotifyPlaybackProvider(private val api: MusicRoomApi) : PlaybackProvider {
+class SpotifyPlaybackProvider(private val api: MusicRoomApi) : SpotifyRemotePlaybackProvider {
     override suspend fun playbackState() = api.playbackState()
     override suspend fun play(uris: List<String>, index: Int, contextUri: String?) = api.play(uris, index, contextUri)
     override suspend fun pause() = api.pause()

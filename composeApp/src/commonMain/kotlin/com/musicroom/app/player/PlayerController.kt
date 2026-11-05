@@ -44,7 +44,7 @@ import kotlin.time.TimeSource
  */
 @Stable
 class PlayerController(private val api: MusicRoomApi, private val scope: CoroutineScope) {
-    private val spotify: PlaybackProvider = SpotifyPlaybackProvider(api)
+    private val spotify: SpotifyRemotePlaybackProvider = SpotifyPlaybackProvider(api)
     var state by mutableStateOf<PlaybackStateResponse?>(null)
         private set
 
