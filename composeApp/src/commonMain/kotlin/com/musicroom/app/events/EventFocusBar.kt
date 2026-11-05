@@ -27,6 +27,7 @@ import com.musicroom.app.common.Equalizer
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_focus_listening
 import com.musicroom.app.generated.resources.event_focus_proposed
+import com.musicroom.app.generated.resources.event_focus_proposed_many
 import com.musicroom.app.generated.resources.event_unfocus
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppTheme
@@ -66,6 +67,7 @@ fun EventFocusBar(focus: EventFocus, onOpen: (String) -> Unit, modifier: Modifie
                     when {
                         notice == null -> stringResource(Res.string.event_focus_listening, event.name)
                         problem != null -> problem.resolve()
+                        notice.count > 1 -> stringResource(Res.string.event_focus_proposed_many, notice.count)
                         else -> stringResource(Res.string.event_focus_proposed, notice.track.name)
                     },
                     style = AppTheme.typography.label,

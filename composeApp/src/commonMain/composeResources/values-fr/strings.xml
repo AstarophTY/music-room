@@ -450,11 +450,13 @@
     <string name="event_proposed_by">proposé par %1$s</string>
     <string name="event_focus">Écouter cet événement</string>
     <string name="event_unfocus">Ne plus écouter</string>
-    <string name="event_focus_hint">Ton Spotify suit sa musique, et swiper un son vers la droite le propose ici.</string>
+    <string name="event_focus_hint">Ton Spotify suit sa musique, et les sons ajoutés à la file (ou swipés vers la droite) sont proposés ici.</string>
     <string name="event_focus_premium">Écouter un événement demande un compte Spotify Premium lié.</string>
     <string name="player_locked_by_event">Tu écoutes un événement : arrête de l’écouter pour jouer ta propre musique.</string>
     <string name="event_focus_listening">Tu écoutes %1$s</string>
     <string name="event_focus_proposed">%1$s proposé</string>
+    <string name="event_focus_proposed_many">%1$d sons proposés</string>
+    <string name="event_focus_queue_hint">Les sons ajoutés à la file sont proposés à %1$s.</string>
     <string name="event_track_remove">Retirer de la file</string>
     <string name="event_vote">Voter</string>
     <string name="event_vote_remove">Retirer mon vote</string>

@@ -48,6 +48,8 @@ import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.common.SectionTitle
 import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.common.WindowSize
+import com.musicroom.app.events.EventFocus
+import com.musicroom.app.events.EventQueueList
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_back
 import com.musicroom.app.generated.resources.now_playing_nothing
@@ -75,6 +77,7 @@ import org.jetbrains.compose.resources.stringResource
  * on the left and the queue on the right, each scrolling on its own. Songs are added to the queue from a
  * card at the bottom or by swiping a song to the right; songs added in the app show who proposed them and
  * can be moved (hold the handle, then drag) or removed after tapping "Change the order". Tapping a queued song plays it.
+ * While an event is focused, the queue is the event's: songs added to it are proposed to the event.
  */
 @Composable
 fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> Unit) {
@@ -149,7 +152,20 @@ fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> 
 
     // "Up next": songs added in the app (with who proposed them; their order can change), then what
     // Spotify plays on its own after them (nothing shown next to those).
-    val queueSection: @Composable ColumnScope.() -> Unit = {
+    val focus = EventFocus.Local.current
+    val queueSection: @Composable ColumnScope.() -> Unit = queue@{
+        // Listening to an event: its queue is the queue, and songs added to it are proposed to the event.
+        if (focus?.event != null) {
+            SectionTitle(stringResource(Res.string.queue_title))
+            AppButton(
+                stringResource(Res.string.queue_add_songs),
+                { addingToQueue = true },
+                variant = AppButtonVariant.Secondary,
+                icon = Lucide.ListPlus,
+            )
+            EventQueueList(api, focus)
+            return@queue
+        }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             SectionTitle(stringResource(Res.string.queue_title), Modifier.weight(1f))
             AnimatedVisibility(

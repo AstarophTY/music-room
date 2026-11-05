@@ -95,7 +95,8 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Search in the Spotify catalog (songs, artists and albums) and among Music Room users by name. Typing searches
  * after a short pause; a mood tile searches its genre. "All" shows a few of each kind, the chips one kind only
- * (songs page by page). People can be found without a Spotify account; tapping one opens their profile ([onOpenUser]).
+ * (songs page by page). Everything can be searched without a Spotify account (playing a song asks to link one);
+ * tapping a person opens their profile ([onOpenUser]).
  * Tapping a song plays it with the other songs queued after it; its "..." or a swipe to the right adds it to
  * the queue (or proposes it to the focused event). Artists and albums open their page in place of the results; back returns to them.
  */
@@ -148,13 +149,13 @@ fun SearchScreen(
     // Topped by the user with exactly this name (names are unique).
     val topPeopleCount = 3
 
-    LaunchedEffect(searchQuery, user.spotifyConnected) {
+    LaunchedEffect(searchQuery) {
         found = null
         tracks = emptyList()
         nextOffset = null
         error = null
         loading = false
-        if (searchQuery.isEmpty() || !user.spotifyConnected) return@LaunchedEffect
+        if (searchQuery.isEmpty()) return@LaunchedEffect
         if (selectedMood == null) delay(350)
         loading = true
         try {
@@ -290,16 +291,7 @@ fun SearchScreen(
                 Modifier.fillMaxWidth(),
                 leadingIcon = Lucide.Search,
             )
-            if (!user.spotifyConnected) {
-                // Without Spotify, only people can be searched.
-                if (peopleQuery.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                        SectionTitle(stringResource(SearchFilter.People.label))
-                        peopleResults()
-                    }
-                }
-                SpotifyConnectCard(api, onConnected = onSpotifyConnected)
-            } else if (searchQuery.isNotEmpty()) {
+            if (searchQuery.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Row(
@@ -402,6 +394,8 @@ fun SearchScreen(
                 }
             }
             if (searchQuery.isEmpty()) {
+                // Searching works without Spotify; playing a song needs it.
+                if (!user.spotifyConnected) SpotifyConnectCard(api, onConnected = onSpotifyConnected)
                 SectionTitle(stringResource(Res.string.search_browse))
                 Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
                     val columns = if (WindowSize.current == WindowSize.Compact) 2 else 3
@@ -411,7 +405,7 @@ fun SearchScreen(
                                 val (label, icon) = moods[index]
                                 Box(
                                     Modifier.weight(1f).height(96.dp)
-                                        .pressable(enabled = user.spotifyConnected, onClick = { mood = index })
+                                        .pressable(onClick = { mood = index })
                                         .background(tileColors[index % tileColors.size], AppShapes.large)
                                         .padding(AppTheme.spacing.md),
                                 ) {

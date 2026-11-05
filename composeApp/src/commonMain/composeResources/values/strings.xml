@@ -450,11 +450,13 @@
     <string name="event_proposed_by">proposed by %1$s</string>
     <string name="event_focus">Listen to this event</string>
     <string name="event_unfocus">Stop listening</string>
-    <string name="event_focus_hint">Your Spotify follows its music, and swiping a song to the right proposes it here.</string>
+    <string name="event_focus_hint">Your Spotify follows its music, and songs added to the queue (or swiped to the right) are proposed here.</string>
     <string name="event_focus_premium">Listening to an event needs a linked Spotify Premium account.</string>
     <string name="player_locked_by_event">You are listening to an event: stop listening to it to play your own music.</string>
     <string name="event_focus_listening">Listening to %1$s</string>
     <string name="event_focus_proposed">%1$s proposed</string>
+    <string name="event_focus_proposed_many">%1$d songs proposed</string>
+    <string name="event_focus_queue_hint">Songs added to the queue are proposed to %1$s.</string>
     <string name="event_track_remove">Remove from the queue</string>
     <string name="event_vote">Vote</string>
     <string name="event_vote_remove">Remove my vote</string>

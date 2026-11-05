@@ -17,6 +17,7 @@ import com.musicroom.shared.dto.EventDetailResponse
 import com.musicroom.shared.dto.EventLiveEvent
 import com.musicroom.shared.dto.EventResponse
 import com.musicroom.shared.dto.EventStatus
+import com.musicroom.shared.dto.EventTrackResponse
 import com.musicroom.shared.dto.EventVoteLicense
 import com.musicroom.shared.dto.GeoPoint
 import com.musicroom.shared.dto.TrackResponse
@@ -41,6 +42,10 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     var event by mutableStateOf<EventResponse?>(null)
         private set
 
+    /** Live state of the focused event (its queue, the next song...), shown as the player's queue. */
+    var detail by mutableStateOf<EventDetailResponse?>(null)
+        private set
+
     /** Confirmation (or problem) of the last song proposed by a swipe, cleared after a few seconds. */
     var notice by mutableStateOf<ProposalNotice?>(null)
         private set
@@ -57,6 +62,11 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     private var nextNoticeId = 0L
     private var noticeJob: Job? = null
 
+    init {
+        // While focused, songs added to the queue go to the event.
+        player.proposeToEvent = ::propose
+    }
+
     /** Whether the user can focus an event (Spotify Premium linked); false drops the current focus. */
     fun updateCanFocus(premium: Boolean) {
         canFocus = premium
@@ -66,6 +76,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     fun focus(newEvent: EventResponse) {
         if (!canFocus || event?.id == newEvent.id) return
         synced = null
+        detail = null
         event = newEvent
         player.lockForEvent(true)
         // The user's own music stops; the owner's Spotify may already play the event, which goes on.
@@ -75,6 +86,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
 
     fun unfocus() {
         event = null
+        detail = null
         synced = null
         player.lockForEvent(false)
     }
@@ -85,16 +97,16 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     }
 
     /** Proposes [track] to the focused event in the background; [notice] says how it went. */
-    fun propose(track: TrackResponse) {
+    fun propose(track: TrackResponse) = propose(listOf(track))
+
+    /** Proposes [tracks] to the focused event in the background, in order; [notice] says how it went. */
+    fun propose(tracks: List<TrackResponse>) {
         val target = event ?: return
+        if (tracks.isEmpty()) return
         scope.launch {
             val problem = try {
-                val location = if (target.voteLicense == EventVoteLicense.LOCATION && !target.isOwner) {
-                    locateOrNull() ?: throw LocationUnavailable()
-                } else {
-                    null
-                }
-                api.proposeEventTrack(target.id, track.id, location)
+                val location = location(target)
+                tracks.forEach { track -> detail = api.proposeEventTrack(target.id, track.id, location) }
                 null
             } catch (e: CancellationException) {
                 throw e
@@ -103,7 +115,41 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
             } catch (e: Exception) {
                 UiText.of(e)
             }
-            showNotice(ProposalNotice(nextNoticeId++, track, target.name, problem))
+            showNotice(ProposalNotice(nextNoticeId++, tracks.first(), tracks.size, target.name, problem))
+        }
+    }
+
+    /** Votes for the song [entryId] of the focused event's queue, or takes the vote back. */
+    fun toggleVote(entryId: String) {
+        val target = event ?: return
+        val current = detail ?: return
+        val entry = current.queue.firstOrNull { it.id == entryId } ?: return
+        val voting = !entry.voted
+        // Shown right away, most voted first (the oldest first among equals, as the server keeps them).
+        val order = current.queue.map { it.id }
+        val updated = current.queue.map {
+            if (it.id == entryId) it.copy(voted = voting, votes = it.votes + if (voting) 1 else -1) else it
+        }
+        detail = current.copy(queue = updated.sortedWith(compareByDescending<EventTrackResponse> { it.votes }.thenBy { order.indexOf(it.id) }))
+        scope.launch {
+            val problem = try {
+                detail = if (voting) {
+                    api.voteEventTrack(target.id, entryId, location(target))
+                } else {
+                    api.unvoteEventTrack(target.id, entryId)
+                }
+                null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: LocationUnavailable) {
+                UiText.of(Res.string.event_location_failed)
+            } catch (e: Exception) {
+                UiText.of(e)
+            }
+            if (problem != null) {
+                if (event?.id == target.id) detail = current
+                showNotice(ProposalNotice(nextNoticeId++, entry.track, 1, target.name, problem))
+            }
         }
     }
 
@@ -117,6 +163,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
                     when (live) {
                         is EventLiveEvent.State -> {
                             event = live.detail.event
+                            detail = live.detail
                             listenAlong(live.detail)
                         }
                         EventLiveEvent.Deleted -> unfocus()
@@ -164,6 +211,10 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
         }
     }
 
+    /** The position to send for [target], when its votes need one; throws [LocationUnavailable] when unknown. */
+    private suspend fun location(target: EventResponse): GeoPoint? =
+        if (target.voteLicense == EventVoteLicense.LOCATION && !target.isOwner) locateOrNull() ?: throw LocationUnavailable() else null
+
     private suspend fun locateOrNull(): GeoPoint? = try {
         locate?.invoke()
     } catch (e: CancellationException) {
@@ -184,8 +235,8 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     /** The position needed to propose to the event could not be read. */
     private class LocationUnavailable : Exception()
 
-    /** [track] proposed by a swipe to the event [eventName]; [problem] when the server refused it. */
-    data class ProposalNotice(val id: Long, val track: TrackResponse, val eventName: String, val problem: UiText?)
+    /** [count] songs (the first: [track]) proposed to the event [eventName]; [problem] when the server refused it. */
+    data class ProposalNotice(val id: Long, val track: TrackResponse, val count: Int, val eventName: String, val problem: UiText?)
 
     companion object {
         /** The focus of the screen, for the song rows that propose to it. */
