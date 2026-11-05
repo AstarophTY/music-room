@@ -227,6 +227,29 @@ class SpotifyPlayerTest {
     }
 
     @Test
+    fun `search, artist and album pages work without a linked Spotify account`() = testApplication {
+        val client = client()
+        val auth: AuthResponse = client.post(ApiRoutes.AUTH_REGISTER) {
+            contentType(ContentType.Application.Json)
+            setBody(RegisterRequest("user-${UUID.randomUUID()}@example.com", "hunter42abc", "Bob ${UUID.randomUUID().toString().take(8)}", acceptedTerms = true))
+        }.body()
+        spotify.searchResults = mapOf("daft" to listOf(FakeSpotifyApi.track("t1", "Daft Punk")))
+        spotify.searchArtists = mapOf("daft" to listOf(SpotifyArtist(id = "a1", name = "Daft Punk")))
+        spotify.searchAlbums = mapOf("daft" to listOf(SpotifyAlbum(id = "al1", name = "Discovery", albumType = "album")))
+        spotify.artists = mapOf("a1" to SpotifyArtist(id = "a1", name = "Daft Punk", uri = "spotify:artist:a1"))
+
+        val result: SearchResponse = client.get(ApiRoutes.MUSIC_SEARCH_ALL) {
+            bearerAuth(auth.accessToken)
+            parameter("q", "daft")
+        }.body()
+        assertEquals(listOf("t1"), result.tracks.map { it.id })
+        assertEquals(listOf("a1"), result.artists.map { it.id })
+        assertEquals(listOf("al1"), result.albums.map { it.id })
+        val artist = client.get(ApiRoutes.artist("a1")) { bearerAuth(auth.accessToken) }
+        assertEquals(HttpStatusCode.OK, artist.status)
+    }
+
+    @Test
     fun `an artist page keeps only their own tracks and lists each album once`() = testApplication {
         val client = client()
         val token = client.connectedUser()
