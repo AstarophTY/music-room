@@ -6,6 +6,9 @@ import platform.Foundation.NSUserDefaults
 
 internal class IosAppSettings : AppSettings {
     private val defaults = NSUserDefaults.standardUserDefaults
+    override var providerChoiceSeen: Boolean
+        get() = defaults.boolForKey("provider_choice_seen")
+        set(value) = defaults.setBool(value, forKey = "provider_choice_seen")
 
     override var themeMode: ThemeMode
         get() = defaults.stringForKey(THEME_KEY)?.let { saved -> ThemeMode.entries.firstOrNull { it.name == saved } }
