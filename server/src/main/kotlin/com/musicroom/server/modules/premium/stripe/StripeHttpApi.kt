@@ -9,9 +9,11 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.forms.submitForm
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Parameters
@@ -42,10 +44,12 @@ class StripeHttpApi(private val config: StripeConfig) : StripeApi {
         }
     }
 
+    // Asked again for the same user (two taps at once), Stripe gives back the same customer.
     override suspend fun createCustomer(email: String, userId: String): String = post(
         "customers",
         "email" to email,
         "metadata[user_id]" to userId,
+        idempotencyKey = "customer-$userId",
     ).body<StripeId>().id
 
     override suspend fun createCheckoutSession(
@@ -54,17 +58,24 @@ class StripeHttpApi(private val config: StripeConfig) : StripeApi {
         userId: String,
         successUrl: String,
         cancelUrl: String,
-    ): String = post(
-        "checkout/sessions",
-        "mode" to "subscription",
-        "customer" to customerId,
-        "client_reference_id" to userId,
-        "line_items[0][price]" to priceId,
-        "line_items[0][quantity]" to "1",
-        "subscription_data[metadata][user_id]" to userId,
-        "success_url" to successUrl,
-        "cancel_url" to cancelUrl,
-    ).body<StripeCheckoutSession>().url ?: throw StripeApiException(0, "Stripe gave no payment page")
+        automaticTax: Boolean,
+    ): String {
+        // The VAT depends on where the customer lives: the address typed on the page is saved on the customer.
+        val tax = if (automaticTax) arrayOf("automatic_tax[enabled]" to "true", "customer_update[address]" to "auto") else emptyArray()
+        return post(
+            "checkout/sessions",
+            "mode" to "subscription",
+            "customer" to customerId,
+            "client_reference_id" to userId,
+            "line_items[0][price]" to priceId,
+            "line_items[0][quantity]" to "1",
+            "subscription_data[metadata][user_id]" to userId,
+            "subscription_data[billing_mode][type]" to "flexible",
+            "success_url" to successUrl,
+            "cancel_url" to cancelUrl,
+            *tax,
+        ).body<StripeCheckoutSession>().url ?: throw StripeApiException(0, "Stripe gave no payment page")
+    }
 
     override suspend fun createPortalSession(customerId: String, returnUrl: String): String = post(
         "billing_portal/sessions",
@@ -76,14 +87,23 @@ class StripeHttpApi(private val config: StripeConfig) : StripeApi {
 
     override suspend fun subscription(id: String): StripeSubscription = get("subscriptions/${id.encodeURLPathPart()}").body()
 
-    private suspend fun post(path: String, vararg fields: Pair<String, String>): HttpResponse = call {
+    private suspend fun post(path: String, vararg fields: Pair<String, String>, idempotencyKey: String? = null): HttpResponse = call {
         client.submitForm(
             "$BASE_URL/$path",
             Parameters.build { fields.forEach { (name, value) -> append(name, value) } },
-        ) { bearerAuth(config.secretKey) }
+        ) {
+            authorize()
+            idempotencyKey?.let { header("Idempotency-Key", it) }
+        }
     }
 
-    private suspend fun get(path: String): HttpResponse = call { client.get("$BASE_URL/$path") { bearerAuth(config.secretKey) } }
+    private suspend fun get(path: String): HttpResponse = call { client.get("$BASE_URL/$path") { authorize() } }
+
+    /** The secret key, and the API version the answers are read with (a Dashboard upgrade does not change them). */
+    private fun HttpRequestBuilder.authorize() {
+        bearerAuth(config.secretKey)
+        header("Stripe-Version", API_VERSION)
+    }
 
     private suspend fun call(request: suspend () -> HttpResponse): HttpResponse {
         val response = try {
@@ -97,5 +117,6 @@ class StripeHttpApi(private val config: StripeConfig) : StripeApi {
 
     private companion object {
         const val BASE_URL = "https://api.stripe.com/v1"
+        const val API_VERSION = "2025-09-30.clover"
     }
 }

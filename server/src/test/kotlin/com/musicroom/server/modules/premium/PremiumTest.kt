@@ -136,6 +136,7 @@ class PremiumTest {
 
         val checkout: BillingUrlResponse = client.post(ApiRoutes.BILLING_CHECKOUT) { bearerAuth(token) }.body()
         assertTrue(stripe.lastSuccessUrl!!.endsWith("?session_id={CHECKOUT_SESSION_ID}"))
+        assertEquals(false, stripe.lastAutomaticTax)
         val sessionId = checkout.url.substringAfterLast('/')
         stripe.pay(sessionId)
         client.get(ApiRoutes.BILLING_RETURN) { parameter("session_id", sessionId) }
@@ -154,9 +155,11 @@ class PremiumTest {
         val client = client()
         val token = client.premiumUser()
         val subscription = stripe.subscriptions.values.last()
+        // Cancelled on Stripe's side; the event only says which subscription changed.
+        stripe.subscriptions[subscription.id] = subscription.copy(status = "canceled")
         val payload = """
             {"id":"evt_1","type":"customer.subscription.deleted","data":{"object":
-            {"id":"${subscription.id}","customer":"${subscription.customer}","status":"canceled","cancel_at_period_end":false}}}
+            {"id":"${subscription.id}","customer":"${subscription.customer}","status":"active","cancel_at_period_end":false}}}
         """.trimIndent()
 
         val unsigned = client.post(ApiRoutes.BILLING_WEBHOOK) {

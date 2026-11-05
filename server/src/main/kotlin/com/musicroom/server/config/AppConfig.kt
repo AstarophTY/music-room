@@ -38,6 +38,7 @@ data class AppConfig(
                 webhookSecret = config.string("stripe.webhookSecret"),
                 priceId = config.string("stripe.priceId"),
                 returnUrl = config.string("stripe.returnUrl").ifEmpty { StripeConfig().returnUrl },
+                automaticTax = config.string("stripe.automaticTax").toBoolean(),
             ),
             spotify = SpotifyConfig(
                 clientId = config.string("spotify.clientId"),

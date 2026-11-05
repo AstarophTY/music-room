@@ -84,6 +84,7 @@ class BillingService(
                 // Stripe puts the id of the payment page in place of {CHECKOUT_SESSION_ID}.
                 successUrl = returnUrl("session_id={CHECKOUT_SESSION_ID}"),
                 cancelUrl = returnUrl("cancelled=true"),
+                automaticTax = config.automaticTax,
             )
         }
         return BillingUrlResponse(url)
@@ -126,8 +127,11 @@ class BillingService(
                 val subscriptionId = subject["subscription"]?.jsonPrimitive?.contentOrNull ?: return
                 save(stripe { api.subscription(subscriptionId) })
             }
-            "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted" ->
-                save(json.decodeFromJsonElement(StripeSubscription.serializer(), subject))
+            // Stripe may send events out of order: the subscription is read again as it is now.
+            "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted" -> {
+                val subscriptionId = subject["id"]?.jsonPrimitive?.contentOrNull ?: return
+                save(stripe { api.subscription(subscriptionId) })
+            }
         }
     }
 

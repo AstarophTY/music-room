@@ -5,11 +5,18 @@ import com.musicroom.server.modules.premium.stripe.model.StripeSubscription
 
 /** The Stripe calls Music Room Premium needs. Throws [StripeApiException] when Stripe refuses or cannot be reached. */
 interface StripeApi {
-    /** Creates the Stripe customer of a user; returns its id. */
+    /** Creates the Stripe customer of a user (once per user, even if asked twice at once); returns its id. */
     suspend fun createCustomer(email: String, userId: String): String
 
-    /** Creates the payment page of a monthly subscription to [priceId]; returns its URL. */
-    suspend fun createCheckoutSession(customerId: String, priceId: String, userId: String, successUrl: String, cancelUrl: String): String
+    /** Creates the payment page of a monthly subscription to [priceId], with the VAT if [automaticTax]; returns its URL. */
+    suspend fun createCheckoutSession(
+        customerId: String,
+        priceId: String,
+        userId: String,
+        successUrl: String,
+        cancelUrl: String,
+        automaticTax: Boolean,
+    ): String
 
     /** Creates the page where the customer manages or cancels their subscription; returns its URL. */
     suspend fun createPortalSession(customerId: String, returnUrl: String): String

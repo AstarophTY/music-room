@@ -12,6 +12,7 @@ class FakeStripeApi : StripeApi {
     val sessions = mutableMapOf<String, StripeCheckoutSession>()
     val subscriptions = mutableMapOf<String, StripeSubscription>()
     var lastSuccessUrl: String? = null
+    var lastAutomaticTax: Boolean? = null
 
     override suspend fun createCustomer(email: String, userId: String): String {
         val id = "cus_${UUID.randomUUID()}"
@@ -25,7 +26,9 @@ class FakeStripeApi : StripeApi {
         userId: String,
         successUrl: String,
         cancelUrl: String,
+        automaticTax: Boolean,
     ): String {
+        lastAutomaticTax = automaticTax
         val id = "cs_${sessions.size + 1}"
         sessions[id] = StripeCheckoutSession(id = id, customer = customerId, clientReferenceId = userId)
         lastSuccessUrl = successUrl
