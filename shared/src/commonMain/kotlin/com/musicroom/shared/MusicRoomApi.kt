@@ -8,6 +8,14 @@ import com.musicroom.shared.dto.AuthResponse
 import com.musicroom.shared.dto.ChangePasswordRequest
 import com.musicroom.shared.dto.CreatePlaylistRequest
 import com.musicroom.shared.dto.ConversationsResponse
+import com.musicroom.shared.dto.CreateEventRequest
+import com.musicroom.shared.dto.EventDetailResponse
+import com.musicroom.shared.dto.EventLiveEvent
+import com.musicroom.shared.dto.EventVoteRequest
+import com.musicroom.shared.dto.EventsResponse
+import com.musicroom.shared.dto.EventsScope
+import com.musicroom.shared.dto.GeoPoint
+import com.musicroom.shared.dto.ProposeTrackRequest
 import com.musicroom.shared.dto.FriendsResponse
 import com.musicroom.shared.dto.MessageResponse
 import com.musicroom.shared.dto.MessagesResponse
@@ -386,6 +394,77 @@ class MusicRoomApi(
                 }
             } finally {
                 sender.cancel()
+            }
+        }
+    }
+
+    /** Events of [scope]; [near] (the user's position) is needed for [EventsScope.NEARBY]. */
+    suspend fun events(scope: EventsScope, near: GeoPoint? = null): EventsResponse =
+        authorized(HttpMethod.Get, ApiRoutes.EVENTS) {
+            url.parameters.append("scope", scope.name.lowercase())
+            near?.let {
+                url.parameters.append("lat", it.latitude.toString())
+                url.parameters.append("lng", it.longitude.toString())
+            }
+        }.bodyOrThrow()
+
+    suspend fun createEvent(request: CreateEventRequest): EventDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.EVENTS) { jsonBody(request) }.bodyOrThrow()
+
+    suspend fun event(id: String): EventDetailResponse = authorized(HttpMethod.Get, ApiRoutes.event(id)).bodyOrThrow()
+
+    suspend fun updateEvent(id: String, request: CreateEventRequest): EventDetailResponse =
+        authorized(HttpMethod.Put, ApiRoutes.event(id)) { jsonBody(request) }.bodyOrThrow()
+
+    suspend fun deleteEvent(id: String) {
+        authorized(HttpMethod.Delete, ApiRoutes.event(id)).throwIfError()
+    }
+
+    /** Proposes a Spotify track (with the user's vote). [location]: needed when votes are limited to an area. */
+    suspend fun proposeEventTrack(id: String, trackId: String, location: GeoPoint? = null): EventDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.eventTracks(id)) { jsonBody(ProposeTrackRequest(trackId, location)) }.bodyOrThrow()
+
+    suspend fun removeEventTrack(id: String, trackId: String): EventDetailResponse =
+        authorized(HttpMethod.Delete, ApiRoutes.eventTrack(id, trackId)).bodyOrThrow()
+
+    suspend fun voteEventTrack(id: String, trackId: String, location: GeoPoint? = null): EventDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.eventTrackVote(id, trackId)) { jsonBody(EventVoteRequest(location)) }.bodyOrThrow()
+
+    suspend fun unvoteEventTrack(id: String, trackId: String): EventDetailResponse =
+        authorized(HttpMethod.Delete, ApiRoutes.eventTrackVote(id, trackId)).bodyOrThrow()
+
+    suspend fun inviteToEvent(id: String, userId: String): EventDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.eventInvited(id, userId)).bodyOrThrow()
+
+    /** The owner takes an invitation back, or the user leaves ([userId] = their own id). */
+    suspend fun uninviteFromEvent(id: String, userId: String) {
+        authorized(HttpMethod.Delete, ApiRoutes.eventInvited(id, userId)).throwIfError()
+    }
+
+    suspend fun playEvent(id: String): EventDetailResponse = authorized(HttpMethod.Post, ApiRoutes.eventPlay(id)).bodyOrThrow()
+
+    suspend fun pauseEvent(id: String): EventDetailResponse = authorized(HttpMethod.Post, ApiRoutes.eventPause(id)).bodyOrThrow()
+
+    suspend fun skipEvent(id: String): EventDetailResponse = authorized(HttpMethod.Post, ApiRoutes.eventSkip(id)).bodyOrThrow()
+
+    suspend fun stopEvent(id: String): EventDetailResponse = authorized(HttpMethod.Post, ApiRoutes.eventStop(id)).bodyOrThrow()
+
+    /**
+     * Follows the event [id] until the connection closes (or the caller is cancelled): [onEvent] gets its state on
+     * joining and after each change. A first API call makes sure the access token is fresh.
+     */
+    suspend fun eventLive(id: String, onEvent: suspend (EventLiveEvent) -> Unit) {
+        event(id)
+        val token = accessToken ?: throw notLoggedIn()
+        val wsUrl = url(ApiRoutes.eventWs(id)).replaceFirst("http", "ws")
+        http.webSocket({
+            url.takeFrom(wsUrl)
+            url.parameters.append("token", token)
+        }) {
+            for (frame in incoming) {
+                if (frame !is Frame.Text) continue
+                val event = runCatching { MusicRoomJson.decodeFromString(EventLiveEvent.serializer(), frame.readText()) }.getOrNull()
+                if (event != null) onEvent(event)
             }
         }
     }

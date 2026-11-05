@@ -11,6 +11,11 @@ tags:
   - name: users
   - name: social
     description: Friends, one-to-one chat between friends, notifications.
+  - name: events
+    description: >-
+      Music Track Vote. An event is a room where people propose songs and vote; the most voted song plays next on the
+      owner's Spotify (only the owner streams: the others need no Spotify account). Changes are pushed live on
+      GET /api/v1/events/{id}/ws.
 paths:
   /health:
     get:
@@ -602,6 +607,411 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events:
+    get:
+      tags: [events]
+      summary: List events
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: query, name: scope, schema: { type: string, enum: [public, nearby, invited, mine], default: public } }
+        - { in: query, name: lat, schema: { type: number }, description: Needed for nearby }
+        - { in: query, name: lng, schema: { type: number }, description: Needed for nearby }
+      responses:
+        "200":
+          description: Events, playing ones first (public), or the closest first (nearby, within 50 km)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventsResponse" }
+        "400":
+          description: event_location_required (nearby without a position)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    post:
+      tags: [events]
+      summary: Create an event
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateEventRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "400":
+          description: Invalid settings (event_name_required, event_area_required, event_hours_invalid...)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}:
+    get:
+      tags: [events]
+      summary: Event page (song playing, next one, queue by votes, people invited)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    put:
+      tags: [events]
+      summary: Change the settings (owner)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateEventRequest" }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "400":
+          description: Invalid settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: Only the owner can do this
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [events]
+      summary: Delete the event (owner); followers get a "deleted" message
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Deleted
+        "403":
+          description: Only the owner can do this
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/tracks:
+    post:
+      tags: [events]
+      summary: Propose a Spotify track, with the proposer's vote
+      description: >-
+        The track details are read from Spotify (the app token when the user has no Spotify account). A song already
+        waiting counts as a vote for it. At most 5 waiting songs per person (the owner has no limit).
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProposeTrackRequest" }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "400":
+          description: "event_location_required (the location license needs the user's position)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: event_vote_not_allowed (invited only), event_out_of_area, event_closed (outside the hours)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: event_proposal_limit
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/tracks/{trackId}:
+    delete:
+      tags: [events]
+      summary: Remove a queued song (the owner any, the others their own)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: trackId, required: true, schema: { type: string, format: uuid }, description: Id of the song in the event (EventTrackResponse.id) }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "403":
+          description: Not the owner nor the proposer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: The song already plays
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/tracks/{trackId}/vote:
+    post:
+      tags: [events]
+      summary: Vote for a queued song
+      description: >-
+        One vote per user and song (primary key of event_votes); the count changes in the same transaction with
+        votes = votes + 1, after locking the song's row. Voting again changes nothing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: trackId, required: true, schema: { type: string, format: uuid }, description: Id of the song in the event (EventTrackResponse.id) }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventVoteRequest" }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "400":
+          description: "event_location_required (the location license needs the user's position)"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "403":
+          description: event_vote_not_allowed (invited only), event_out_of_area, event_closed (outside the hours)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [events]
+      summary: Take the vote back
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: trackId, required: true, schema: { type: string, format: uuid }, description: Id of the song in the event (EventTrackResponse.id) }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/invited/{userId}:
+    post:
+      tags: [events]
+      summary: Invite a friend (owner); they get a notification
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "403":
+          description: Not the owner, or not a friend (not_friends)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+    delete:
+      tags: [events]
+      summary: Take an invitation back (owner), or leave (the person invited)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: path, name: userId, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204":
+          description: Done
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/play:
+    post:
+      tags: [events]
+      summary: Start the music on the owner's Spotify, or resume it (owner)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "403":
+          description: Only the owner can do this
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: spotify_not_connected, spotify_no_device
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/pause:
+    post:
+      tags: [events]
+      summary: Pause the music (owner)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "403":
+          description: Only the owner can do this
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/skip:
+    post:
+      tags: [events]
+      summary: Play the most voted song now (owner)
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "403":
+          description: Only the owner can do this
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "409":
+          description: spotify_not_connected, spotify_no_device
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/stop:
+    post:
+      tags: [events]
+      summary: "Stop the music, the next song goes back to the vote (owner)"
+      security:
+        - bearerAuth: []
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: The event as the user sees it
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EventDetailResponse" }
+        "403":
+          description: Only the owner can do this
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+        "404":
+          description: No such event, or a private one the user was not invited to
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ErrorResponse" }
+  /api/v1/events/{id}/ws:
+    get:
+      tags: [events]
+      summary: WebSocket of the event's state
+      description: >-
+        The access token goes in the "token" query parameter. The server sends EventLiveEvent messages:
+        {"type":"state","detail":EventDetailResponse} on joining and after each change (changes close together are
+        sent once), {"type":"deleted"} when the owner deletes the event. The socket closes with code 1008 when the
+        token is invalid or the event is not visible.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: token, required: true, schema: { type: string } }
+      responses:
+        "101":
+          description: Switching to the WebSocket protocol
   /api/v1/users/search:
     get:
       tags: [social]
@@ -687,7 +1097,7 @@ paths:
   /api/v1/notifications:
     get:
       tags: [social]
-      summary: Latest 50 notifications (friend_request, friend_accepted, playlist_invite)
+      summary: Latest 50 notifications (friend_request, friend_accepted, playlist_invite, event_invite)
       security:
         - bearerAuth: []
       responses:
@@ -868,6 +1278,12 @@ components:
             code_expired, too_many_attempts, wrong_current_password, password_too_short (see ApiErrors and
             ValidationError in the shared module).
         message: { type: string }
+    GeoPoint:
+      type: object
+      required: [latitude, longitude]
+      properties:
+        latitude: { type: number, example: 48.8566 }
+        longitude: { type: number, example: 2.3522 }
     PublicUserResponse:
       type: object
       required: [id, displayName]
@@ -887,3 +1303,90 @@ components:
         friends: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }
         received: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }
         sent: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }
+    TrackResponse:
+      type: object
+      required: [id, name, artists, album, durationMs, uri]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        artists: { type: array, items: { type: string } }
+        album: { type: string }
+        imageUrl: { type: string, nullable: true }
+        durationMs: { type: integer, format: int64 }
+        uri: { type: string, example: "spotify:track:4uLU6hMCjMI75M1A2tKUQC" }
+    CreateEventRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 64 }
+        description: { type: string, maxLength: 280 }
+        visibility: { type: string, enum: [PUBLIC, PRIVATE], default: PUBLIC }
+        voteLicense:
+          type: string
+          enum: [EVERYONE, INVITED, LOCATION]
+          default: EVERYONE
+          description: LOCATION needs location and radiusMeters (50 to 50000); startsAt/endsAt limit the hours.
+        location: { $ref: "#/components/schemas/GeoPoint" }
+        radiusMeters: { type: integer }
+        startsAt: { type: integer, format: int64, description: epoch ms }
+        endsAt: { type: integer, format: int64, description: epoch ms }
+    ProposeTrackRequest:
+      type: object
+      required: [trackId]
+      properties:
+        trackId: { type: string, description: Spotify track id }
+        location: { $ref: "#/components/schemas/GeoPoint" }
+    EventVoteRequest:
+      type: object
+      properties:
+        location: { $ref: "#/components/schemas/GeoPoint" }
+    EventResponse:
+      type: object
+      required: [id, name, visibility, voteLicense, status, owner, isOwner, isInvited, canVote]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        visibility: { type: string, enum: [PUBLIC, PRIVATE] }
+        voteLicense: { type: string, enum: [EVERYONE, INVITED, LOCATION] }
+        status: { type: string, enum: [WAITING, PLAYING, PAUSED] }
+        owner: { $ref: "#/components/schemas/PublicUserResponse" }
+        isOwner: { type: boolean }
+        isInvited: { type: boolean }
+        canVote: { type: boolean, description: "With LOCATION, true during the hours: the position is checked on each vote" }
+        location: { $ref: "#/components/schemas/GeoPoint" }
+        radiusMeters: { type: integer, nullable: true }
+        startsAt: { type: integer, format: int64, nullable: true }
+        endsAt: { type: integer, format: int64, nullable: true }
+        queuedCount: { type: integer }
+        listeners: { type: integer, description: People following the event right now }
+        nowPlaying: { $ref: "#/components/schemas/TrackResponse" }
+    EventsResponse:
+      type: object
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/EventResponse" } }
+    EventTrackResponse:
+      type: object
+      required: [id, track, votes]
+      properties:
+        id: { type: string, format: uuid }
+        track: { $ref: "#/components/schemas/TrackResponse" }
+        proposedBy: { $ref: "#/components/schemas/PublicUserResponse" }
+        votes: { type: integer }
+        voted: { type: boolean, description: The user voted for it }
+        status: { type: string, enum: [QUEUED, NEXT, PLAYING] }
+    EventDetailResponse:
+      type: object
+      required: [event]
+      properties:
+        event: { $ref: "#/components/schemas/EventResponse" }
+        nowPlaying: { $ref: "#/components/schemas/EventTrackResponse" }
+        next: { $ref: "#/components/schemas/EventTrackResponse" }
+        queue:
+          type: array
+          description: Queued songs, most voted first, then the oldest
+          items: { $ref: "#/components/schemas/EventTrackResponse" }
+        invited: { type: array, items: { $ref: "#/components/schemas/PublicUserResponse" } }
+        playbackIssue: { type: string, nullable: true, description: "Owner only: why the music cannot play (e.g. spotify_no_device)" }
+        progressMs: { type: integer, format: int64 }
+        sentAt: { type: integer, format: int64 }

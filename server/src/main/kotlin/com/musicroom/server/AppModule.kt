@@ -20,6 +20,7 @@ import com.musicroom.server.common.websocket.configureWebSockets
 import com.musicroom.server.config.AppConfig
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
+import com.musicroom.server.modules.events.EventsModule
 import com.musicroom.server.modules.playlists.PlaylistsModule
 import com.musicroom.server.modules.social.SocialModule
 import com.musicroom.server.modules.spotify.SpotifyModule
@@ -57,6 +58,8 @@ class AppModule(
 
     val social = SocialModule(database, users.repository, jwtService)
 
+    val events = EventsModule(database, spotify.service, social.service, jwtService)
+
     val modules: List<Module> = listOf(
         SystemModule(config, database),
         users,
@@ -64,6 +67,7 @@ class AppModule(
         spotify,
         PlaylistsModule(database, users.repository, spotify.service, social.service),
         social,
+        events,
     )
 }
 
@@ -75,6 +79,8 @@ fun Application.bootstrap(appModule: AppModule) {
     configureJwtGuard(appModule.jwtService)
     configureThrottler()
     configureWebSockets()
+    // Plays the events' music on their owners' Spotify until the server stops.
+    appModule.events.service.player.run(this)
 
     routing {
         swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")

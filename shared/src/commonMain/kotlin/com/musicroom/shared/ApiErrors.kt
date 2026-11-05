@@ -46,6 +46,19 @@ object ApiErrors {
     const val ALREADY_MEMBER = "already_member"
     const val NOT_FRIENDS = "not_friends"
 
+    /** Events: the vote license does not let this user propose or vote. */
+    const val EVENT_VOTE_NOT_ALLOWED = "event_vote_not_allowed"
+
+    /** Location license: the app must send the user's position. */
+    const val EVENT_LOCATION_REQUIRED = "event_location_required"
+    const val EVENT_OUT_OF_AREA = "event_out_of_area"
+
+    /** Location license: outside the event's hours. */
+    const val EVENT_CLOSED = "event_closed"
+
+    /** Too many of the user's songs wait in the queue already. */
+    const val EVENT_PROPOSAL_LIMIT = "event_proposal_limit"
+
     /** Only listeners can be added to a personal playlist: make it shared to let members edit it. */
     const val PERSONAL_PLAYLIST_READ_ONLY = "personal_playlist_read_only"
     const val INVALID_IMAGE = "invalid_image"
