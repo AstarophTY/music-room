@@ -25,6 +25,7 @@ import com.musicroom.shared.dto.EventsResponse
 import com.musicroom.shared.dto.EventsScope
 import com.musicroom.shared.dto.GeoPoint
 import com.musicroom.shared.dto.PublicUserResponse
+import com.musicroom.shared.dto.TrackResponse
 import java.time.OffsetDateTime
 import java.util.UUID
 
@@ -99,6 +100,10 @@ class EventsService(
             throw ConflictException("You already have $MAX_QUEUED_PER_USER songs waiting", ApiErrors.EVENT_PROPOSAL_LIMIT)
         }
         if (trackId.isBlank() || trackId.length > 64) throw BadRequestException("Unknown track")
+        // The event plays on Spotify, which cannot play the songs uploaded to Music Room.
+        if (trackId.startsWith(TrackResponse.HOSTED_PREFIX)) {
+            throw BadRequestException("Songs uploaded to Music Room cannot play in an event", ApiErrors.HOSTED_TRACK_NOT_ALLOWED)
+        }
         // The details come from Spotify, not from the app.
         val track = spotify.track(userId, trackId)
         tracks.propose(eventId, track, userId)

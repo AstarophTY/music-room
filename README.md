@@ -178,6 +178,19 @@ Without `GOOGLE_CLIENT_ID`, the button shows an error message and the server ref
 - **Recommendations** (`GET /api/v1/music/me/recommendations`): Spotify's own recommendations endpoint is closed to new apps, so the server builds them from the user's top tracks and more tracks from their top artists (search). Cached 10 minutes per user to save the Spotify quota.
 - Search asks Spotify for 10 results per page, the development-mode maximum.
 
+## Music Room Premium (Stripe)
+
+A monthly subscription that lets users upload their own songs (MP3, 20 MB at most, 200 per user). Their songs show on their profile (*Profile > My songs*, and on their public page) and can be added to playlists. The app plays them itself, next to Spotify.
+
+1. In the [Stripe dashboard](https://dashboard.stripe.com) (test mode is fine), create a product with a monthly recurring price, and copy the price ID (`price_...`) and the secret key (`sk_...`) into `STRIPE_PRICE_ID` and `STRIPE_SECRET_KEY` in `.env`.
+2. Optional: add a webhook endpoint `<server>/api/v1/billing/webhook` with the events `checkout.session.completed` and `customer.subscription.*`, and put its signing secret in `STRIPE_WEBHOOK_SECRET` (in development: `stripe listen --forward-to localhost:8080/api/v1/billing/webhook`). Without a webhook, the server reads the subscription from Stripe when the user comes back from the payment page and every few minutes after.
+3. In the app: *Profile > Music Room Premium > Subscribe* opens Stripe's payment page in the browser; Premium turns on in the app right after paying. *Manage my subscription* opens Stripe's page to change the card or cancel.
+
+- **Tables** (`V13__premium.sql`): `subscriptions` (Stripe customer and subscription status per user), `hosted_tracks` and `hosted_track_audio` (the MP3 files, kept apart so lists stay light).
+- **Routes**: `GET /api/v1/billing`, `POST /api/v1/billing/checkout|portal`, `POST /api/v1/billing/webhook` (Stripe, signed), `GET|POST /api/v1/tracks`, `DELETE /api/v1/tracks/{id}`, `GET /api/v1/tracks/{id}/audio`, `GET /api/v1/users/{id}/tracks`.
+- **Playback**: uploaded songs have the `MUSIC_ROOM` source and an id starting with `mr-`. A list with uploaded songs is played by the app song after song: Spotify songs on the user's Spotify device, uploaded ones in the app (Spotify is paused meanwhile). An uploaded song queued during a Spotify album or playlist pauses it, which goes on afterwards. Uploaded songs play without a Spotify account, but cannot be proposed to events (they play on Spotify).
+- **Platforms**: web (`<audio>`), Android (`MediaPlayer`), iOS (`AVAudioPlayer`), desktop (Java Sound with mp3spi). Uploading needs a file chooser, not wired on iOS yet.
+
 ## Playlists
 
 Playlists made in Music Room (`/api/v1/playlists`), stored in 4 tables:

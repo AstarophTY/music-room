@@ -91,6 +91,30 @@ object ApiRoutes {
 
     fun userProfile(userId: String) = "$USERS/$userId"
 
+    const val USER_TRACKS = "$USERS/{id}/tracks"
+
+    fun userTracks(userId: String) = "$USERS/$userId/tracks"
+
+    /** Music Room Premium, paid with Stripe. */
+    const val BILLING = "$API_V1/billing"
+    const val BILLING_CHECKOUT = "$BILLING/checkout"
+    const val BILLING_PORTAL = "$BILLING/portal"
+
+    /** Called by Stripe (signed), not by the app. */
+    const val BILLING_WEBHOOK = "$BILLING/webhook"
+
+    /** Page shown in the browser after paying or leaving the Stripe page. */
+    const val BILLING_RETURN = "$BILLING/return"
+
+    /** Songs uploaded to Music Room (Premium): the user's own list, and the upload. */
+    const val HOSTED_TRACKS = "$API_V1/tracks"
+    const val HOSTED_TRACK = "$HOSTED_TRACKS/{id}"
+    const val HOSTED_TRACK_AUDIO = "$HOSTED_TRACK/audio"
+
+    fun hostedTrack(id: String) = "$HOSTED_TRACKS/$id"
+
+    fun hostedTrackAudio(id: String) = "$HOSTED_TRACKS/$id/audio"
+
     const val FRIENDS = "$API_V1/friends"
     const val FRIEND = "$FRIENDS/{userId}"
 

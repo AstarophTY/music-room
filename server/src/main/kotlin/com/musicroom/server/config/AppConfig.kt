@@ -9,6 +9,7 @@ data class AppConfig(
     val oauth: OAuthConfig = OAuthConfig(),
     val mail: MailConfig = MailConfig(),
     val spotify: SpotifyConfig = SpotifyConfig(),
+    val stripe: StripeConfig = StripeConfig(),
 ) {
     companion object {
         fun from(config: ApplicationConfig) = AppConfig(
@@ -32,6 +33,12 @@ data class AppConfig(
                 appleClientIds = config.list("oauth.appleClientIds"),
             ),
             mail = mailConfig(config),
+            stripe = StripeConfig(
+                secretKey = config.string("stripe.secretKey"),
+                webhookSecret = config.string("stripe.webhookSecret"),
+                priceId = config.string("stripe.priceId"),
+                returnUrl = config.string("stripe.returnUrl").ifEmpty { StripeConfig().returnUrl },
+            ),
             spotify = SpotifyConfig(
                 clientId = config.string("spotify.clientId"),
                 clientSecret = config.string("spotify.clientSecret"),

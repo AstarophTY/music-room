@@ -5,6 +5,7 @@ import com.musicroom.shared.dto.AddPlaylistTrackRequest
 import com.musicroom.shared.dto.AlbumDetailResponse
 import com.musicroom.shared.dto.ArtistDetailResponse
 import com.musicroom.shared.dto.AuthResponse
+import com.musicroom.shared.dto.BillingUrlResponse
 import com.musicroom.shared.dto.ChangePasswordRequest
 import com.musicroom.shared.dto.CreatePlaylistRequest
 import com.musicroom.shared.dto.ConversationsResponse
@@ -15,6 +16,7 @@ import com.musicroom.shared.dto.EventVoteRequest
 import com.musicroom.shared.dto.EventsResponse
 import com.musicroom.shared.dto.EventsScope
 import com.musicroom.shared.dto.GeoPoint
+import com.musicroom.shared.dto.HostedTracksResponse
 import com.musicroom.shared.dto.ProposeTrackRequest
 import com.musicroom.shared.dto.FriendsResponse
 import com.musicroom.shared.dto.MessageResponse
@@ -25,6 +27,7 @@ import com.musicroom.shared.dto.SendMessageRequest
 import com.musicroom.shared.dto.SocialClientEvent
 import com.musicroom.shared.dto.SocialEvent
 import com.musicroom.shared.dto.SocialCountsResponse
+import com.musicroom.shared.dto.SubscriptionResponse
 import com.musicroom.shared.dto.UserProfileResponse
 import com.musicroom.shared.dto.UsersResponse
 import com.musicroom.shared.dto.DevicesResponse
@@ -76,6 +79,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
@@ -476,6 +480,37 @@ class MusicRoomApi(
 
     /** Profile photo bytes (JPEG). */
     suspend fun avatar(userId: String): ByteArray = authorized(HttpMethod.Get, ApiRoutes.userAvatar(userId)).bodyOrThrow()
+
+    /** The user's Music Room Premium subscription. */
+    suspend fun subscription(): SubscriptionResponse = authorized(HttpMethod.Get, ApiRoutes.BILLING).bodyOrThrow()
+
+    /** The Stripe payment page to subscribe to Premium. */
+    suspend fun premiumCheckout(): BillingUrlResponse = authorized(HttpMethod.Post, ApiRoutes.BILLING_CHECKOUT).bodyOrThrow()
+
+    /** The Stripe page to manage (or cancel) the subscription. */
+    suspend fun billingPortal(): BillingUrlResponse = authorized(HttpMethod.Post, ApiRoutes.BILLING_PORTAL).bodyOrThrow()
+
+    /** Songs the user uploaded to Music Room. */
+    suspend fun myHostedTracks(): HostedTracksResponse = authorized(HttpMethod.Get, ApiRoutes.HOSTED_TRACKS).bodyOrThrow()
+
+    /** Songs another user uploaded, shown on their profile. */
+    suspend fun userTracks(userId: String): HostedTracksResponse = authorized(HttpMethod.Get, ApiRoutes.userTracks(userId)).bodyOrThrow()
+
+    /** Uploads an MP3 file as a song of the user (Premium). */
+    suspend fun uploadHostedTrack(audio: ByteArray, title: String, artist: String): TrackResponse =
+        authorized(HttpMethod.Post, ApiRoutes.HOSTED_TRACKS) {
+            parameter("title", title)
+            parameter("artist", artist)
+            contentType(ContentType.Audio.MPEG)
+            setBody(audio)
+        }.bodyOrThrow()
+
+    suspend fun deleteHostedTrack(id: String) {
+        authorized(HttpMethod.Delete, ApiRoutes.hostedTrack(id)).throwIfError()
+    }
+
+    /** The MP3 file of an uploaded song, played by the app. */
+    suspend fun hostedTrackAudio(id: String): ByteArray = authorized(HttpMethod.Get, ApiRoutes.hostedTrackAudio(id)).bodyOrThrow()
 
     /** Checks the code sent by email and returns the updated user (emailVerified = true). */
     suspend fun verifyEmail(request: VerifyEmailRequest): UserResponse =
