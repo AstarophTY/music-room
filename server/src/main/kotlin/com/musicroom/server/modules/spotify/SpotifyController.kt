@@ -9,6 +9,7 @@ import com.musicroom.server.common.i18n.requestLanguage
 import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.shared.ApiRoutes
 import com.musicroom.shared.dto.PlayRequest
+import com.musicroom.shared.dto.QueueRequest
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
@@ -81,6 +82,13 @@ class SpotifyController(private val service: SpotifyService, private val users: 
                 val position = call.request.queryParameters["positionMs"]?.toLongOrNull()
                     ?: throw BadRequestException("positionMs is required")
                 service.seek(call.currentUserId(), position)
+                call.respond(HttpStatusCode.NoContent)
+            }
+            get(ApiRoutes.MUSIC_PLAYER_QUEUE) {
+                call.respond(service.queue(call.currentUserId()))
+            }
+            post(ApiRoutes.MUSIC_PLAYER_QUEUE) {
+                service.addToQueue(call.currentUserId(), call.receive<QueueRequest>().uris)
                 call.respond(HttpStatusCode.NoContent)
             }
             get(ApiRoutes.MUSIC_PLAYLIST_TRACKS) {

@@ -42,6 +42,7 @@ object ApiRoutes {
     const val MUSIC_PLAYER_NEXT = "$MUSIC_PLAYER/next"
     const val MUSIC_PLAYER_PREVIOUS = "$MUSIC_PLAYER/previous"
     const val MUSIC_PLAYER_SEEK = "$MUSIC_PLAYER/seek"
+    const val MUSIC_PLAYER_QUEUE = "$MUSIC_PLAYER/queue"
 
     fun track(id: String) = "$MUSIC/tracks/$id"
 

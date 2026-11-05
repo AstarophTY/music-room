@@ -131,6 +131,7 @@ class PlaylistsTest {
         val detail: PlaylistDetailResponse = client.addTrack(owner, created.id, "t2").body()
         assertEquals(listOf("t1", "t2"), detail.tracks.map { it.track.id })
         assertEquals("Alice", detail.tracks.first().addedBy)
+        assertEquals(detail.playlist.owner.userId, detail.tracks.first().addedById)
 
         val again = client.addTrack(owner, created.id, "t1")
         assertEquals(HttpStatusCode.Conflict, again.status)

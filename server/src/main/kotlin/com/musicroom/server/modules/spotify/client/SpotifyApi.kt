@@ -7,6 +7,7 @@ import com.musicroom.server.modules.spotify.client.model.SpotifyPlayBody
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaybackState
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylist
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylistTrackItem
+import com.musicroom.server.modules.spotify.client.model.SpotifyQueue
 import com.musicroom.server.modules.spotify.client.model.SpotifyTokenResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTrack
 import com.musicroom.server.modules.spotify.client.model.SpotifyUser
@@ -48,4 +49,9 @@ interface SpotifyApi {
     suspend fun previous(accessToken: String)
 
     suspend fun seek(accessToken: String, positionMs: Long)
+
+    suspend fun queue(accessToken: String): SpotifyQueue
+
+    /** Adds the track [uri] at the end of the queue of [deviceId]. */
+    suspend fun addToQueue(accessToken: String, deviceId: String?, uri: String)
 }

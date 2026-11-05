@@ -9,6 +9,7 @@ import com.musicroom.server.modules.spotify.client.model.SpotifyPlayBody
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaybackState
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylist
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylistTrackItem
+import com.musicroom.server.modules.spotify.client.model.SpotifyQueue
 import com.musicroom.server.modules.spotify.client.model.SpotifySearchResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTokenResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTrack
@@ -155,6 +156,14 @@ class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
 
     override suspend fun seek(accessToken: String, positionMs: Long) =
         player(HttpMethod.Put, accessToken, "/me/player/seek") { parameter("position_ms", positionMs) }
+
+    override suspend fun queue(accessToken: String): SpotifyQueue = api(accessToken, "/me/player/queue")
+
+    override suspend fun addToQueue(accessToken: String, deviceId: String?, uri: String) =
+        player(HttpMethod.Post, accessToken, "/me/player/queue") {
+            parameter("uri", uri)
+            if (deviceId != null) parameter("device_id", deviceId)
+        }
 
     /** Player commands answer with no useful body. */
     private suspend fun player(

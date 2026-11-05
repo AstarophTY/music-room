@@ -21,6 +21,8 @@ import com.musicroom.shared.dto.ErrorResponse
 import com.musicroom.shared.dto.PlayRequest
 import com.musicroom.shared.dto.PlaybackStateResponse
 import com.musicroom.shared.dto.PlaylistsResponse
+import com.musicroom.shared.dto.QueueRequest
+import com.musicroom.shared.dto.QueueResponse
 import com.musicroom.shared.dto.RecommendationKind
 import com.musicroom.shared.dto.RecommendationsResponse
 import com.musicroom.shared.dto.RegisterRequest
@@ -146,6 +148,25 @@ class SpotifyPlayerTest {
         assertEquals(HttpStatusCode.Forbidden, notPremium.status)
         assertEquals(ApiErrors.SPOTIFY_PREMIUM_REQUIRED, notPremium.body<ErrorResponse>().error)
         spotify.playError = null
+    }
+
+    @Test
+    fun `tracks are added to the queue in order on the active device, and the queue lists the next tracks`() = testApplication {
+        val client = client()
+        val token = client.connectedUser()
+        spotify.devices = listOf(SpotifyDevice(id = "laptop", name = "Laptop"), SpotifyDevice(id = "phone", isActive = true, name = "Phone"))
+        spotify.queue = listOf(FakeSpotifyApi.track("q1", "Justice"), FakeSpotifyApi.track("q2", "Air"))
+
+        val response = client.post(ApiRoutes.MUSIC_PLAYER_QUEUE) {
+            bearerAuth(token)
+            contentType(ContentType.Application.Json)
+            setBody(QueueRequest(listOf("spotify:track:a", "spotify:episode:x", "spotify:track:b")))
+        }
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals(listOf<Pair<String?, String>>("phone" to "spotify:track:a", "phone" to "spotify:track:b"), spotify.queued)
+
+        val queue: QueueResponse = client.get(ApiRoutes.MUSIC_PLAYER_QUEUE) { bearerAuth(token) }.body()
+        assertEquals(listOf("q1", "q2"), queue.tracks.map { it.id })
     }
 
     @Test

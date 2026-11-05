@@ -28,6 +28,7 @@ class PlaylistTracksRepository(private val db: DatabaseModule) {
                     entryId = it[PlaylistTracksTable.id].value.toString(),
                     track = MusicRoomJson.decodeFromString(TrackResponse.serializer(), it[PlaylistTracksTable.track]),
                     addedBy = it.getOrNull(UsersTable.displayName).orEmpty(),
+                    addedById = it.getOrNull(UsersTable.id)?.value?.toString(),
                 )
             }
     }

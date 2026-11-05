@@ -13,6 +13,8 @@ import com.musicroom.shared.dto.LoginRequest
 import com.musicroom.shared.dto.OAuthLoginRequest
 import com.musicroom.shared.dto.PlayRequest
 import com.musicroom.shared.dto.PlaybackStateResponse
+import com.musicroom.shared.dto.QueueRequest
+import com.musicroom.shared.dto.QueueResponse
 import com.musicroom.shared.dto.PlaylistAccess
 import com.musicroom.shared.dto.PlaylistDetailResponse
 import com.musicroom.shared.dto.PlaylistListResponse
@@ -211,6 +213,14 @@ class MusicRoomApi(
         authorized(HttpMethod.Put, ApiRoutes.MUSIC_PLAYER_SEEK) {
             url.parameters.append("positionMs", positionMs.toString())
         }.throwIfError()
+    }
+
+    /** The next tracks Spotify will play. */
+    suspend fun queue(): QueueResponse = authorized(HttpMethod.Get, ApiRoutes.MUSIC_PLAYER_QUEUE).bodyOrThrow()
+
+    /** Adds track [uris] at the end of the Spotify queue, in order. */
+    suspend fun addToQueue(uris: List<String>) {
+        authorized(HttpMethod.Post, ApiRoutes.MUSIC_PLAYER_QUEUE) { jsonBody(QueueRequest(uris)) }.throwIfError()
     }
 
     /** Music Room playlists the user owns or was added to. */

@@ -9,6 +9,7 @@ import com.musicroom.server.modules.spotify.client.model.SpotifyPlayBody
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaybackState
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylist
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylistTrackItem
+import com.musicroom.server.modules.spotify.client.model.SpotifyQueue
 import com.musicroom.server.modules.spotify.client.model.SpotifyTokenResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTrack
 import com.musicroom.server.modules.spotify.client.model.SpotifyUser
@@ -30,6 +31,9 @@ class FakeSpotifyApi : SpotifyApi {
 
     val searches = mutableListOf<String>()
     val plays = mutableListOf<Pair<String?, SpotifyPlayBody?>>()
+    /** Next tracks; [addToQueue] appends to it. */
+    var queue: List<SpotifyTrack> = emptyList()
+    val queued = mutableListOf<Pair<String?, String>>()
 
     override fun authorizeUrl(state: String) = "https://accounts.spotify.test/authorize?state=$state"
 
@@ -78,6 +82,12 @@ class FakeSpotifyApi : SpotifyApi {
     override suspend fun previous(accessToken: String) = Unit
 
     override suspend fun seek(accessToken: String, positionMs: Long) = Unit
+
+    override suspend fun queue(accessToken: String) = SpotifyQueue(playbackState?.item, queue)
+
+    override suspend fun addToQueue(accessToken: String, deviceId: String?, uri: String) {
+        queued += deviceId to uri
+    }
 
     companion object {
         fun track(id: String, artist: String) =

@@ -1,5 +1,6 @@
 package com.musicroom.server.modules.spotify
 
+import com.musicroom.server.common.exceptions.BadRequestException
 import com.musicroom.server.common.exceptions.HttpException
 import com.musicroom.server.common.jwt.JwtService
 import com.musicroom.server.config.SpotifyConfig
@@ -12,6 +13,7 @@ import com.musicroom.shared.dto.PlayRequest
 import com.musicroom.shared.dto.PlaybackStateResponse
 import com.musicroom.shared.dto.PlaylistSummaryResponse
 import com.musicroom.shared.dto.PlaylistsResponse
+import com.musicroom.shared.dto.QueueResponse
 import com.musicroom.shared.dto.RecommendationKind
 import com.musicroom.shared.dto.RecommendationSection
 import com.musicroom.shared.dto.RecommendationsResponse
@@ -185,13 +187,37 @@ class SpotifyService(
             uris.isNotEmpty() -> SpotifyPlayBody(uris = uris, offset = SpotifyPlayBody.Offset(request.index.coerceIn(0, uris.lastIndex)))
             else -> null
         }
+        withToken(userId) { token -> playerCall { api.play(token, deviceId(token), body) } }
+    }
+
+    /** Empty when nothing plays (Spotify then has no queue to show). */
+    suspend fun queue(userId: UUID): QueueResponse {
+        val queue = try {
+            withToken(userId) { api.queue(it) }
+        } catch (e: HttpException) {
+            if (e.error == ApiErrors.SPOTIFY_NOT_CONNECTED || e.error == ApiErrors.SPOTIFY_NOT_CONFIGURED) throw e
+            log.info("Spotify queue unavailable: {}", e.message)
+            return QueueResponse()
+        }
+        return QueueResponse(queue.queue.mapNotNull { it.toResponse() })
+    }
+
+    /** Adds track URIs at the end of the queue, one Spotify call each (Spotify takes one at a time), up to 50. */
+    suspend fun addToQueue(userId: UUID, uris: List<String>) {
+        val tracks = uris.filter { it.startsWith("spotify:track:") }.take(MAX_QUEUE_URIS)
+        if (tracks.isEmpty()) throw BadRequestException("No track to add to the queue")
         withToken(userId) { token ->
             playerCall {
-                val devices = api.devices(token).filter { it.id != null && !it.isRestricted }
-                val device = devices.firstOrNull { it.isActive } ?: devices.firstOrNull() ?: throw noDevice()
-                api.play(token, device.id, body)
+                val device = deviceId(token)
+                tracks.forEach { api.addToQueue(token, device, it) }
             }
         }
+    }
+
+    /** The active device, or the first available one (the Spotify app is open but idle). */
+    private suspend fun deviceId(token: String): String? {
+        val devices = api.devices(token).filter { it.id != null && !it.isRestricted }
+        return (devices.firstOrNull { it.isActive } ?: devices.firstOrNull() ?: throw noDevice()).id
     }
 
     suspend fun pause(userId: UUID) = withToken(userId) { token -> playerCall { api.pause(token) } }
@@ -300,6 +326,7 @@ class SpotifyService(
         const val ARTIST_SECTIONS = 3
         const val MIN_SECTION_TRACKS = 3
         const val MAX_PLAY_URIS = 100
+        const val MAX_QUEUE_URIS = 50
         const val PLAYLISTS_PAGE_SIZE = 50
         const val MAX_PLAYLISTS = 500
         const val RECOMMENDATIONS_TTL_MS = 10 * 60 * 1000L
