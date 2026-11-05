@@ -63,11 +63,14 @@ fun TrackPickerSheet(
     var results by remember { mutableStateOf<List<TrackResponse>?>(null) }
     var adding by remember { mutableStateOf<Set<String>>(emptySet()) }
     var error by remember { mutableStateOf<UiText?>(null) }
+    var choosingProvider by remember { mutableStateOf(!player.spotifyConnected) }
+    var spotifyReady by remember { mutableStateOf(player.spotifyConnected) }
 
-    LaunchedEffect(query) {
+    LaunchedEffect(query, choosingProvider, spotifyReady) {
         results = null
+        if (choosingProvider) return@LaunchedEffect
         val text = query.trim()
-        if (text.isEmpty() && !showTopTracks) {
+        if (text.isEmpty() && (!showTopTracks || !spotifyReady)) {
             results = emptyList()
             return@LaunchedEffect
         }
@@ -100,8 +103,15 @@ fun TrackPickerSheet(
 
     AppBottomSheet(onDismiss) {
         Text(title, style = AppTheme.typography.title, color = colors.textPrimary)
+        if (choosingProvider) {
+            ProviderChoice(
+                api,
+                onSpotifyConnected = { player.spotifyConnected = true; spotifyReady = true; choosingProvider = false },
+                onContinue = { choosingProvider = false },
+            )
+        } else {
         AppTextField(query, { query = it }, stringResource(Res.string.playlist_search_hint), Modifier.fillMaxWidth(), leadingIcon = Lucide.Search)
-        if (query.isBlank() && showTopTracks) SectionTitle(stringResource(Res.string.reco_top_tracks))
+        if (query.isBlank() && showTopTracks && spotifyReady) SectionTitle(stringResource(Res.string.reco_top_tracks))
         error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
         val loaded = results
         when {
@@ -128,6 +138,7 @@ fun TrackPickerSheet(
                     },
                 )
             }
+        }
         }
     }
 }

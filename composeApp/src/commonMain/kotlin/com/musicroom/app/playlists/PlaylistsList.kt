@@ -25,7 +25,6 @@ import com.musicroom.app.generated.resources.playlists_empty_title
 import com.musicroom.app.generated.resources.playlists_mine
 import com.musicroom.app.generated.resources.playlists_spotify
 import com.musicroom.app.generated.resources.playlists_spotify_empty
-import com.musicroom.app.music.SpotifyConnectCard
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppTheme
@@ -45,7 +44,6 @@ fun PlaylistsList(
     spotifyPlaylists: List<PlaylistSummaryResponse>?,
     spotifyError: UiText?,
     onRetry: () -> Unit,
-    onSpotifyConnected: () -> Unit,
     onCreate: () -> Unit,
     onOpenRoom: (String) -> Unit,
     onOpenSpotify: (String) -> Unit,
@@ -96,15 +94,14 @@ fun PlaylistsList(
             else -> grid(roomPlaylists) { playlist, modifier -> RoomPlaylistRow(api, playlist, onClick = { onOpenRoom(playlist.id) }, modifier = modifier) }
         }
 
-        SectionTitle(
-            stringResource(Res.string.playlists_spotify) + (spotifyPlaylists?.takeIf { user.spotifyConnected }?.let { " · ${it.size}" } ?: ""),
-        )
-        when {
-            !user.spotifyConnected -> SpotifyConnectCard(api, onConnected = onSpotifyConnected)
-            spotifyPlaylists == null || spotifyError != null -> status(spotifyError, loading = spotifyPlaylists == null)
-            spotifyPlaylists.isEmpty() ->
-                Text(stringResource(Res.string.playlists_spotify_empty), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-            else -> grid(spotifyPlaylists) { playlist, modifier -> PlaylistRow(api, playlist, onClick = { onOpenSpotify(playlist.id) }, modifier = modifier) }
+        if (user.spotifyConnected) {
+            SectionTitle(stringResource(Res.string.playlists_spotify) + (spotifyPlaylists?.let { " · ${it.size}" } ?: ""))
+            when {
+                spotifyPlaylists == null || spotifyError != null -> status(spotifyError, loading = spotifyPlaylists == null)
+                spotifyPlaylists.isEmpty() ->
+                    Text(stringResource(Res.string.playlists_spotify_empty), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+                else -> grid(spotifyPlaylists) { playlist, modifier -> PlaylistRow(api, playlist, onClick = { onOpenSpotify(playlist.id) }, modifier = modifier) }
+            }
         }
     }
 }

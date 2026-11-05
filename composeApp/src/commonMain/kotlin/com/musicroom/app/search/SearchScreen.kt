@@ -68,7 +68,6 @@ import com.musicroom.app.generated.resources.search_placeholder
 import com.musicroom.app.generated.resources.search_see_all
 import com.musicroom.app.music.AlbumCard
 import com.musicroom.app.music.ArtistCard
-import com.musicroom.app.music.SpotifyConnectCard
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
@@ -107,7 +106,6 @@ fun SearchScreen(
     user: UserResponse,
     player: PlayerController,
     social: SocialController,
-    onSpotifyConnected: () -> Unit,
     onOpenUser: (String) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
@@ -394,8 +392,6 @@ fun SearchScreen(
                 }
             }
             if (searchQuery.isEmpty()) {
-                // Searching works without Spotify; playing a song needs it.
-                if (!user.spotifyConnected) SpotifyConnectCard(api, onConnected = onSpotifyConnected)
                 SectionTitle(stringResource(Res.string.search_browse))
                 Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
                     val columns = if (WindowSize.current == WindowSize.Compact) 2 else 3

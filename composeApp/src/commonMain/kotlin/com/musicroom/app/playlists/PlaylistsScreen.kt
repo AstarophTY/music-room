@@ -36,7 +36,6 @@ fun PlaylistsScreen(
     api: MusicRoomApi,
     user: UserResponse,
     player: PlayerController,
-    onSpotifyConnected: () -> Unit,
     onCreate: () -> Unit,
     openRoomPlaylistId: String?,
     onOpenRoomPlaylist: (String?) -> Unit,
@@ -101,7 +100,7 @@ fun PlaylistsScreen(
             }
             else -> PlaylistsList(
                 api, user, roomPlaylists, roomError, spotifyPlaylists, spotifyError,
-                onRetry = { attempt++ }, onSpotifyConnected = onSpotifyConnected, onCreate = onCreate,
+                onRetry = { attempt++ }, onCreate = onCreate,
                 onOpenRoom = onOpenRoomPlaylist, onOpenSpotify = { openSpotifyId = it },
             )
         }

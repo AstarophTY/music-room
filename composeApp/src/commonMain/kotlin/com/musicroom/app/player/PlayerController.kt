@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.error_spotify_not_connected
 import com.musicroom.app.generated.resources.player_locked_by_event
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiException
@@ -73,12 +74,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** Who adds songs from this app; set by the screen once the user is known. */
     var me: Proposer? = null
 
-    /** Whether the user linked Spotify; set by the screen. Without it, playing asks to link it ([needsSpotify]). */
+    /** Whether the user linked Spotify; set by the screen. */
     var spotifyConnected = true
-
-    /** The user tried to play or queue music without a linked Spotify account: the screen asks them to link it. */
-    var needsSpotify by mutableStateOf(false)
-        private set
 
     /** Confirmation of the last songs added to the queue, cleared after a few seconds. */
     var queueNotice by mutableStateOf<QueueNotice?>(null)
@@ -458,19 +455,10 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         leaveHosted()
     }
 
-    /** Asks the user to link Spotify (e.g. to host an event's music). */
-    fun askToLinkSpotify() {
-        needsSpotify = true
-    }
-
-    fun dismissNeedsSpotify() {
-        needsSpotify = false
-    }
-
-    /** False (and asks to link Spotify) when the user has no Spotify account linked. */
+    /** Returns false when Spotify playback is unavailable. */
     private fun requireSpotify(): Boolean {
         if (!allowed()) return false
-        if (!spotifyConnected) needsSpotify = true
+        if (!spotifyConnected) error = UiText.of(Res.string.error_spotify_not_connected)
         return spotifyConnected
     }
 
@@ -617,7 +605,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
                 // Unlinked meanwhile (from another device): ask to link it again rather than show an error.
                 if ((e as? ApiException)?.error == ApiErrors.SPOTIFY_NOT_CONNECTED) {
                     state = null
-                    needsSpotify = true
+                    error = UiText.of(e)
                     refreshNow.trySend(Unit)
                     return@launch
                 }

@@ -49,7 +49,6 @@ import com.musicroom.app.player.PlayerBar
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.player.Proposer
 import com.musicroom.app.player.QueueToast
-import com.musicroom.app.player.SpotifyRequiredSheet
 import com.musicroom.app.playlists.PlaylistsScreen
 import com.musicroom.app.profile.AppearanceScreen
 import com.musicroom.app.profile.ChangePasswordScreen
@@ -60,7 +59,7 @@ import com.musicroom.app.profile.SettingsSideBar
 import com.musicroom.app.profile.SocialLinksScreen
 import com.musicroom.app.profile.MySongsScreen
 import com.musicroom.app.profile.PremiumScreen
-import com.musicroom.app.profile.SpotifySettingsScreen
+import com.musicroom.app.profile.AudioProvidersScreen
 import com.musicroom.app.profile.TwoFactorSettingsScreen
 import com.musicroom.app.search.SearchScreen
 import com.musicroom.app.social.ChatScreen
@@ -142,7 +141,6 @@ fun MainScreen(
     }
     // Follows what Spotify plays while an account is linked.
     LaunchedEffect(user.spotifyConnected) { if (user.spotifyConnected) player.sync() }
-    val onSpotifyConnected = { onUserChange(user.copy(spotifyConnected = true)) }
     val playerBar: @Composable () -> Unit = {
         Column {
             EventFocusBar(eventFocus, onOpen = { id ->
@@ -154,7 +152,7 @@ fun MainScreen(
             })
             AnimatedVisibility(
                 // Uploaded songs play without Spotify.
-                visible = (user.spotifyConnected || player.playingHosted) && (player.track != null || player.error != null),
+                visible = ((user.spotifyConnected || player.playingHosted) && player.track != null) || player.error != null,
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
@@ -218,7 +216,6 @@ fun MainScreen(
                 api = api,
                 user = user,
                 player = player,
-                onSpotifyConnected = onSpotifyConnected,
                 onCreate = openCreate,
             )
             MainTab.Search -> SearchScreen(
@@ -226,7 +223,6 @@ fun MainScreen(
                 user,
                 player,
                 social,
-                onSpotifyConnected,
                 onOpenUser = { openSocial(SocialPage.Profile(it)) },
             )
             MainTab.Events -> EventsScreen(
@@ -242,7 +238,6 @@ fun MainScreen(
                 api,
                 user,
                 player,
-                onSpotifyConnected,
                 onCreate = openCreate,
                 openRoomPlaylistId = openRoomPlaylist,
                 onOpenRoomPlaylist = { openRoomPlaylist = it },
@@ -287,7 +282,7 @@ fun MainScreen(
             ProfileRoute.ChangePassword -> ChangePasswordScreen(api, onBack = back)
             ProfileRoute.TwoFactor -> TwoFactorSettingsScreen(api, user, onUserChange, onBack = back)
             ProfileRoute.Appearance -> AppearanceScreen(themeMode, onThemeModeChange, onBack = back)
-            ProfileRoute.Spotify -> SpotifySettingsScreen(api, user, onUserChange, onBack = back)
+            ProfileRoute.Spotify -> AudioProvidersScreen(api, user, onUserChange, onBack = back)
             ProfileRoute.MySongs -> MySongsScreen(api, user, player, onOpenPremium = { profileRoute = ProfileRoute.Premium }, onBack = back)
             ProfileRoute.Premium -> PremiumScreen(api, onBack = back)
         }
@@ -462,13 +457,11 @@ fun MainScreen(
         }
     }
 
-    if (player.needsSpotify) {
-        SpotifyRequiredSheet(api, onDismiss = player::dismissNeedsSpotify, onConnected = onSpotifyConnected)
-    }
-
     if (showCreate) {
         CreateSheet(
             api,
+            spotifyConnected = user.spotifyConnected,
+            onOpenProviders = { showCreate = false; profileRoute = ProfileRoute.Spotify },
             onDismiss = { showCreate = false },
             onPlaylistCreated = { playlist ->
                 showCreate = false

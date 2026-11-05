@@ -43,7 +43,6 @@ class EventRoom(private val api: MusicRoomApi, val eventId: String, private val 
     var locate: (suspend () -> GeoPoint?)? = null
 
     /** The owner tried to play without a linked Spotify account. Set by the page. */
-    var onSpotifyNeeded: () -> Unit = {}
 
     /** Follows the event until cancelled (the page closes), reconnecting after a network problem. */
     suspend fun run() {
@@ -155,7 +154,7 @@ class EventRoom(private val api: MusicRoomApi, val eventId: String, private val 
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if ((e as? ApiException)?.error == ApiErrors.SPOTIFY_NOT_CONNECTED) onSpotifyNeeded() else error = UiText.of(e)
+                error = UiText.of(e)
             }
             busy = false
         }

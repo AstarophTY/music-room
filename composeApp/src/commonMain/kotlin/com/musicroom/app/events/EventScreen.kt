@@ -124,7 +124,6 @@ fun EventScreen(
     var showSettings by remember { mutableStateOf(false) }
     SideEffect {
         room.locate = locate
-        room.onSpotifyNeeded = player::askToLinkSpotify
     }
     LaunchedEffect(room) { room.run() }
     LaunchedEffect(room.deleted) { if (room.deleted) onBack() }
