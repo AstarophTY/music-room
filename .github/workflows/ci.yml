@@ -10,8 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -22,8 +23,49 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build and tests
-        run: ./gradlew build --no-daemon
+      - name: Server and shared tests
+        run: ./gradlew :server:test :shared:jvmTest :shared:wasmJsNodeTest -PserverOnly=true --no-daemon
+
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build and check Android
+        run: ./gradlew :androidApp:assembleDebug :androidApp:lintDebug :androidApp:testDebugUnitTest --no-daemon
+
+  web-and-desktop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Compile web and desktop
+        run: ./gradlew :composeApp:compileKotlinWasmJs :composeApp:compileKotlinDesktop :composeApp:desktopTest --no-daemon
+
+  build:
+    if: always()
+    needs: [tests, android, web-and-desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check build results
+        env:
+          TESTS_RESULT: ${{ needs.tests.result }}
+          ANDROID_RESULT: ${{ needs.android.result }}
+          CLIENT_RESULT: ${{ needs.web-and-desktop.result }}
+        run: |
+          test "$TESTS_RESULT" = success
+          test "$ANDROID_RESULT" = success
+          test "$CLIENT_RESULT" = success
 
   server-image:
     runs-on: ubuntu-latest

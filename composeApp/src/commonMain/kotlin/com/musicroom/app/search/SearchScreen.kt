@@ -1,14 +1,27 @@
 package com.musicroom.app.search
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -21,7 +34,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.AudioLines
 import com.composables.icons.lucide.Guitar
@@ -49,18 +64,22 @@ import com.musicroom.app.generated.resources.search_browse
 import com.musicroom.app.generated.resources.search_load_more
 import com.musicroom.app.generated.resources.search_no_results
 import com.musicroom.app.generated.resources.search_placeholder
-import com.musicroom.app.generated.resources.search_results
+import com.musicroom.app.generated.resources.search_see_all
+import com.musicroom.app.music.AlbumCard
+import com.musicroom.app.music.ArtistCard
 import com.musicroom.app.music.SpotifyConnectCard
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
+import com.musicroom.app.theme.components.AppChip
 import com.musicroom.app.theme.components.AppTextField
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
@@ -69,19 +88,38 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Search in the Spotify catalog. Typing searches after a short pause; a mood tile searches its genre.
- * Tapping a result plays it, with the other results queued after it; its "..." (or a swipe to the right) adds it to the queue, the "..." also to a playlist.
+ * Search in the Spotify catalog (songs, artists and albums). Typing searches after a short pause; a mood tile
+ * searches its genre. "All" shows a few of each kind, the chips one kind only (songs page by page).
+ * Tapping a song plays it with the other songs queued after it; its "..." or a swipe to the right adds it to
+ * the queue. Artists and albums open their page in place of the results; back returns to them.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun SearchScreen(api: MusicRoomApi, user: UserResponse, player: PlayerController, onSpotifyConnected: () -> Unit) {
+fun SearchScreen(
+    api: MusicRoomApi,
+    user: UserResponse,
+    player: PlayerController,
+    onSpotifyConnected: () -> Unit,
+) {
     var query by rememberSaveable { mutableStateOf("") }
     var mood by rememberSaveable { mutableStateOf<Int?>(null) }
-    var results by remember { mutableStateOf<List<TrackResponse>>(emptyList()) }
+    var filter by rememberSaveable { mutableStateOf(SearchFilter.All) }
+    var found by remember { mutableStateOf<SearchResponse?>(null) }
+    var tracks by remember { mutableStateOf<List<TrackResponse>>(emptyList()) }
     var nextOffset by remember { mutableStateOf<Int?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiText?>(null) }
+    // Artist and album pages opened from the results, the last one on top: "artist|<id>|<name>".
+    var pages by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var opening by remember { mutableStateOf(true) }
+    val artistPage = "artist"
+    val albumPage = "album"
+    val resultsPage = "results"
+    // Songs shown under "All" before "See all".
+    val topTrackCount = 5
     val scope = rememberCoroutineScope()
     val colors = AppTheme.colors
+    val compact = WindowSize.current == WindowSize.Compact
     // Label, icon, and the Spotify genre it searches.
     val moods = listOf(
         Triple(Res.string.genre_pop, Lucide.Sparkles, "pop"),
@@ -95,13 +133,20 @@ fun SearchScreen(api: MusicRoomApi, user: UserResponse, player: PlayerController
     val selectedMood = mood?.let { moods.getOrNull(it) }
     val searchQuery = selectedMood?.let { "genre:\"${it.third}\"" } ?: query.trim()
 
-    suspend fun load(offset: Int) {
-        loading = true
+    LaunchedEffect(searchQuery, user.spotifyConnected) {
+        found = null
+        tracks = emptyList()
+        nextOffset = null
         error = null
+        loading = false
+        if (searchQuery.isEmpty() || !user.spotifyConnected) return@LaunchedEffect
+        if (selectedMood == null) delay(350)
+        loading = true
         try {
-            val page = api.searchTracks(searchQuery, offset)
-            results = (if (offset == 0) page.items else results + page.items).distinctBy { it.id }
-            nextOffset = page.nextOffset
+            val result = api.search(searchQuery)
+            found = result
+            tracks = result.tracks
+            nextOffset = result.nextTrackOffset
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -110,102 +155,220 @@ fun SearchScreen(api: MusicRoomApi, user: UserResponse, player: PlayerController
         loading = false
     }
 
-    LaunchedEffect(searchQuery, user.spotifyConnected) {
-        results = emptyList()
-        nextOffset = null
-        error = null
-        loading = false
-        if (searchQuery.isEmpty() || !user.spotifyConnected) return@LaunchedEffect
-        if (selectedMood == null) delay(350)
-        load(0)
+    fun loadMoreTracks(offset: Int) {
+        scope.launch {
+            loading = true
+            error = null
+            try {
+                val page = api.searchTracks(searchQuery, offset)
+                tracks = (tracks + page.items).distinctBy { it.id }
+                nextOffset = page.nextOffset
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = UiText.of(e)
+            }
+            loading = false
+        }
     }
 
-    TabContent {
-        AppTextField(
-            query,
-            {
-                query = it
-                mood = null
-            },
-            stringResource(Res.string.search_placeholder),
-            Modifier.fillMaxWidth(),
-            leadingIcon = Lucide.Search,
-        )
-        if (!user.spotifyConnected) {
-            SpotifyConnectCard(api, onConnected = onSpotifyConnected)
-        } else if (searchQuery.isNotEmpty()) {
-            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SectionTitle(
-                        selectedMood?.let { stringResource(it.first) } ?: stringResource(Res.string.search_results),
-                        Modifier.weight(1f),
-                    )
-                    if (selectedMood != null) {
-                        IconButton(onClick = { mood = null }) {
-                            Icon(Lucide.X, contentDescription = stringResource(Res.string.common_clear), tint = colors.textSecondary)
-                        }
-                    }
-                }
-                val failure = error
-                when {
-                    results.isEmpty() && loading ->
-                        Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-                    results.isEmpty() && failure != null ->
-                        Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
-                    results.isEmpty() ->
-                        Text(stringResource(Res.string.search_no_results), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-                    else -> {
-                        results.forEachIndexed { index, track ->
-                            TrackRow(
-                                api,
-                                track,
-                                playing = player.track?.id == track.id,
-                                onClick = { player.play(results, index) },
-                                trailing = { TrackMoreButton(api, player, track) },
-                                onSwipeRight = { player.addToQueue(listOf(track)) },
-                            )
-                        }
-                        failure?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
-                        val offset = nextOffset
-                        if (offset != null) {
-                            AppButton(
-                                stringResource(Res.string.search_load_more),
-                                { scope.launch { load(offset) } },
-                                Modifier.fillMaxWidth().padding(top = AppTheme.spacing.sm),
-                                enabled = !loading,
-                                variant = AppButtonVariant.Secondary,
-                            )
-                        }
-                    }
+    fun open(kind: String, id: String, name: String) {
+        opening = true
+        pages = pages + "$kind|$id|$name"
+    }
+
+    fun back() {
+        opening = false
+        pages = pages.dropLast(1)
+    }
+    BackHandler(enabled = pages.isNotEmpty()) { back() }
+
+    // Section title with "See all", which switches to that kind only.
+    val sectionHeader: @Composable (String, SearchFilter?) -> Unit = { title, seeAll ->
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle(title, Modifier.weight(1f))
+            if (seeAll != null) {
+                Text(
+                    stringResource(Res.string.search_see_all),
+                    style = AppTheme.typography.label,
+                    color = colors.accentText,
+                    modifier = Modifier.pressable(onClick = { filter = seeAll }).padding(AppTheme.spacing.xs),
+                )
+            }
+        }
+    }
+    // Cards [columns] per row, the last row padded so every card keeps the same width.
+    val grid: @Composable (Int, Int, @Composable (Int, Modifier) -> Unit) -> Unit = { count, columns, card ->
+        Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg)) {
+            (0 until count).chunked(columns).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
+                    row.forEach { card(it, Modifier.weight(1f)) }
+                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
-        if (searchQuery.isEmpty()) {
-            SectionTitle(stringResource(Res.string.search_browse))
-            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                val columns = if (WindowSize.current == WindowSize.Compact) 2 else 3
-                moods.indices.chunked(columns).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                        row.forEach { index ->
-                            val (label, icon) = moods[index]
-                            Box(
-                                Modifier.weight(1f).height(96.dp)
-                                    .pressable(enabled = user.spotifyConnected, onClick = { mood = index })
-                                    .background(tileColors[index % tileColors.size], AppShapes.large)
-                                    .padding(AppTheme.spacing.md),
-                            ) {
-                                Text(stringResource(label), style = AppTheme.typography.heading, color = colors.textPrimary)
-                                Icon(
-                                    icon,
-                                    contentDescription = null,
-                                    tint = colors.accentText,
-                                    modifier = Modifier.align(Alignment.BottomEnd).size(32.dp),
-                                )
+    }
+    val trackRows: @Composable (List<TrackResponse>) -> Unit = { shown ->
+        Column {
+            shown.forEachIndexed { index, track ->
+                TrackRow(
+                    api,
+                    track,
+                    playing = player.track?.id == track.id,
+                    onClick = { player.play(tracks, index) },
+                    trailing = { TrackMoreButton(api, player, track) },
+                    onSwipeRight = { player.addToQueue(listOf(track)) },
+                )
+            }
+        }
+    }
+
+    val results: @Composable () -> Unit = {
+        TabContent {
+            AppTextField(
+                query,
+                {
+                    query = it
+                    mood = null
+                },
+                stringResource(Res.string.search_placeholder),
+                Modifier.fillMaxWidth(),
+                leadingIcon = Lucide.Search,
+            )
+            if (!user.spotifyConnected) {
+                SpotifyConnectCard(api, onConnected = onSpotifyConnected)
+            } else if (searchQuery.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Row(
+                            Modifier.weight(1f).horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
+                        ) {
+                            SearchFilter.entries.forEach {
+                                AppChip(stringResource(it.label), selected = filter == it, onClick = { filter = it })
+                            }
+                        }
+                        if (selectedMood != null) {
+                            IconButton(onClick = { mood = null }) {
+                                Icon(Lucide.X, contentDescription = stringResource(Res.string.common_clear), tint = colors.textSecondary)
+                            }
+                        }
+                    }
+                    val result = found
+                    val failure = error
+                    when {
+                        result == null && loading ->
+                            Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+                        result == null && failure != null ->
+                            Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
+                        result == null -> Unit
+                        tracks.isEmpty() && result.artists.isEmpty() && result.albums.isEmpty() ->
+                            Text(stringResource(Res.string.search_no_results), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+                        else -> AnimatedContent(
+                            filter,
+                            transitionSpec = { fadeIn(tween(200, delayMillis = 60)) togetherWith fadeOut(tween(120)) },
+                        ) { shown ->
+                            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg)) {
+                                when (shown) {
+                                    SearchFilter.All -> {
+                                        if (tracks.isNotEmpty()) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                                                sectionHeader(stringResource(SearchFilter.Tracks.label), SearchFilter.Tracks.takeIf { tracks.size > topTrackCount })
+                                                trackRows(tracks.take(topTrackCount))
+                                            }
+                                        }
+                                        if (result.artists.isNotEmpty()) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                                                sectionHeader(stringResource(SearchFilter.Artists.label), SearchFilter.Artists)
+                                                LazyRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
+                                                    items(result.artists, key = { it.id }) { artist ->
+                                                        ArtistCard(api, artist, { open(artistPage, artist.id, artist.name) }, Modifier.width(if (compact) 116.dp else 140.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (result.albums.isNotEmpty()) {
+                                            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                                                sectionHeader(stringResource(SearchFilter.Albums.label), SearchFilter.Albums)
+                                                LazyRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
+                                                    items(result.albums, key = { it.id }) { album ->
+                                                        AlbumCard(api, album, { open(albumPage, album.id, album.name) }, Modifier.width(if (compact) 140.dp else 168.dp))
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    SearchFilter.Tracks -> Column {
+                                        trackRows(tracks)
+                                        failure?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
+                                        val offset = nextOffset
+                                        if (offset != null) {
+                                            AppButton(
+                                                stringResource(Res.string.search_load_more),
+                                                { loadMoreTracks(offset) },
+                                                Modifier.fillMaxWidth().padding(top = AppTheme.spacing.sm),
+                                                enabled = !loading,
+                                                variant = AppButtonVariant.Secondary,
+                                            )
+                                        }
+                                    }
+                                    SearchFilter.Artists -> grid(result.artists.size, if (compact) 3 else 5) { index, modifier ->
+                                        val artist = result.artists[index]
+                                        ArtistCard(api, artist, { open(artistPage, artist.id, artist.name) }, modifier)
+                                    }
+                                    SearchFilter.Albums -> grid(result.albums.size, if (compact) 2 else 4) { index, modifier ->
+                                        val album = result.albums[index]
+                                        AlbumCard(api, album, { open(albumPage, album.id, album.name) }, modifier)
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+            if (searchQuery.isEmpty()) {
+                SectionTitle(stringResource(Res.string.search_browse))
+                Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                    val columns = if (WindowSize.current == WindowSize.Compact) 2 else 3
+                    moods.indices.chunked(columns).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                            row.forEach { index ->
+                                val (label, icon) = moods[index]
+                                Box(
+                                    Modifier.weight(1f).height(96.dp)
+                                        .pressable(enabled = user.spotifyConnected, onClick = { mood = index })
+                                        .background(tileColors[index % tileColors.size], AppShapes.large)
+                                        .padding(AppTheme.spacing.md),
+                                ) {
+                                    Text(stringResource(label), style = AppTheme.typography.heading, color = colors.textPrimary)
+                                    Icon(
+                                        icon,
+                                        contentDescription = null,
+                                        tint = colors.accentText,
+                                        modifier = Modifier.align(Alignment.BottomEnd).size(32.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // The results, or the artist or album opened from them (a new page slides in from the right).
+    AnimatedContent(
+        pages.lastOrNull() ?: resultsPage,
+        transitionSpec = {
+            (slideInHorizontally(tween(280)) { if (opening) it / 2 else -it / 4 } + fadeIn(tween(280)))
+                .togetherWith(slideOutHorizontally(tween(220)) { if (opening) -it / 4 else it / 2 } + fadeOut(tween(180)))
+        },
+    ) { page ->
+        val (kind, id, name) = page.split("|", limit = 3).let { Triple(it[0], it.getOrElse(1) { "" }, it.getOrElse(2) { "" }) }
+        when (kind) {
+            artistPage -> ArtistScreen(api, id, name, player, onBack = ::back, onOpenAlbum = { albumId, albumName -> open(albumPage, albumId, albumName) })
+            albumPage -> AlbumScreen(api, id, name, player, onBack = ::back, onOpenArtist = { artistId, artistName -> open(artistPage, artistId, artistName) })
+            else -> results()
         }
     }
 }

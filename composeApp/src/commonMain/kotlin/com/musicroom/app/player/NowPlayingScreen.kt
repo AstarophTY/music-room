@@ -44,7 +44,6 @@ import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.CirclePlus
 import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Speaker
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.common.SectionTitle
 import com.musicroom.app.common.SubScreenScaffold
@@ -53,7 +52,6 @@ import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_back
 import com.musicroom.app.generated.resources.now_playing_nothing
 import com.musicroom.app.generated.resources.now_playing_title
-import com.musicroom.app.generated.resources.player_on_device
 import com.musicroom.app.generated.resources.queue_add_songs
 import com.musicroom.app.generated.resources.queue_drag_hint
 import com.musicroom.app.generated.resources.queue_empty
@@ -123,15 +121,8 @@ fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> 
                 PlayButton(player, 64.dp)
                 SkipButton(player, forward = true)
             }
-            player.state?.deviceName?.let { device ->
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Lucide.Speaker, contentDescription = null, tint = colors.accentText, modifier = Modifier.size(16.dp))
-                    Text(stringResource(Res.string.player_on_device, device), style = AppTheme.typography.bodySmall, color = colors.accentText)
-                }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                DeviceButton(player)
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                 AppButton(

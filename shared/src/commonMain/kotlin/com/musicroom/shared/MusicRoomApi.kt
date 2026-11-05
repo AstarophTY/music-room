@@ -2,9 +2,12 @@ package com.musicroom.shared
 
 import com.musicroom.shared.dto.AddPlaylistMemberRequest
 import com.musicroom.shared.dto.AddPlaylistTrackRequest
+import com.musicroom.shared.dto.AlbumDetailResponse
+import com.musicroom.shared.dto.ArtistDetailResponse
 import com.musicroom.shared.dto.AuthResponse
 import com.musicroom.shared.dto.ChangePasswordRequest
 import com.musicroom.shared.dto.CreatePlaylistRequest
+import com.musicroom.shared.dto.DevicesResponse
 import com.musicroom.shared.dto.ErrorResponse
 import com.musicroom.shared.dto.ForgotPasswordRequest
 import com.musicroom.shared.dto.HealthResponse
@@ -24,11 +27,13 @@ import com.musicroom.shared.dto.RecommendationsResponse
 import com.musicroom.shared.dto.RecoveryCodesResponse
 import com.musicroom.shared.dto.RefreshTokenRequest
 import com.musicroom.shared.dto.RegisterRequest
+import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.ResetPasswordRequest
 import com.musicroom.shared.dto.SpotifyConnectResponse
 import com.musicroom.shared.dto.SpotifyStatusResponse
 import com.musicroom.shared.dto.TrackPageResponse
 import com.musicroom.shared.dto.TrackResponse
+import com.musicroom.shared.dto.TransferRequest
 import com.musicroom.shared.dto.TwoFactorChallengeResponse
 import com.musicroom.shared.dto.TwoFactorCodeRequest
 import com.musicroom.shared.dto.TwoFactorLoginRequest
@@ -175,6 +180,14 @@ class MusicRoomApi(
             url.parameters.append("offset", offset.toString())
         }.bodyOrThrow()
 
+    /** Tracks, artists and albums matching [query]. */
+    suspend fun search(query: String): SearchResponse =
+        authorized(HttpMethod.Get, ApiRoutes.MUSIC_SEARCH_ALL) { url.parameters.append("q", query) }.bodyOrThrow()
+
+    suspend fun artist(id: String): ArtistDetailResponse = authorized(HttpMethod.Get, ApiRoutes.artist(id)).bodyOrThrow()
+
+    suspend fun album(id: String): AlbumDetailResponse = authorized(HttpMethod.Get, ApiRoutes.album(id)).bodyOrThrow()
+
     suspend fun track(id: String): TrackResponse = authorized(HttpMethod.Get, ApiRoutes.track(id)).bodyOrThrow()
 
     suspend fun myPlaylists(): PlaylistsResponse = authorized(HttpMethod.Get, ApiRoutes.MUSIC_MY_PLAYLISTS).bodyOrThrow()
@@ -213,6 +226,14 @@ class MusicRoomApi(
         authorized(HttpMethod.Put, ApiRoutes.MUSIC_PLAYER_SEEK) {
             url.parameters.append("positionMs", positionMs.toString())
         }.throwIfError()
+    }
+
+    /** The user's devices with Spotify open. */
+    suspend fun devices(): DevicesResponse = authorized(HttpMethod.Get, ApiRoutes.MUSIC_PLAYER_DEVICES).bodyOrThrow()
+
+    /** Moves playback to another device; [play] starts it there. */
+    suspend fun transferPlayback(deviceId: String, play: Boolean) {
+        authorized(HttpMethod.Put, ApiRoutes.MUSIC_PLAYER_DEVICE) { jsonBody(TransferRequest(deviceId, play)) }.throwIfError()
     }
 
     /** The next tracks Spotify will play. */

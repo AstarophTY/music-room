@@ -10,6 +10,7 @@ import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.shared.ApiRoutes
 import com.musicroom.shared.dto.PlayRequest
 import com.musicroom.shared.dto.QueueRequest
+import com.musicroom.shared.dto.TransferRequest
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
@@ -47,6 +48,17 @@ class SpotifyController(private val service: SpotifyService, private val users: 
                 val offset = call.request.queryParameters["offset"]?.toIntOrNull() ?: 0
                 call.respond(service.search(call.currentUserId(), query, offset))
             }
+            get(ApiRoutes.MUSIC_SEARCH_ALL) {
+                val query = call.request.queryParameters["q"]?.trim().orEmpty()
+                if (query.isEmpty()) throw BadRequestException("Type something to search")
+                call.respond(service.searchAll(call.currentUserId(), query))
+            }
+            get(ApiRoutes.MUSIC_ARTIST) {
+                call.respond(service.artist(call.currentUserId(), call.parameters["id"].orEmpty()))
+            }
+            get(ApiRoutes.MUSIC_ALBUM) {
+                call.respond(service.album(call.currentUserId(), call.parameters["id"].orEmpty()))
+            }
             get(ApiRoutes.MUSIC_TRACK) {
                 call.respond(service.track(call.currentUserId(), call.parameters["id"].orEmpty()))
             }
@@ -82,6 +94,13 @@ class SpotifyController(private val service: SpotifyService, private val users: 
                 val position = call.request.queryParameters["positionMs"]?.toLongOrNull()
                     ?: throw BadRequestException("positionMs is required")
                 service.seek(call.currentUserId(), position)
+                call.respond(HttpStatusCode.NoContent)
+            }
+            get(ApiRoutes.MUSIC_PLAYER_DEVICES) {
+                call.respond(service.devices(call.currentUserId()))
+            }
+            put(ApiRoutes.MUSIC_PLAYER_DEVICE) {
+                service.transfer(call.currentUserId(), call.receive<TransferRequest>())
                 call.respond(HttpStatusCode.NoContent)
             }
             get(ApiRoutes.MUSIC_PLAYER_QUEUE) {

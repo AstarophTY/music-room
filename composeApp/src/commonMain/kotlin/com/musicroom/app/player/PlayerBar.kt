@@ -25,14 +25,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ListMusic
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Speaker
 import com.composables.icons.lucide.X
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.common.WindowSize
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_close
 import com.musicroom.app.generated.resources.now_playing_open
-import com.musicroom.app.generated.resources.player_on_device
 import com.musicroom.app.generated.resources.spotify_open
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
@@ -44,7 +42,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Now playing bar under the content. Phones: cover, title, play/pause and next, with a thin progress line.
- * Large screens: controls in the middle with a seek bar, and the Spotify device on the right.
+ * Large screens: controls in the middle with a seek bar, and the Spotify device on the right. The device
+ * button (an icon on phones) opens the list of devices to move the music to another one.
  * Tapping the cover or the title opens the player page ([onOpen]). Errors (no device, not Premium) show
  * above it, with a button to open Spotify when that fixes it.
  */
@@ -117,6 +116,7 @@ fun PlayerBar(api: MusicRoomApi, player: PlayerController, onOpen: () -> Unit, m
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 summary(44, Modifier.weight(1f))
+                DeviceButton(player, iconOnly = true)
                 PlayButton(player, 40.dp)
                 SkipButton(player, forward = true)
             }
@@ -142,17 +142,7 @@ fun PlayerBar(api: MusicRoomApi, player: PlayerController, onOpen: () -> Unit, m
                 horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                player.state?.deviceName?.let { device ->
-                    Icon(Lucide.Speaker, contentDescription = null, tint = colors.accentText, modifier = Modifier.size(16.dp))
-                    Text(
-                        stringResource(Res.string.player_on_device, device),
-                        style = AppTheme.typography.bodySmall,
-                        color = colors.accentText,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
-                    )
-                }
+                DeviceButton(player, Modifier.weight(1f, fill = false))
                 IconButton(onClick = onOpen) {
                     Icon(Lucide.ListMusic, contentDescription = stringResource(Res.string.now_playing_open), tint = colors.textPrimary)
                 }

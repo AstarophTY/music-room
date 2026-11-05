@@ -44,6 +44,7 @@ import com.musicroom.app.player.PlayerBar
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.player.Proposer
 import com.musicroom.app.player.QueueToast
+import com.musicroom.app.player.SpotifyRequiredSheet
 import com.musicroom.app.playlists.PlaylistsScreen
 import com.musicroom.app.profile.AppearanceScreen
 import com.musicroom.app.profile.ChangePasswordScreen
@@ -88,7 +89,11 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val player = remember(api) { PlayerController(api, scope) }
     // Songs the user adds to the queue show their profile picture.
-    SideEffect { player.me = Proposer.of(user) }
+    SideEffect {
+        player.me = Proposer.of(user)
+        // Without Spotify, playing a song asks to link it.
+        player.spotifyConnected = user.spotifyConnected
+    }
     // Follows what Spotify plays while an account is linked.
     LaunchedEffect(user.spotifyConnected) { if (user.spotifyConnected) player.sync() }
     val onSpotifyConnected = { onUserChange(user.copy(spotifyConnected = true)) }
@@ -284,6 +289,10 @@ fun MainScreen(
                 else -> profilePage(ProfileRoute.valueOf(shown))
             }
         }
+    }
+
+    if (player.needsSpotify) {
+        SpotifyRequiredSheet(api, onDismiss = player::dismissNeedsSpotify, onConnected = onSpotifyConnected)
     }
 
     if (showCreate) {

@@ -43,6 +43,7 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * Card from the bottom to pick songs: the user's top tracks until they type, then Spotify search results.
  * The + of a song runs [onAdd] and turns into a check mark once [isAdded] says so. Tapping a song plays it.
+ * [showTopTracks] false (no Spotify account linked): nothing shows until the user types.
  */
 @Composable
 fun TrackPickerSheet(
@@ -54,6 +55,7 @@ fun TrackPickerSheet(
     isAdded: (TrackResponse) -> Boolean,
     onAdd: suspend (TrackResponse) -> Unit,
     onDismiss: () -> Unit,
+    showTopTracks: Boolean = true,
 ) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
@@ -65,6 +67,10 @@ fun TrackPickerSheet(
     LaunchedEffect(query) {
         results = null
         val text = query.trim()
+        if (text.isEmpty() && !showTopTracks) {
+            results = emptyList()
+            return@LaunchedEffect
+        }
         if (text.isNotEmpty()) delay(350)
         results = try {
             if (text.isEmpty()) api.myTopTracks().items else api.searchTracks(text).items
@@ -95,11 +101,12 @@ fun TrackPickerSheet(
     AppBottomSheet(onDismiss) {
         Text(title, style = AppTheme.typography.title, color = colors.textPrimary)
         AppTextField(query, { query = it }, stringResource(Res.string.playlist_search_hint), Modifier.fillMaxWidth(), leadingIcon = Lucide.Search)
-        if (query.isBlank()) SectionTitle(stringResource(Res.string.reco_top_tracks))
+        if (query.isBlank() && showTopTracks) SectionTitle(stringResource(Res.string.reco_top_tracks))
         error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
         val loaded = results
         when {
             loaded == null -> Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+            loaded.isEmpty() && query.isBlank() -> Unit
             loaded.isEmpty() -> Text(stringResource(Res.string.search_no_results), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
             else -> loaded.forEachIndexed { index, track ->
                 val added = isAdded(track)
