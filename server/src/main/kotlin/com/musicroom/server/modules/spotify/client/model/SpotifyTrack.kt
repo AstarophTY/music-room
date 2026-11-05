@@ -15,17 +15,25 @@ data class SpotifyTrack(
     val explicit: Boolean = false,
     val externalUrls: SpotifyExternalUrls? = null,
     val uri: String = "",
+    /** The track asked for, when Spotify plays another version of it available in the user's country. */
+    val linkedFrom: LinkedTrack? = null,
 ) {
-    /** Null for what the app cannot play from the catalog (local files, episodes). */
-    fun toResponse(): TrackResponse? {
+    @Serializable
+    data class LinkedTrack(val uri: String = "")
+
+    /**
+     * Null for what the app cannot play from the catalog (local files, episodes). The tracks of an album
+     * page have no album: [fromAlbum] gives its name and cover.
+     */
+    fun toResponse(fromAlbum: SpotifyAlbum? = null): TrackResponse? {
         if (id == null || type != "track") return null
+        val source = album ?: fromAlbum
         return TrackResponse(
             id = id,
             name = name,
             artists = artists.map { it.name },
-            album = album?.name.orEmpty(),
-            // Spotify lists images from the largest; the medium one (300 px) is enough for lists.
-            imageUrl = album?.images?.let { it.getOrNull(1) ?: it.firstOrNull() }?.url,
+            album = source?.name.orEmpty(),
+            imageUrl = source?.images?.medium()?.url,
             durationMs = durationMs,
             explicit = explicit,
             spotifyUrl = externalUrls?.spotify,

@@ -9,6 +9,8 @@ import com.musicroom.app.common.UiText
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.AlbumResponse
+import com.musicroom.shared.dto.DeviceResponse
 import com.musicroom.shared.dto.PlaybackStateResponse
 import com.musicroom.shared.dto.PlaylistSummaryResponse
 import com.musicroom.shared.dto.TrackResponse
@@ -56,8 +58,19 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** Spotify's own queue (songs added elsewhere, then the rest of the album or playlist), from [followQueue]. */
     private var spotifyQueue by mutableStateOf<List<TrackResponse>>(emptyList())
 
+    /** The user's devices with Spotify open, from [loadDevices]; null until loaded. */
+    var devices by mutableStateOf<List<DeviceResponse>?>(null)
+        private set
+
     /** Who adds songs from this app; set by the screen once the user is known. */
     var me: Proposer? = null
+
+    /** Whether the user linked Spotify; set by the screen. Without it, playing asks to link it ([needsSpotify]). */
+    var spotifyConnected = true
+
+    /** The user tried to play or queue music without a linked Spotify account: the screen asks them to link it. */
+    var needsSpotify by mutableStateOf(false)
+        private set
 
     /** Confirmation of the last songs added to the queue, cleared after a few seconds. */
     var queueNotice by mutableStateOf<QueueNotice?>(null)
@@ -78,6 +91,10 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
      */
     private var pendingTrackId: String? = null
     private var pendingUntil: TimeSource.Monotonic.ValueTimeMark? = null
+
+    /** After moving playback: polls are ignored until they show the music on [pendingDevice] (playing if [pendingPlaying]). */
+    private var pendingDevice: String? = null
+    private var pendingPlaying = false
 
     val track: TrackResponse? get() = state?.track
     val isPlaying: Boolean get() = state?.isPlaying == true
@@ -100,6 +117,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Plays [tracks] from [index]; the rest of the list follows as the queue. */
     fun play(tracks: List<TrackResponse>, index: Int) {
+        if (!requireSpotify()) return
         val track = tracks.getOrNull(index) ?: return
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = state?.deviceName))
         waitFor(track.id)
@@ -109,6 +127,15 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** Plays [playlist] as a whole from [index]; [tracks] (when Spotify listed them) shows the track right away. */
     fun playPlaylist(playlist: PlaylistSummaryResponse, tracks: List<TrackResponse>, index: Int) {
         val uri = playlist.uri ?: return play(tracks, index)
+        playContext(uri, tracks, index)
+    }
+
+    /** Plays [album] as a whole from its track at [index], shown right away from [tracks]. */
+    fun playAlbum(album: AlbumResponse, tracks: List<TrackResponse>, index: Int) = playContext(album.uri, tracks, index)
+
+    /** Plays a Spotify playlist or album ([uri]) from [index]. */
+    private fun playContext(uri: String, tracks: List<TrackResponse>, index: Int) {
+        if (!requireSpotify()) return
         val track = tracks.getOrNull(index)
         track?.let {
             update(PlaybackStateResponse(active = true, isPlaying = true, track = it, deviceName = state?.deviceName))
@@ -126,7 +153,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Adds songs at the end of [upNext], each with who proposed it, and confirms it in [queueNotice]. */
     fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>) {
-        if (songs.isEmpty()) return
+        if (songs.isEmpty() || !requireSpotify()) return
         var added = songs.map { (track, proposer) -> QueueEntry(nextKey++, track, proposer) }
         upNext = upNext + added
         if (track == null) {
@@ -199,6 +226,22 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         }
     }
 
+    /** Reloads [devices]; throws when Spotify cannot be reached. */
+    suspend fun loadDevices() {
+        devices = api.devices().devices
+    }
+
+    /** Moves playback to [device], playing there unless it was paused. */
+    fun transferTo(device: DeviceResponse) {
+        if (device.isActive) return
+        val play = state?.track == null || isPlaying
+        devices = devices?.map { it.copy(isActive = it.id == device.id) }
+        state?.let { update(it.copy(deviceName = device.name, progressMs = positionMs())) }
+        // While Spotify moves the music it can briefly report it paused or playing nowhere: keep what is shown.
+        waitFor(track?.id, device = device.name, playing = play)
+        command { api.transferPlayback(device.id, play) }
+    }
+
     fun togglePlay() {
         val current = state ?: return
         update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
@@ -218,6 +261,21 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         command { api.seek(positionMs) }
     }
 
+    /** Asks the user to link Spotify (e.g. to host an event's music). */
+    fun askToLinkSpotify() {
+        needsSpotify = true
+    }
+
+    fun dismissNeedsSpotify() {
+        needsSpotify = false
+    }
+
+    /** False (and asks to link Spotify) when the user has no Spotify account linked. */
+    private fun requireSpotify(): Boolean {
+        if (!spotifyConnected) needsSpotify = true
+        return spotifyConnected
+    }
+
     fun dismissError() {
         error = null
         needsDevice = false
@@ -227,7 +285,12 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     suspend fun sync() {
         while (true) {
             try {
-                val fetched = api.playbackState()
+                val fetched = api.playbackState().let { fetched ->
+                    // Spotify can report the music playing without saying what (just after it moved to another
+                    // device): the last known track stays shown rather than the player disappearing.
+                    val shown = state?.track
+                    if (fetched.active && fetched.isPlaying && fetched.track == null && shown != null) fetched.copy(track = shown) else fetched
+                }
                 if (!isStillStarting(fetched)) update(fetched)
                 sendIfEnding()
             } catch (e: CancellationException) {
@@ -253,21 +316,26 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         }
     }
 
-    private fun waitFor(trackId: String?) {
+    private fun waitFor(trackId: String?, device: String? = null, playing: Boolean = false) {
         pendingTrackId = trackId
+        pendingDevice = device
+        pendingPlaying = playing
         pendingUntil = TimeSource.Monotonic.markNow() + START_TIMEOUT
     }
 
     private fun stopWaiting() {
         pendingTrackId = null
+        pendingDevice = null
+        pendingPlaying = false
         pendingUntil = null
     }
 
-    /** [fetched] does not show the requested track yet, while Spotify may still be starting it. */
+    /** [fetched] does not show the requested track (or device) yet, while Spotify may still be starting it. */
     private fun isStillStarting(fetched: PlaybackStateResponse): Boolean {
         val until = pendingUntil ?: return false
         val expected = pendingTrackId
-        val started = fetched.track != null && (expected == null || fetched.track?.id == expected)
+        val started = fetched.track != null && (expected == null || fetched.track?.id == expected) &&
+            (pendingDevice == null || fetched.deviceName == pendingDevice) && (!pendingPlaying || fetched.isPlaying)
         if (started || until.hasPassedNow()) {
             stopWaiting()
             return false
@@ -316,6 +384,13 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             } catch (e: Exception) {
                 stopWaiting()
                 onError()
+                // Unlinked meanwhile (from another device): ask to link it again rather than show an error.
+                if ((e as? ApiException)?.error == ApiErrors.SPOTIFY_NOT_CONNECTED) {
+                    state = null
+                    needsSpotify = true
+                    refreshNow.trySend(Unit)
+                    return@launch
+                }
                 error = UiText.of(e)
                 needsDevice = (e as? ApiException)?.error == ApiErrors.SPOTIFY_NO_DEVICE
             }

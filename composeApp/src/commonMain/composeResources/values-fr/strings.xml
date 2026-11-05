@@ -77,7 +77,7 @@
     <string name="home_hero_body">Lance un événement en direct : chacun propose des sons et vote en temps réel.</string>
     <string name="home_hero_button">Lancer un événement</string>
     <string name="home_playlists_title">Tes playlists</string>
-    <string name="search_placeholder">Titres, artistes, albums</string>
+    <string name="search_placeholder">Titres, artistes, albums, personnes</string>
     <string name="search_browse">Explorer par ambiance</string>
     <string name="genre_pop">Pop</string>
     <string name="genre_rock">Rock</string>
@@ -240,11 +240,33 @@
     <string name="search_results">Résultats</string>
     <string name="search_no_results">Aucun titre trouvé</string>
     <string name="search_load_more">Voir plus</string>
+    <string name="search_filter_all">Tout</string>
+    <string name="search_filter_tracks">Titres</string>
+    <string name="search_filter_artists">Artistes</string>
+    <string name="search_filter_albums">Albums</string>
+    <string name="search_see_all">Tout voir</string>
+    <string name="artist_label">Artiste</string>
+    <string name="artist_popular">Titres populaires</string>
+    <string name="artist_albums">Albums et singles</string>
+    <string name="artist_no_tracks">Aucun titre trouvé pour cet artiste.</string>
+    <string name="album_type_album">Album</string>
+    <string name="album_type_single">Single</string>
+    <string name="album_type_compilation">Compilation</string>
+    <string name="album_songs">Titres</string>
+    <plurals name="album_track_count">
+        <item quantity="one">%1$d titre</item>
+        <item quantity="other">%1$d titres</item>
+    </plurals>
     <string name="player_play">Lecture</string>
     <string name="player_pause">Pause</string>
     <string name="player_next">Suivant</string>
     <string name="player_previous">Précédent</string>
     <string name="player_on_device">Lecture sur %1$s</string>
+    <string name="devices_title">Écouter sur</string>
+    <string name="devices_choose">Choisir un appareil</string>
+    <string name="devices_active">Lecture en cours ici</string>
+    <string name="devices_refresh">Actualiser</string>
+    <string name="devices_empty">Aucun appareil trouvé. Ouvre Spotify sur ton téléphone, ton ordinateur ou une enceinte, puis actualise.</string>
     <string name="now_playing_title">En cours de lecture</string>
     <string name="now_playing_open">Ouvrir le lecteur</string>
     <string name="now_playing_nothing">Rien n’est en lecture. Choisis un son pour commencer.</string>
@@ -324,4 +346,8 @@
     <string name="error_user_not_found">Aucun compte Music Room n’utilise cet email.</string>
     <string name="error_already_member">Cet utilisateur est déjà dans la playlist.</string>
     <string name="error_personal_playlist_read_only">Les membres d’une playlist perso ne peuvent qu’écouter. Rends-la partagée d’abord.</string>
+    <!-- Friends, chat and notifications -->
+    <string name="spotify_required_title">Lie Spotify pour écouter</string>
+    <string name="spotify_required_body">Music Room joue la musique avec ton compte Spotify. Lie-le pour lancer ce titre et ajouter des titres à la file d’attente.</string>
+    <!-- Events (Music Track Vote) -->
 </resources>

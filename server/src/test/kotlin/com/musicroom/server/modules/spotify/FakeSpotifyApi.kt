@@ -2,6 +2,7 @@ package com.musicroom.server.modules.spotify
 
 import com.musicroom.server.modules.spotify.client.SpotifyApi
 import com.musicroom.server.modules.spotify.client.SpotifyApiException
+import com.musicroom.server.modules.spotify.client.model.SpotifyAlbum
 import com.musicroom.server.modules.spotify.client.model.SpotifyArtist
 import com.musicroom.server.modules.spotify.client.model.SpotifyDevice
 import com.musicroom.server.modules.spotify.client.model.SpotifyPaging
@@ -10,6 +11,7 @@ import com.musicroom.server.modules.spotify.client.model.SpotifyPlaybackState
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylist
 import com.musicroom.server.modules.spotify.client.model.SpotifyPlaylistTrackItem
 import com.musicroom.server.modules.spotify.client.model.SpotifyQueue
+import com.musicroom.server.modules.spotify.client.model.SpotifySearchResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTokenResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTrack
 import com.musicroom.server.modules.spotify.client.model.SpotifyUser
@@ -22,18 +24,30 @@ class FakeSpotifyApi : SpotifyApi {
     var searchResults: Map<String, List<SpotifyTrack>> = emptyMap()
     var devices: List<SpotifyDevice> = emptyList()
     var playbackState: SpotifyPlaybackState? = null
+    /** Answer of the "currently playing" endpoint. */
+    var currentlyPlaying: SpotifyPlaybackState? = null
     var playError: SpotifyApiException? = null
     var playlists: List<SpotifyPlaylist> = emptyList()
     /** Tracks by playlist id; a playlist missing here answers 403 like a followed playlist. */
     var playlistItems: Map<String, List<SpotifyTrack>> = emptyMap()
     /** Tracks found by id; others answer 404. */
     var tracks: Map<String, SpotifyTrack> = emptyMap()
+    /** Artists and albums found by a search, by query. */
+    var searchArtists: Map<String, List<SpotifyArtist>> = emptyMap()
+    var searchAlbums: Map<String, List<SpotifyAlbum>> = emptyMap()
+    /** Artists and albums found by id; others answer 404. */
+    var artists: Map<String, SpotifyArtist> = emptyMap()
+    var albums: Map<String, SpotifyAlbum> = emptyMap()
+    /** Albums of each artist; a missing artist answers 500. */
+    var artistAlbums: Map<String, List<SpotifyAlbum>> = emptyMap()
 
     val searches = mutableListOf<String>()
     val plays = mutableListOf<Pair<String?, SpotifyPlayBody?>>()
     /** Next tracks; [addToQueue] appends to it. */
     var queue: List<SpotifyTrack> = emptyList()
     val queued = mutableListOf<Pair<String?, String>>()
+    /** Playback moves: device id and whether it plays there. */
+    val transfers = mutableListOf<Pair<String, Boolean>>()
 
     override fun authorizeUrl(state: String) = "https://accounts.spotify.test/authorize?state=$state"
 
@@ -41,6 +55,8 @@ class FakeSpotifyApi : SpotifyApi {
         SpotifyTokenResponse(accessToken = "access", expiresIn = 3600, refreshToken = "refresh")
 
     override suspend fun refresh(refreshToken: String) = SpotifyTokenResponse(accessToken = "access", expiresIn = 3600)
+
+    override suspend fun appToken() = SpotifyTokenResponse(accessToken = "app", expiresIn = 3600)
 
     override suspend fun me(accessToken: String) = SpotifyUser("spotify-user", "Alice")
 
@@ -50,6 +66,22 @@ class FakeSpotifyApi : SpotifyApi {
     }
 
     override suspend fun track(accessToken: String, id: String) = tracks[id] ?: throw SpotifyApiException(404, "not found")
+
+    override suspend fun search(accessToken: String, query: String, types: List<String>, limit: Int): SpotifySearchResponse {
+        searches += query
+        return SpotifySearchResponse(
+            tracks = SpotifyPaging(searchResults[query].orEmpty().take(limit)),
+            artists = SpotifyPaging(searchArtists[query].orEmpty().take(limit)),
+            albums = SpotifyPaging(searchAlbums[query].orEmpty().take(limit)),
+        )
+    }
+
+    override suspend fun artist(accessToken: String, id: String) = artists[id] ?: throw SpotifyApiException(404, "not found")
+
+    override suspend fun artistAlbums(accessToken: String, id: String, limit: Int): SpotifyPaging<SpotifyAlbum> =
+        SpotifyPaging(artistAlbums[id]?.take(limit) ?: throw SpotifyApiException(500, "Spotify 500"))
+
+    override suspend fun album(accessToken: String, id: String) = albums[id] ?: throw SpotifyApiException(404, "not found")
 
     override suspend fun myPlaylists(accessToken: String, offset: Int, limit: Int): SpotifyPaging<SpotifyPlaylist> {
         val page = playlists.drop(offset).take(limit)
@@ -68,6 +100,8 @@ class FakeSpotifyApi : SpotifyApi {
 
     override suspend fun playbackState(accessToken: String) = playbackState
 
+    override suspend fun currentlyPlaying(accessToken: String) = currentlyPlaying
+
     override suspend fun devices(accessToken: String) = devices
 
     override suspend fun play(accessToken: String, deviceId: String?, body: SpotifyPlayBody?) {
@@ -75,7 +109,11 @@ class FakeSpotifyApi : SpotifyApi {
         plays += deviceId to body
     }
 
-    override suspend fun pause(accessToken: String) = Unit
+    var pauses = 0
+
+    override suspend fun pause(accessToken: String) {
+        pauses++
+    }
 
     override suspend fun next(accessToken: String) = Unit
 
@@ -84,6 +122,11 @@ class FakeSpotifyApi : SpotifyApi {
     override suspend fun seek(accessToken: String, positionMs: Long) = Unit
 
     override suspend fun queue(accessToken: String) = SpotifyQueue(playbackState?.item, queue)
+
+    override suspend fun transfer(accessToken: String, deviceId: String, play: Boolean) {
+        if (devices.none { it.id == deviceId }) throw SpotifyApiException(404, "Spotify 404: Device not found")
+        transfers += deviceId to play
+    }
 
     override suspend fun addToQueue(accessToken: String, deviceId: String?, uri: String) {
         queued += deviceId to uri

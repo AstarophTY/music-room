@@ -31,6 +31,9 @@ object ApiRoutes {
 
     const val MUSIC = "$API_V1/music"
     const val MUSIC_SEARCH = "$MUSIC/search"
+    const val MUSIC_SEARCH_ALL = "$MUSIC/search/all"
+    const val MUSIC_ARTIST = "$MUSIC/artists/{id}"
+    const val MUSIC_ALBUM = "$MUSIC/albums/{id}"
     const val MUSIC_TRACK = "$MUSIC/tracks/{id}"
     const val MUSIC_MY_PLAYLISTS = "$MUSIC/me/playlists"
     const val MUSIC_MY_TOP_TRACKS = "$MUSIC/me/top-tracks"
@@ -43,10 +46,16 @@ object ApiRoutes {
     const val MUSIC_PLAYER_PREVIOUS = "$MUSIC_PLAYER/previous"
     const val MUSIC_PLAYER_SEEK = "$MUSIC_PLAYER/seek"
     const val MUSIC_PLAYER_QUEUE = "$MUSIC_PLAYER/queue"
+    const val MUSIC_PLAYER_DEVICES = "$MUSIC_PLAYER/devices"
+    const val MUSIC_PLAYER_DEVICE = "$MUSIC_PLAYER/device"
 
     fun track(id: String) = "$MUSIC/tracks/$id"
 
     fun playlistTracks(id: String) = "$MUSIC/playlists/$id/tracks"
+
+    fun artist(id: String) = "$MUSIC/artists/$id"
+
+    fun album(id: String) = "$MUSIC/albums/$id"
 
     /** Playlists made in Music Room (the MUSIC_* playlist routes are the user's Spotify ones). */
     const val PLAYLISTS = "$API_V1/playlists"

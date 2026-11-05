@@ -1,6 +1,7 @@
 package com.musicroom.server.modules.spotify.client
 
 import com.musicroom.server.config.SpotifyConfig
+import com.musicroom.server.modules.spotify.client.model.SpotifyAlbum
 import com.musicroom.server.modules.spotify.client.model.SpotifyArtist
 import com.musicroom.server.modules.spotify.client.model.SpotifyDevice
 import com.musicroom.server.modules.spotify.client.model.SpotifyDevicesResponse
@@ -13,6 +14,7 @@ import com.musicroom.server.modules.spotify.client.model.SpotifyQueue
 import com.musicroom.server.modules.spotify.client.model.SpotifySearchResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTokenResponse
 import com.musicroom.server.modules.spotify.client.model.SpotifyTrack
+import com.musicroom.server.modules.spotify.client.model.SpotifyTransferBody
 import com.musicroom.server.modules.spotify.client.model.SpotifyUser
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -46,6 +48,9 @@ import java.util.Base64
 
 /** Spotify calls over HTTP (Authorization Code flow, the client secret stays on the server). */
 class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
+
+    /** App tokens handed out (a few per day): they have no market of their own. */
+    private val appTokens: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
     @OptIn(ExperimentalSerializationApi::class)
     private val client = HttpClient(CIO) {
@@ -87,7 +92,30 @@ class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
         },
     )
 
+    override suspend fun appToken(): SpotifyTokenResponse =
+        token(parameters { append("grant_type", "client_credentials") }).also { appTokens.add(it.accessToken) }
+
     override suspend fun me(accessToken: String): SpotifyUser = api(accessToken, "/me")
+
+    override suspend fun search(accessToken: String, query: String, types: List<String>, limit: Int): SpotifySearchResponse =
+        api(accessToken, "/search") {
+            parameter("q", query)
+            parameter("type", types.joinToString(","))
+            parameter("limit", limit)
+            parameter("market", "from_token")
+        }
+
+    override suspend fun artist(accessToken: String, id: String): SpotifyArtist = api(accessToken, "/artists/${id.encodeURLPathPart()}")
+
+    override suspend fun artistAlbums(accessToken: String, id: String, limit: Int): SpotifyPaging<SpotifyAlbum> =
+        api(accessToken, "/artists/${id.encodeURLPathPart()}/albums") {
+            parameter("include_groups", "album,single")
+            parameter("limit", limit)
+            parameter("market", "from_token")
+        }
+
+    override suspend fun album(accessToken: String, id: String): SpotifyAlbum =
+        api(accessToken, "/albums/${id.encodeURLPathPart()}") { parameter("market", "from_token") }
 
     override suspend fun searchTracks(accessToken: String, query: String, offset: Int, limit: Int): SpotifyPaging<SpotifyTrack> =
         api<SpotifySearchResponse>(accessToken, "/search") {
@@ -126,8 +154,13 @@ class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
             parameter("time_range", timeRange)
         }
 
-    override suspend fun playbackState(accessToken: String): SpotifyPlaybackState? {
-        val response = client.get("$API_URL/me/player") {
+    override suspend fun playbackState(accessToken: String): SpotifyPlaybackState? = playback(accessToken, "/me/player")
+
+    override suspend fun currentlyPlaying(accessToken: String): SpotifyPlaybackState? =
+        playback(accessToken, "/me/player/currently-playing")
+
+    private suspend fun playback(accessToken: String, path: String): SpotifyPlaybackState? {
+        val response = client.get(API_URL + path) {
             bearerAuth(accessToken)
             parameter("market", "from_token")
         }.checked()
@@ -158,6 +191,12 @@ class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
         player(HttpMethod.Put, accessToken, "/me/player/seek") { parameter("position_ms", positionMs) }
 
     override suspend fun queue(accessToken: String): SpotifyQueue = api(accessToken, "/me/player/queue")
+
+    override suspend fun transfer(accessToken: String, deviceId: String, play: Boolean) =
+        player(HttpMethod.Put, accessToken, "/me/player") {
+            contentType(ContentType.Application.Json)
+            setBody(SpotifyTransferBody(listOf(deviceId), play))
+        }
 
     override suspend fun addToQueue(accessToken: String, deviceId: String?, uri: String) =
         player(HttpMethod.Post, accessToken, "/me/player/queue") {
@@ -191,6 +230,8 @@ class SpotifyHttpApi(private val config: SpotifyConfig) : SpotifyApi {
     ): T = client.get(API_URL + path) {
         bearerAuth(accessToken)
         configure()
+        // "from_token" needs a user's token: an app token reads the catalog without a market.
+        if (accessToken in appTokens && url.parameters["market"] == "from_token") url.parameters.remove("market")
     }.checked().body()
 
     private suspend fun HttpResponse.checked(): HttpResponse {

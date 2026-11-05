@@ -77,7 +77,7 @@
     <string name="home_hero_body">Start a live event: everyone suggests tracks and votes in real time.</string>
     <string name="home_hero_button">Start an event</string>
     <string name="home_playlists_title">Your playlists</string>
-    <string name="search_placeholder">Songs, artists, albums</string>
+    <string name="search_placeholder">Songs, artists, albums, people</string>
     <string name="search_browse">Browse by mood</string>
     <string name="genre_pop">Pop</string>
     <string name="genre_rock">Rock</string>
@@ -240,11 +240,33 @@
     <string name="search_results">Results</string>
     <string name="search_no_results">No tracks found</string>
     <string name="search_load_more">Load more</string>
+    <string name="search_filter_all">All</string>
+    <string name="search_filter_tracks">Songs</string>
+    <string name="search_filter_artists">Artists</string>
+    <string name="search_filter_albums">Albums</string>
+    <string name="search_see_all">See all</string>
+    <string name="artist_label">Artist</string>
+    <string name="artist_popular">Popular songs</string>
+    <string name="artist_albums">Albums and singles</string>
+    <string name="artist_no_tracks">No songs found for this artist.</string>
+    <string name="album_type_album">Album</string>
+    <string name="album_type_single">Single</string>
+    <string name="album_type_compilation">Compilation</string>
+    <string name="album_songs">Songs</string>
+    <plurals name="album_track_count">
+        <item quantity="one">%1$d song</item>
+        <item quantity="other">%1$d songs</item>
+    </plurals>
     <string name="player_play">Play</string>
     <string name="player_pause">Pause</string>
     <string name="player_next">Next</string>
     <string name="player_previous">Previous</string>
     <string name="player_on_device">Playing on %1$s</string>
+    <string name="devices_title">Play on</string>
+    <string name="devices_choose">Choose a device</string>
+    <string name="devices_active">Playing here</string>
+    <string name="devices_refresh">Refresh</string>
+    <string name="devices_empty">No device found. Open Spotify on your phone, computer or speaker, then refresh.</string>
     <string name="now_playing_title">Now playing</string>
     <string name="now_playing_open">Open the player</string>
     <string name="now_playing_nothing">Nothing is playing. Choose a song to start.</string>
@@ -324,4 +346,8 @@
     <string name="error_user_not_found">No Music Room account uses this email.</string>
     <string name="error_already_member">This user already is in the playlist.</string>
     <string name="error_personal_playlist_read_only">Members of a personal playlist can only listen. Make it shared first.</string>
+    <!-- Friends, chat and notifications -->
+    <string name="spotify_required_title">Link Spotify to listen</string>
+    <string name="spotify_required_body">Music Room plays songs through your Spotify account. Link it to play this song and add songs to the queue.</string>
+    <!-- Events (Music Track Vote) -->
 </resources>
