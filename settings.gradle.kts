@@ -32,8 +32,12 @@ val androidSdk: String? = localProps.getProperty("sdk.dir")
     ?: System.getenv("ANDROID_HOME")
     ?: System.getenv("ANDROID_SDK_ROOT")
 
-if (androidSdk != null && file(androidSdk).exists()) {
-    include(":composeApp", ":androidApp")
-} else {
-    logger.lifecycle("[music-room] No Android SDK found: skipping :composeApp and :androidApp modules.")
+if (!providers.gradleProperty("serverOnly").map(String::toBoolean).getOrElse(false)) {
+    // Desktop and web don't need the Android SDK.
+    include(":composeApp")
+    if (androidSdk != null && file(androidSdk).exists()) {
+        include(":androidApp")
+    } else {
+        logger.lifecycle("[music-room] No Android SDK found: skipping the :androidApp module.")
+    }
 }
