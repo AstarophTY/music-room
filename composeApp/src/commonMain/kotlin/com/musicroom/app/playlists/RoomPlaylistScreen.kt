@@ -29,11 +29,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Camera
+import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Play
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.Trash2
 import com.musicroom.app.common.SectionTitle
 import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.common.UiText
@@ -45,21 +45,25 @@ import com.musicroom.app.generated.resources.playlist_add_songs
 import com.musicroom.app.generated.resources.playlist_no_songs
 import com.musicroom.app.generated.resources.playlist_no_songs_editor
 import com.musicroom.app.generated.resources.playlist_photo_change
-import com.musicroom.app.generated.resources.playlist_remove_song
 import com.musicroom.app.generated.resources.playlist_settings
 import com.musicroom.app.generated.resources.playlist_songs
 import com.musicroom.app.generated.resources.playlists_by
 import com.musicroom.app.generated.resources.playlists_play
 import com.musicroom.app.generated.resources.playlists_track_count
+import com.musicroom.app.generated.resources.queue_add
+import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
+import com.musicroom.app.player.Proposer
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.AvatarColor
 import com.musicroom.shared.dto.PlaylistDetailResponse
+import com.musicroom.shared.dto.PlaylistTrackResponse
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -69,7 +73,8 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * A Music Room playlist: photo (tap to change it when allowed), Play, its songs in order and its members.
  * Editors add songs from a card at the bottom and remove them; the owner also opens the settings.
- * Tapping a song plays the playlist from it.
+ * Tapping a song plays the playlist from it; the whole playlist or one song (swipe to the right, or its "...")
+ * can be added to the queue, as proposed by who added it to the playlist, and a song to another playlist.
  */
 @Composable
 fun RoomPlaylistScreen(
@@ -133,6 +138,11 @@ fun RoomPlaylistScreen(
         }
         val playlist = loaded.playlist
         val tracks = loaded.tracks.map { it.track }
+        // Queued songs show who proposed them in the playlist.
+        val proposerOf: (PlaylistTrackResponse) -> Proposer? = { entry ->
+            (listOf(playlist.owner) + loaded.members).firstOrNull { it.userId == entry.addedById }?.let(Proposer::of)
+                ?: entry.addedById?.let { Proposer(it, entry.addedBy, AvatarColor.YELLOW, null) }
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg), verticalAlignment = Alignment.CenterVertically) {
             val editCover = if (playlist.canEdit) pickImage else null
@@ -168,6 +178,9 @@ fun RoomPlaylistScreen(
                 AppButton(stringResource(Res.string.playlist_add_songs), { showAddSongs = true }, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
             }
             Row(Modifier.weight(1f)) {}
+            IconButton(onClick = { player.addProposed(loaded.tracks.map { it.track to proposerOf(it) }) }, enabled = tracks.isNotEmpty()) {
+                Icon(Lucide.ListPlus, contentDescription = stringResource(Res.string.queue_add), tint = colors.textPrimary)
+            }
             if (playlist.isOwner) {
                 IconButton(onClick = { showSettings = true }) {
                     Icon(Lucide.Settings, contentDescription = stringResource(Res.string.playlist_settings), tint = colors.textPrimary)
@@ -194,15 +207,20 @@ fun RoomPlaylistScreen(
                             entry.track,
                             playing = player.track?.id == entry.track.id,
                             onClick = { player.play(tracks, index) },
-                            trailing = if (playlist.canEdit) {
-                                {
-                                    IconButton(onClick = { run { api.removePlaylistTrack(playlist.id, entry.entryId) } }) {
-                                        Icon(Lucide.Trash2, contentDescription = stringResource(Res.string.playlist_remove_song), tint = colors.textSecondary)
-                                    }
-                                }
-                            } else {
-                                null
+                            trailing = {
+                                TrackMoreButton(
+                                    api,
+                                    player,
+                                    entry.track,
+                                    proposer = proposerOf(entry),
+                                    onRemove = if (playlist.canEdit) {
+                                        { run { api.removePlaylistTrack(playlist.id, entry.entryId) } }
+                                    } else {
+                                        null
+                                    },
+                                )
                             },
+                            onSwipeRight = { player.addToQueue(listOf(entry.track), proposerOf(entry)) },
                         )
                     }
                 }

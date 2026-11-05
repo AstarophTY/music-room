@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ExternalLink
+import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Play
 import com.musicroom.app.common.RemoteImage
@@ -31,7 +34,9 @@ import com.musicroom.app.generated.resources.playlists_by
 import com.musicroom.app.generated.resources.playlists_open_spotify
 import com.musicroom.app.generated.resources.playlists_play
 import com.musicroom.app.generated.resources.playlists_track_count
+import com.musicroom.app.generated.resources.queue_add
 import com.musicroom.app.generated.resources.search_load_more
+import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppButton
@@ -49,6 +54,8 @@ import org.jetbrains.compose.resources.stringResource
 /**
  * A Spotify playlist: cover, Play and Open in Spotify, then its tracks page by page. Tapping a track plays
  * the playlist from it. Spotify hides the tracks of playlists the user doesn't own; those can still be played.
+ * The listed tracks can be added to the queue together, or one by one by swiping them to the right or from
+ * their "..." (also to a playlist).
  */
 @Composable
 fun PlaylistDetail(api: MusicRoomApi, playlist: PlaylistSummaryResponse, player: PlayerController, onBack: () -> Unit) {
@@ -96,7 +103,7 @@ fun PlaylistDetail(api: MusicRoomApi, playlist: PlaylistSummaryResponse, player:
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
             AppButton(
                 stringResource(Res.string.playlists_play),
                 { player.playPlaylist(playlist, tracks, 0) },
@@ -111,6 +118,9 @@ fun PlaylistDetail(api: MusicRoomApi, playlist: PlaylistSummaryResponse, player:
                     icon = Lucide.ExternalLink,
                 )
             }
+            IconButton(onClick = { player.addToQueue(tracks) }, enabled = tracks.isNotEmpty()) {
+                Icon(Lucide.ListPlus, contentDescription = stringResource(Res.string.queue_add), tint = colors.textPrimary)
+            }
         }
 
         val failure = error
@@ -124,6 +134,8 @@ fun PlaylistDetail(api: MusicRoomApi, playlist: PlaylistSummaryResponse, player:
                         track,
                         playing = player.track?.id == track.id,
                         onClick = { player.playPlaylist(playlist, tracks, index) },
+                        trailing = { TrackMoreButton(api, player, track) },
+                        onSwipeRight = { player.addToQueue(listOf(track)) },
                     )
                 }
                 failure?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }

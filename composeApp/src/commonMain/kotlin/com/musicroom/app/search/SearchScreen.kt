@@ -51,6 +51,7 @@ import com.musicroom.app.generated.resources.search_no_results
 import com.musicroom.app.generated.resources.search_placeholder
 import com.musicroom.app.generated.resources.search_results
 import com.musicroom.app.music.SpotifyConnectCard
+import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppButton
@@ -69,7 +70,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Search in the Spotify catalog. Typing searches after a short pause; a mood tile searches its genre.
- * Tapping a result plays it, with the other results queued after it.
+ * Tapping a result plays it, with the other results queued after it; its "..." (or a swipe to the right) adds it to the queue, the "..." also to a playlist.
  */
 @Composable
 fun SearchScreen(api: MusicRoomApi, user: UserResponse, player: PlayerController, onSpotifyConnected: () -> Unit) {
@@ -155,7 +156,14 @@ fun SearchScreen(api: MusicRoomApi, user: UserResponse, player: PlayerController
                         Text(stringResource(Res.string.search_no_results), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
                     else -> {
                         results.forEachIndexed { index, track ->
-                            TrackRow(api, track, playing = player.track?.id == track.id, onClick = { player.play(results, index) })
+                            TrackRow(
+                                api,
+                                track,
+                                playing = player.track?.id == track.id,
+                                onClick = { player.play(results, index) },
+                                trailing = { TrackMoreButton(api, player, track) },
+                                onSwipeRight = { player.addToQueue(listOf(track)) },
+                            )
                         }
                         failure?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
                         val offset = nextOffset

@@ -23,7 +23,8 @@ import com.musicroom.shared.dto.TrackResponse
 
 /**
  * Track in a list: cover, title, artists, and its length (an equalizer instead while it plays).
- * [trailing] adds an action at the end of the row (add, remove...).
+ * [trailing] adds an action at the end of the row (add, remove...). With [onSwipeRight], swiping the row
+ * to the right adds the song to the queue.
  */
 @Composable
 fun TrackRow(
@@ -33,7 +34,12 @@ fun TrackRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null,
+    onSwipeRight: (() -> Unit)? = null,
 ) {
+    if (onSwipeRight != null) {
+        SwipeToQueue(onSwipeRight, modifier) { TrackRow(api, track, playing, onClick, trailing = trailing) }
+        return
+    }
     val colors = AppTheme.colors
     Row(
         modifier.fillMaxWidth().pressable(onClick = onClick).padding(vertical = AppTheme.spacing.xs),
