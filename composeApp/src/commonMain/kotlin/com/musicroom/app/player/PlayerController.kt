@@ -44,6 +44,7 @@ import kotlin.time.TimeSource
  */
 @Stable
 class PlayerController(private val api: MusicRoomApi, private val scope: CoroutineScope) {
+    private val spotify: PlaybackProvider = SpotifyPlaybackProvider(api)
     var state by mutableStateOf<PlaybackStateResponse?>(null)
         private set
 
@@ -168,7 +169,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         if (tracks.none { it.hosted }) {
             if (!requireSpotify()) return
             appList = null
-            playOnSpotify(track) { api.play(tracks.map { it.uri }, index) }
+            playOnSpotify(track) { spotify.play(tracks.map { it.uri }, index) }
             return
         }
         if (!allowed()) return
@@ -199,7 +200,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             update(PlaybackStateResponse(active = true, isPlaying = true, track = it, deviceName = device))
         }
         waitFor(track?.id)
-        command { api.play(index = index, contextUri = uri) }
+        command { spotify.play(index = index, contextUri = uri) }
     }
 
     /** Plays [following] from its track at [index]; the tracks after it follow. */
@@ -292,7 +293,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             // Spotify takes a moment to show a skip or an added song in its queue.
             delay(800.milliseconds)
             try {
-                spotifyQueue = api.queue().tracks
+                spotifyQueue = spotify.queue().tracks
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -303,7 +304,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Reloads [devices]; throws when Spotify cannot be reached. */
     suspend fun loadDevices() {
-        devices = api.devices().devices
+        devices = spotify.devices().devices
     }
 
     /** Moves playback to [device], playing there unless it was paused. */
@@ -315,7 +316,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         state?.let { update(it.copy(deviceName = device.name, progressMs = positionMs())) }
         // While Spotify moves the music it can briefly report it paused or playing nowhere: keep what is shown.
         waitFor(track?.id, device = device.name, playing = play)
-        command { api.transferPlayback(device.id, play) }
+        command { spotify.transferPlayback(device.id, play) }
     }
 
     fun togglePlay() {
@@ -327,7 +328,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             return
         }
         update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
-        command { if (current.isPlaying) api.pause() else api.play() }
+        command { if (current.isPlaying) spotify.pause() else spotify.play() }
     }
 
     /** Skips to the first [upNext] song, or to the next song of the list. */
@@ -345,14 +346,14 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
                 playSingle(list[appIndex])
             }
             playingHosted || list != null -> seek(0)
-            else -> command { api.skipPrevious() }
+            else -> command { spotify.skipPrevious() }
         }
     }
 
     fun seek(positionMs: Long) {
         if (!allowed()) return
         state?.let { update(it.copy(progressMs = positionMs)) }
-        if (playingHosted) hosted.seek(positionMs) else command { api.seek(positionMs) }
+        if (playingHosted) hosted.seek(positionMs) else command { spotify.seek(positionMs) }
     }
 
     /**
@@ -367,14 +368,14 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             first != null && playingHosted && resumeSpotify && !first.track.hosted -> {
                 leaveHosted()
                 resumeSpotify = false
-                send(first) { api.skipNext() }
+                send(first) { spotify.skipNext() }
             }
             first != null && appDriven() -> {
                 if (list == null && !playingHosted && first.track.hosted) resumeSpotify = true
                 upNext = upNext - first
                 playSingle(first.track)
             }
-            first != null -> send(first) { api.skipNext() }
+            first != null -> send(first) { spotify.skipNext() }
             list != null && appIndex < list.lastIndex -> {
                 appIndex++
                 playSingle(list[appIndex])
@@ -382,10 +383,10 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
             playingHosted && resumeSpotify -> {
                 leaveHosted()
                 resumeSpotify = false
-                command { api.skipNext() }
+                command { spotify.skipNext() }
             }
             playingHosted || list != null -> stopAtEnd()
-            else -> command { api.skipNext() }
+            else -> command { spotify.skipNext() }
         }
     }
 
@@ -397,7 +398,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         if (track.hosted) {
             startHosted(track)
         } else if (requireSpotify()) {
-            playOnSpotify(track) { api.play(listOf(track.uri), 0) }
+            playOnSpotify(track) { spotify.play(listOf(track.uri), 0) }
         } else {
             // No Spotify to play it: the list stops there.
             stopAtEnd()
@@ -414,7 +415,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     private fun startHosted(track: TrackResponse) {
         // Spotify goes quiet while the app plays.
-        if (!playingHosted && isPlaying) command { api.pause() }
+        if (!playingHosted && isPlaying) command { spotify.pause() }
         playingHosted = true
         stopWaiting()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
@@ -506,7 +507,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     suspend fun sync() {
         while (true) {
             try {
-                val fetched = api.playbackState().let { fetched ->
+                val fetched = spotify.playbackState().let { fetched ->
                     // Spotify can report the music playing without saying what (just after it moved to another
                     // device): the last known track stays shown rather than the player disappearing.
                     val shown = state?.track
@@ -595,7 +596,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     private fun send(entry: QueueEntry, then: suspend () -> Unit = {}) {
         sentKey = entry.key
         command(onError = { if (sentKey == entry.key) sentKey = null }) {
-            api.addToQueue(listOf(entry.track.uri))
+            spotify.addToQueue(listOf(entry.track.uri))
             queueChanges++
             then()
         }
