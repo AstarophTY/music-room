@@ -17,6 +17,8 @@ android {
     buildFeatures { compose = true }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,io.netty.versions.properties}" }
+        // The Apple Music SDK's native libraries are loaded through System.loadLibrary.
+        jniLibs.useLegacyPackaging = true
     }
     buildTypes {
         getByName("release") { isMinifyEnabled = false }

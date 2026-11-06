@@ -26,6 +26,11 @@ class AndroidAppleMusicPlayback(
     private var listener: MediaPlayerController.Listener? = null
 
     override suspend fun play(songId: String, onEnded: () -> Unit, onError: (Exception) -> Unit) {
+        try {
+            loadSdk()
+        } catch (e: UnsatisfiedLinkError) {
+            throw IllegalStateException("Apple Music playback is not supported on this device", e)
+        }
         val userToken = connection.musicUserToken() ?: error("Connect Apple Music before playback")
         val developerToken = api.appleMusicDeveloperToken().token
         stop()
@@ -54,6 +59,14 @@ class AndroidAppleMusicPlayback(
         listener = callbacks
         player.addListener(callbacks)
         player.prepare(CatalogPlaybackQueueItemProvider.Builder().items(MediaItemType.SONG, songId).build(), true)
+    }
+
+    /** Loads the SDK's native libraries, as its sample app does; playback fails without them. */
+    private fun loadSdk() {
+        System.setProperty("org.bytedeco.javacpp.maxphysicalbytes", "0")
+        System.setProperty("org.bytedeco.javacpp.maxbytes", "0")
+        System.loadLibrary("c++_shared")
+        System.loadLibrary("appleMusicSDK")
     }
 
     override fun pause() { controller?.pause() }
