@@ -17,7 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import com.musicroom.app.theme.tokens.AppTheme
 
-/** Four tabs; events is a raised yellow disc that spins while it is selected. */
+/** Five tabs; events is a raised yellow disc that spins while it is selected. */
 @Composable
 fun BottomNavBar(selected: MainTab, onSelect: (MainTab) -> Unit) {
     val colors = AppTheme.colors

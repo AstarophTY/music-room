@@ -30,8 +30,8 @@ import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Avatar on the left (opens the profile), app name, then the notifications bell and the chats, each with the
- * number of what waits.
+ * Avatar on the left (opens the user's profile page), app name, then the notifications bell and the chats, each
+ * with the number of what waits.
  */
 @Composable
 fun MainTopBar(

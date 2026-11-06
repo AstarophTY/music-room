@@ -71,6 +71,7 @@
     <string name="tab_search">Recherche</string>
     <string name="tab_events">Événements</string>
     <string name="tab_playlists">Playlists</string>
+    <string name="tab_settings">Paramètres</string>
     <string name="home_greeting">Salut %1$s</string>
     <string name="home_hero_title">Laisse la salle choisir le prochain son.</string>
     <string name="home_hero_body">Lance un événement en direct : chacun propose des sons et vote en temps réel.</string>
@@ -103,7 +104,6 @@
     <string name="create_playlist_body">Crée une playlist seul ou à plusieurs, et écoute-la.</string>
     <string name="create_control_title">Partager le contrôle</string>
     <string name="create_control_body">Laisse tes amis lancer, mettre en pause ou passer les sons sur ton appareil.</string>
-    <string name="profile_title">Profil</string>
     <string name="profile_open">Ouvrir ton profil</string>
     <string name="sidebar_collapse">Masquer le menu</string>
     <string name="sidebar_expand">Afficher le menu</string>
@@ -234,7 +234,6 @@
     <string name="spotify_playback_note">La musique passe par Spotify Connect : il faut Spotify Premium et l’app Spotify ouverte sur un de tes appareils (téléphone, ordinateur, enceinte).</string>
     <string name="spotify_open">Ouvrir Spotify</string>
     <string name="profile_section_music">Musique</string>
-    <string name="reco_title">Pour toi</string>
     <string name="reco_top_tracks">Tes titres préférés</string>
     <string name="reco_artist">Parce que tu écoutes %1$s</string>
     <string name="reco_empty">Écoute quelques titres sur Spotify et tes recommandations apparaîtront ici.</string>

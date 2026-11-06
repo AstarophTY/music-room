@@ -2,6 +2,8 @@ package com.musicroom.app.home
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -10,9 +12,10 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.musicroom.app.common.Reveal
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.musicroom.app.common.UiText
-import com.musicroom.app.events.EventCard
+import com.musicroom.app.common.WindowSize
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.common_retry
@@ -27,7 +30,7 @@ import com.musicroom.shared.dto.EventsScope
 import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.stringResource
 
-/** Home shortcut to the public rooms open now, with "See all" going to the events tab. */
+/** Home shelf of the public rooms, each a square card; "See all" goes to the events tab. */
 @Composable
 fun HomeRoomsSection(api: MusicRoomApi, onOpenRoom: (String) -> Unit, onSeeAll: () -> Unit) {
     val colors = AppTheme.colors
@@ -45,6 +48,7 @@ fun HomeRoomsSection(api: MusicRoomApi, onOpenRoom: (String) -> Unit, onSeeAll: 
         }
     }
 
+    val size: Dp = if (WindowSize.current != WindowSize.Compact) 192.dp else 164.dp
     Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
         HomeSectionHeader(stringResource(Res.string.home_rooms_title), onSeeAll)
         val loaded = events
@@ -57,8 +61,10 @@ fun HomeRoomsSection(api: MusicRoomApi, onOpenRoom: (String) -> Unit, onSeeAll: 
             loaded == null -> Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
             loaded.isEmpty() -> Text(stringResource(Res.string.home_rooms_empty), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
             // The events tab lists them all.
-            else -> loaded.take(3).forEachIndexed { index, event ->
-                Reveal(index) { EventCard(api, event, onClick = { onOpenRoom(event.id) }) }
+            else -> LazyRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
+                items(loaded.take(8), key = { it.id }) { event ->
+                    HomeRoomCard(api, event, onClick = { onOpenRoom(event.id) }, size = size)
+                }
             }
         }
     }

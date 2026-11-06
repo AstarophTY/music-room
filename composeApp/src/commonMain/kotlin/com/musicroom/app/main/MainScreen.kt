@@ -55,7 +55,7 @@ import com.musicroom.app.profile.AppearanceScreen
 import com.musicroom.app.profile.ChangePasswordScreen
 import com.musicroom.app.profile.EditProfileScreen
 import com.musicroom.app.profile.ProfileRoute
-import com.musicroom.app.profile.ProfileScreen
+import com.musicroom.app.profile.SettingsScreen
 import com.musicroom.app.profile.SettingsSideBar
 import com.musicroom.app.profile.SocialLinksScreen
 import com.musicroom.app.profile.MySongsScreen
@@ -194,18 +194,36 @@ fun MainScreen(
         then()
     }
 
-    // Android back: close the profile pages first, then the social pages, then go back to the home tab.
+    // Android back: close a settings page, then the social pages, then go back to the home tab.
     // The player sheet dismisses itself.
     BackHandler(enabled = profileRoute != null || socialPages.isNotEmpty() || tab != MainTab.Home) {
         val route = profileRoute
         when {
-            route != null -> profileRoute = route.parent
+            route != null -> profileRoute = null
             socialPages.isNotEmpty() -> socialBack()
             else -> tab = MainTab.Home
         }
     }
 
-    val openProfile = { profileRoute = ProfileRoute.Profile }
+    val logout: () -> Unit = {
+        scope.launch {
+            api.logout()
+            onLoggedOut()
+        }
+    }
+    // The settings tab and the settings pages share this screen; the avatar opens the user's own profile page.
+    val settingsScreen: @Composable () -> Unit = {
+        SettingsScreen(
+            api = api,
+            user = user,
+            themeMode = themeMode,
+            pendingRequests = social.counts.pendingRequests,
+            onOpen = { profileRoute = it },
+            onOpenFriends = { openSocial(SocialPage.Friends) },
+            onLogout = logout,
+        )
+    }
+    val openProfile = { openSocial(SocialPage.Profile(user.id)) }
     val tabPage: @Composable (MainTab) -> Unit = { shown ->
         when (shown) {
             MainTab.Home -> HomeScreen(
@@ -213,10 +231,6 @@ fun MainScreen(
                 user = user,
                 player = player,
                 onCreate = openCreate,
-                onOpenSearch = {
-                    socialPages = emptyList()
-                    tab = MainTab.Search
-                },
                 onOpenEvent = { id ->
                     socialPages = emptyList()
                     openEvent = id
@@ -260,6 +274,7 @@ fun MainScreen(
                 openRoomPlaylistId = openRoomPlaylist,
                 onOpenRoomPlaylist = { openRoomPlaylist = it },
             )
+            MainTab.Settings -> settingsScreen()
         }
     }
     // Changing tab fades the new one in while it rises a little.
@@ -273,27 +288,12 @@ fun MainScreen(
         ) { tabPage(it) }
     }
 
-    val logout: () -> Unit = {
-        scope.launch {
-            api.logout()
-            onLoggedOut()
-        }
-    }
     val wide = WindowSize.current == WindowSize.Expanded
-    // Large screens: the settings menu stays on the left, so going back closes the settings.
-    val back = { profileRoute = if (wide) null else profileRoute?.parent }
+    // A settings page replaces the settings tab; going back shows the tab again.
+    val back = { profileRoute = null }
     val profilePage: @Composable (ProfileRoute) -> Unit = { route ->
         when (route) {
-            ProfileRoute.Profile -> ProfileScreen(
-                api = api,
-                user = user,
-                themeMode = themeMode,
-                pendingRequests = social.counts.pendingRequests,
-                onBack = back,
-                onOpen = { profileRoute = it },
-                onOpenFriends = { openSocial(SocialPage.Friends) },
-                onLogout = logout,
-            )
+            ProfileRoute.Profile -> settingsScreen()
             ProfileRoute.EditProfile -> EditProfileScreen(api, user, onUserChange, onBack = back)
             ProfileRoute.SocialLinks -> SocialLinksScreen(api, user, onUserChange, onBack = back)
             ProfileRoute.ChangePassword -> ChangePasswordScreen(api, onBack = back)
@@ -359,15 +359,15 @@ fun MainScreen(
     CompositionLocalProvider(EventFocus.Local provides eventFocus) {
         Box(Modifier.fillMaxSize()) {
             if (wide) {
-                // Large screen: side menu on the left instead of the top and bottom bars. It stays visible on the
-                // profile pages; a second menu with the settings categories opens next to it, and the chosen
-                // page shows on the right in place of the tab (the account page first).
-                val settingsPage = if (route == ProfileRoute.Profile) ProfileRoute.EditProfile else route
+                // Large screen: side menu on the left instead of the top and bottom bars. On the settings tab, a
+                // second menu with the settings categories opens next to it, and the chosen page shows on the
+                // right (the account page first).
+                val settingsPage = if (tab == MainTab.Settings) route ?: ProfileRoute.EditProfile else route
                 Row(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
                     SideNavBar(
                         api,
                         user,
-                        selected = if (route == null) tab else null,
+                        selected = tab,
                         collapsed = sideNavCollapsed,
                         onToggleCollapsed = { sideNavCollapsed = !sideNavCollapsed },
                         onSelect = {
@@ -413,8 +413,8 @@ fun MainScreen(
                     }
                 }
             } else {
-                // Phones: profile pages replace the tabs (instead of covering them) so touches cannot reach the tabs
-                // below. A deeper page slides in from the right and going back slides it away.
+                // Phones: social pages and settings pages replace the tabs (instead of covering them) so touches
+                // cannot reach the tabs below. A deeper page slides in from the right and going back slides it away.
                 fun depth(screen: String) = when {
                     screen == tabsKey -> 0
                     // A social page that was just closed is no longer in the list: it was the deepest.
@@ -466,7 +466,7 @@ fun MainScreen(
         CreateSheet(
             api,
             spotifyConnected = user.spotifyConnected,
-            onOpenProviders = { showCreate = false; profileRoute = ProfileRoute.Spotify },
+            onOpenProviders = { showCreate = false; profileRoute = ProfileRoute.Spotify; tab = MainTab.Settings },
             onDismiss = { showCreate = false },
             onPlaylistCreated = { playlist ->
                 showCreate = false

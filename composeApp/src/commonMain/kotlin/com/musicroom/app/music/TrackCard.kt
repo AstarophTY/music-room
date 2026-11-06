@@ -18,7 +18,7 @@ import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TrackResponse
 
-/** Square cover with the title and artists under it, for rows of recommendations. */
+/** Big square cover with the title and artists under it, for rows of recommendations. */
 @Composable
 fun TrackCard(
     api: MusicRoomApi,
@@ -26,14 +26,14 @@ fun TrackCard(
     playing: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    size: Dp = 148.dp,
+    size: Dp = 164.dp,
 ) {
     val colors = AppTheme.colors
     Column(
         modifier.width(size).pressable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
     ) {
-        RemoteImage(api, track.imageUrl, Modifier.size(size).clip(AppShapes.medium))
+        RemoteImage(api, track.imageUrl, Modifier.size(size).clip(AppShapes.large))
         Text(
             track.name,
             style = AppTheme.typography.label,

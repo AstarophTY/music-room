@@ -47,16 +47,15 @@ import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Side menu that replaces the bottom bar on large screens. The profile stays at the top left.
+ * Side menu that replaces the bottom bar on large screens. The user row at the top opens their profile page.
  * [collapsed] shrinks it to icons only; the button at the bottom toggles it.
- * [selected] is null while a profile page is open: the profile row is highlighted instead of a tab.
  * Under the tabs, messages and notifications with their [counts]; [socialOpen] is the social page shown, if any.
  */
 @Composable
 fun SideNavBar(
     api: MusicRoomApi,
     user: UserResponse,
-    selected: MainTab?,
+    selected: MainTab,
     collapsed: Boolean,
     onToggleCollapsed: () -> Unit,
     onSelect: (MainTab) -> Unit,
@@ -70,7 +69,7 @@ fun SideNavBar(
     val border = AppTheme.spacing.border
     val width by animateDpAsState(if (collapsed) 72.dp else 256.dp)
     val padding = if (collapsed) 12.dp else AppTheme.spacing.md
-    val profileOpen = selected == null
+    val profileOpen = (socialOpen as? SocialPage.Profile)?.userId == user.id
     Column(
         Modifier.width(width).fillMaxHeight().background(colors.surface)
             .drawBehind { drawLine(colors.border, Offset(size.width, 0f), Offset(size.width, size.height), border.toPx()) }

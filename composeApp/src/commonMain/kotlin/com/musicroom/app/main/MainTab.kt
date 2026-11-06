@@ -6,11 +6,13 @@ import com.composables.icons.lucide.House
 import com.composables.icons.lucide.ListMusic
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Search
+import com.composables.icons.lucide.Settings
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.tab_events
 import com.musicroom.app.generated.resources.tab_home
 import com.musicroom.app.generated.resources.tab_playlists
 import com.musicroom.app.generated.resources.tab_search
+import com.musicroom.app.generated.resources.tab_settings
 import org.jetbrains.compose.resources.StringResource
 
 /** Bottom bar tabs, in display order. [Events] sits in the middle as the main action. */
@@ -19,4 +21,5 @@ enum class MainTab(val label: StringResource, val icon: ImageVector) {
     Search(Res.string.tab_search, Lucide.Search),
     Events(Res.string.tab_events, Lucide.Disc3),
     Playlists(Res.string.tab_playlists, Lucide.ListMusic),
+    Settings(Res.string.tab_settings, Lucide.Settings),
 }
