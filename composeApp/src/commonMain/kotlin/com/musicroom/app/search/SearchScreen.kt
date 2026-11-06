@@ -54,6 +54,7 @@ import com.musicroom.app.common.WindowSize
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_clear
 import com.musicroom.app.generated.resources.common_loading
+import com.musicroom.app.generated.resources.apple_music_storefront_missing
 import com.musicroom.app.generated.resources.genre_chill
 import com.musicroom.app.generated.resources.genre_electro
 import com.musicroom.app.generated.resources.genre_hiphop
@@ -70,6 +71,7 @@ import com.musicroom.app.music.AlbumCard
 import com.musicroom.app.music.ArtistCard
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
+import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.social.FriendButton
 import com.musicroom.app.social.PersonRow
@@ -89,6 +91,8 @@ import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -129,6 +133,7 @@ fun SearchScreen(
     val topTrackCount = 5
     val scope = rememberCoroutineScope()
     val colors = AppTheme.colors
+    val appleMusic = AppleMusicConnection.Local.current
     val compact = WindowSize.current == WindowSize.Compact
     // Label, icon, and the Spotify genre it searches.
     val moods = listOf(
@@ -147,7 +152,7 @@ fun SearchScreen(
     // Topped by the user with exactly this name (names are unique).
     val topPeopleCount = 3
 
-    LaunchedEffect(searchQuery) {
+    LaunchedEffect(searchQuery, appleMusic.connected, appleMusic.storefront, user.spotifyConnected) {
         found = null
         tracks = emptyList()
         nextOffset = null
@@ -157,10 +162,42 @@ fun SearchScreen(
         if (selectedMood == null) delay(350)
         loading = true
         try {
-            val result = api.search(searchQuery)
-            found = result
-            tracks = result.tracks
-            nextOffset = result.nextTrackOffset
+            coroutineScope {
+                val useSpotify = user.spotifyConnected || !appleMusic.connected
+                if (appleMusic.connected && appleMusic.storefront.isNullOrBlank()) {
+                    error = UiText.of(Res.string.apple_music_storefront_missing)
+                }
+                suspend fun <T> attempt(block: suspend () -> T): kotlin.Result<T> = try {
+                    kotlin.Result.success(block())
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    kotlin.Result.failure(e)
+                }
+                val spotifyTask = if (useSpotify) async { attempt { api.search(searchQuery) } } else null
+                val appleTask = appleMusic.storefront?.takeIf { appleMusic.connected }?.let { region ->
+                    async { attempt { api.searchAppleMusic(selectedMood?.third ?: searchQuery, region) } }
+                }
+                val spotifyResult = spotifyTask?.await()
+                val appleResult = appleTask?.await()
+                val spotifyData = spotifyResult?.getOrNull() ?: SearchResponse()
+                val appleTracks = appleResult?.getOrNull()?.items.orEmpty()
+                val mixed = buildList {
+                    for (index in 0 until maxOf(spotifyData.tracks.size, appleTracks.size)) {
+                        spotifyData.tracks.getOrNull(index)?.let(::add)
+                        appleTracks.getOrNull(index)?.let(::add)
+                    }
+                }
+                val failure = spotifyResult?.exceptionOrNull() ?: appleResult?.exceptionOrNull()
+                if (failure is Exception) error = UiText.of(failure)
+                if ((spotifyResult == null || spotifyResult.isFailure) && (appleResult == null || appleResult.isFailure)) {
+                    found = null
+                } else {
+                    found = spotifyData.copy(tracks = mixed)
+                    tracks = mixed
+                    nextOffset = spotifyData.nextTrackOffset
+                }
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -323,6 +360,9 @@ fun SearchScreen(
                             transitionSpec = { fadeIn(tween(200, delayMillis = 60)) togetherWith fadeOut(tween(120)) },
                         ) { shown ->
                             Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg)) {
+                                if (shown != SearchFilter.Tracks && failure != null) {
+                                    Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
+                                }
                                 when (shown) {
                                     SearchFilter.All -> {
                                         if (foundPeople.isNotEmpty()) {

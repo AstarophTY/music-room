@@ -226,6 +226,7 @@
     <string name="provider_choice_body">Connect a music provider, or continue as a listener. You can change this later in settings.</string>
     <string name="provider_choice_listener">Continue as a listener</string>
     <string name="provider_choice_later">Not now</string>
+    <string name="song_suggestions">Suggested and popular songs</string>
     <string name="provider_apple_unavailable">Apple Music connection is not available on this platform yet.</string>
     <string name="provider_apple_catalog_pending">Apple Music song search is available. Playback is not available yet.</string>
     <string name="apple_music_storefront_missing">Your Apple Music storefront is unavailable. Reconnect Apple Music and try again.</string>

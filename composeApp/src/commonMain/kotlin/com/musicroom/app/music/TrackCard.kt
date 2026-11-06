@@ -64,5 +64,6 @@ fun TrackCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
+        ProviderIcon(track.source)
     }
 }

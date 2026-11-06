@@ -27,6 +27,7 @@ import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.ArtistResponse
+import com.musicroom.shared.dto.TrackSource
 import org.jetbrains.compose.resources.stringResource
 
 /** Round photo of an artist (a microphone when Spotify has none) with their name and "Artist" under it. */
@@ -57,5 +58,6 @@ fun ArtistCard(api: MusicRoomApi, artist: ArtistResponse, onClick: () -> Unit, m
             textAlign = TextAlign.Center,
         )
         Text(stringResource(Res.string.artist_label), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+        ProviderIcon(TrackSource.SPOTIFY)
     }
 }

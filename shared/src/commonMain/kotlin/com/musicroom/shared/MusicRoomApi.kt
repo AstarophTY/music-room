@@ -208,6 +208,11 @@ class MusicRoomApi(
             url.parameters.append("storefront", storefront)
         }.bodyOrThrow()
 
+    suspend fun appleMusicCharts(storefront: String): TrackPageResponse =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_CHARTS) {
+            url.parameters.append("storefront", storefront)
+        }.bodyOrThrow()
+
     /** Returns the Spotify page to open in the browser to connect the account. */
     suspend fun spotifyConnect(): SpotifyConnectResponse =
         authorized(HttpMethod.Post, ApiRoutes.SPOTIFY_CONNECT).bodyOrThrow()

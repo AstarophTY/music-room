@@ -165,8 +165,12 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
      */
     fun play(tracks: List<TrackResponse>, index: Int) {
         val track = tracks.getOrNull(index) ?: return
-        if (tracks.any { it.source == TrackSource.APPLE_MUSIC }) {
+        if (track.source == TrackSource.APPLE_MUSIC) {
             error = UiText.of(Res.string.apple_music_playback_pending)
+            return
+        }
+        if (tracks.any { it.source == TrackSource.APPLE_MUSIC }) {
+            play(listOf(track), 0)
             return
         }
         if (tracks.none { it.hosted }) {

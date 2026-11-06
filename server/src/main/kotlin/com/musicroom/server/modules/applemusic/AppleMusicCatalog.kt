@@ -53,6 +53,24 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
         return song(data?.firstOrNull()?.jsonObject ?: throw NotFoundException("Apple Music track not found"), region)
     }
 
+    suspend fun charts(storefront: String): TrackPageResponse {
+        val region = validateStorefront(storefront)
+        val response = client.get("https://api.music.apple.com/v1/catalog/$region/charts") {
+            bearerAuth(tokens.create())
+            parameter("types", "songs")
+            parameter("limit", 20)
+        }
+        check(response.status.isSuccess()) { "Apple Music charts request failed (${response.status.value})" }
+        return chartTracks(Json.parseToJsonElement(response.bodyAsText()).jsonObject, region)
+    }
+
+    internal fun chartTracks(root: JsonObject, storefront: String): TrackPageResponse {
+        val charts = root["results"]?.jsonObject?.get("songs")?.jsonArray.orEmpty()
+        val songs = charts.firstOrNull()?.jsonObject?.get("data")?.jsonArray.orEmpty()
+        val tracks = songs.map { song(it.jsonObject, storefront) }
+        return TrackPageResponse(tracks, tracks.size)
+    }
+
     internal fun song(item: JsonObject, storefront: String): TrackResponse {
         val id = item.getValue("id").jsonPrimitive.content
         val attributes = item.getValue("attributes").jsonObject

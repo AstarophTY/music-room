@@ -68,6 +68,7 @@ fun TrackRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        ProviderIcon(track.source)
         if (playing) {
             Equalizer(color = colors.accentText, height = 16.dp)
         } else {

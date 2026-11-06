@@ -1,10 +1,15 @@
 package com.musicroom.app.playlists
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -125,115 +130,125 @@ fun RoomPlaylistScreen(
     }
 
     val loaded = detail
-    SubScreenScaffold(title = loaded?.playlist?.name.orEmpty(), onBack = onBack) {
-        if (loaded == null) {
-            val failure = error
-            if (failure != null) {
-                Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
-                AppButton(stringResource(Res.string.common_retry), { attempt++ }, variant = AppButtonVariant.Secondary)
-            } else {
-                Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-            }
-            return@SubScreenScaffold
-        }
-        val playlist = loaded.playlist
-        val tracks = loaded.tracks.map { it.track }
-        // Queued songs show who proposed them in the playlist.
-        val proposerOf: (PlaylistTrackResponse) -> Proposer? = { entry ->
-            (listOf(playlist.owner) + loaded.members).firstOrNull { it.userId == entry.addedById }?.let(Proposer::of)
-                ?: entry.addedById?.let { Proposer(it, entry.addedBy, AvatarColor.YELLOW, null) }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg), verticalAlignment = Alignment.CenterVertically) {
-            val editCover = if (playlist.canEdit) pickImage else null
-            Box(Modifier.size(132.dp).clip(AppShapes.large).then(if (editCover != null) Modifier.pressable(onClick = editCover) else Modifier)) {
-                PlaylistCover(api, playlist.id, playlist.coverVersion, tracks.firstOrNull()?.imageUrl, Modifier.size(132.dp))
-                if (editCover != null) {
-                    Box(
-                        Modifier.align(Alignment.BottomEnd).padding(AppTheme.spacing.sm).size(32.dp)
-                            .background(colors.surface, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Lucide.Camera, contentDescription = stringResource(Res.string.playlist_photo_change), tint = colors.textPrimary, modifier = Modifier.size(16.dp))
+    AnimatedContent(
+        targetState = showAddSongs && loaded != null,
+        transitionSpec = {
+            val opening = targetState
+            (slideInHorizontally(tween(280)) { if (opening) it / 2 else -it / 4 } + fadeIn(tween(280)))
+                .togetherWith(slideOutHorizontally(tween(220)) { if (opening) -it / 4 else it / 2 } + fadeOut(tween(180)))
+        },
+    ) { adding ->
+        if (adding && loaded != null) {
+            AddSongsPage(api, loaded, player, onChange = { detail = it }, onBack = { showAddSongs = false })
+        } else {
+            SubScreenScaffold(title = loaded?.playlist?.name.orEmpty(), onBack = onBack) {
+                if (loaded == null) {
+                    val failure = error
+                    if (failure != null) {
+                        Text(failure.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
+                        AppButton(stringResource(Res.string.common_retry), { attempt++ }, variant = AppButtonVariant.Secondary)
+                    } else {
+                        Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
                     }
+                    return@SubScreenScaffold
                 }
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
-                PlaylistTypeBadge(playlist.type)
-                Text(playlist.name, style = AppTheme.typography.title, color = colors.textPrimary)
-                Text(
-                    listOf(
-                        stringResource(Res.string.playlists_by, playlist.owner.displayName),
-                        pluralStringResource(Res.plurals.playlists_track_count, playlist.trackCount, playlist.trackCount),
-                    ).joinToString(" · "),
-                    style = AppTheme.typography.bodySmall,
-                    color = colors.textSecondary,
-                )
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-            AppButton(stringResource(Res.string.playlists_play), { player.play(tracks, 0) }, enabled = tracks.isNotEmpty(), icon = Lucide.Play)
-            if (playlist.canEdit) {
-                AppButton(stringResource(Res.string.playlist_add_songs), { showAddSongs = true }, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
-            }
-            Row(Modifier.weight(1f)) {}
-            IconButton(onClick = { player.addProposed(loaded.tracks.map { it.track to proposerOf(it) }) }, enabled = tracks.isNotEmpty()) {
-                Icon(Lucide.ListPlus, contentDescription = stringResource(Res.string.queue_add), tint = colors.textPrimary)
-            }
-            if (playlist.isOwner) {
-                IconButton(onClick = { showSettings = true }) {
-                    Icon(Lucide.Settings, contentDescription = stringResource(Res.string.playlist_settings), tint = colors.textPrimary)
+                val playlist = loaded.playlist
+                val tracks = loaded.tracks.map { it.track }
+                // Queued songs show who proposed them in the playlist.
+                val proposerOf: (PlaylistTrackResponse) -> Proposer? = { entry ->
+                    (listOf(playlist.owner) + loaded.members).firstOrNull { it.userId == entry.addedById }?.let(Proposer::of)
+                        ?: entry.addedById?.let { Proposer(it, entry.addedBy, AvatarColor.YELLOW, null) }
                 }
-            }
-        }
-        error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
 
-        SectionTitle(stringResource(Res.string.playlist_songs))
-        if (loaded.tracks.isEmpty()) {
-            Text(
-                stringResource(if (playlist.canEdit) Res.string.playlist_no_songs_editor else Res.string.playlist_no_songs),
-                style = AppTheme.typography.bodySmall,
-                color = colors.textSecondary,
-            )
-        }
-        Column {
-            loaded.tracks.forEachIndexed { index, entry ->
-                key(entry.entryId) {
-                    val visible = remember { MutableTransitionState(initialEntries?.contains(entry.entryId) == true).apply { targetState = true } }
-                    AnimatedVisibility(visible, enter = fadeIn() + expandVertically() + slideInHorizontally { it / 4 }) {
-                        TrackRow(
-                            api,
-                            entry.track,
-                            playing = player.track?.id == entry.track.id,
-                            onClick = { player.play(tracks, index) },
-                            trailing = {
-                                TrackMoreButton(
-                                    api,
-                                    player,
-                                    entry.track,
-                                    proposer = proposerOf(entry),
-                                    onRemove = if (playlist.canEdit) {
-                                        { run { api.removePlaylistTrack(playlist.id, entry.entryId) } }
-                                    } else {
-                                        null
-                                    },
-                                )
-                            },
-                            onSwipeRight = { player.addToQueue(listOf(entry.track), proposerOf(entry)) },
+                Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                    val editCover = if (playlist.canEdit) pickImage else null
+                    Box(Modifier.size(132.dp).clip(AppShapes.large).then(if (editCover != null) Modifier.pressable(onClick = editCover) else Modifier)) {
+                        PlaylistCover(api, playlist.id, playlist.coverVersion, tracks.firstOrNull()?.imageUrl, Modifier.size(132.dp))
+                        if (editCover != null) {
+                            Box(
+                                Modifier.align(Alignment.BottomEnd).padding(AppTheme.spacing.sm).size(32.dp)
+                                    .background(colors.surface, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(Lucide.Camera, contentDescription = stringResource(Res.string.playlist_photo_change), tint = colors.textPrimary, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
+                        PlaylistTypeBadge(playlist.type)
+                        Text(playlist.name, style = AppTheme.typography.title, color = colors.textPrimary)
+                        Text(
+                            listOf(
+                                stringResource(Res.string.playlists_by, playlist.owner.displayName),
+                                pluralStringResource(Res.plurals.playlists_track_count, playlist.trackCount, playlist.trackCount),
+                            ).joinToString(" · "),
+                            style = AppTheme.typography.bodySmall,
+                            color = colors.textSecondary,
                         )
                     }
                 }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
+                    AppButton(stringResource(Res.string.playlists_play), { player.play(tracks, 0) }, enabled = tracks.isNotEmpty(), icon = Lucide.Play)
+                    if (playlist.canEdit) {
+                        AppButton(stringResource(Res.string.playlist_add_songs), { showAddSongs = true }, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
+                    }
+                    Row(Modifier.weight(1f)) {}
+                    IconButton(onClick = { player.addProposed(loaded.tracks.map { it.track to proposerOf(it) }) }, enabled = tracks.isNotEmpty()) {
+                        Icon(Lucide.ListPlus, contentDescription = stringResource(Res.string.queue_add), tint = colors.textPrimary)
+                    }
+                    if (playlist.isOwner) {
+                        IconButton(onClick = { showSettings = true }) {
+                            Icon(Lucide.Settings, contentDescription = stringResource(Res.string.playlist_settings), tint = colors.textPrimary)
+                        }
+                    }
+                }
+                error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
+
+                SectionTitle(stringResource(Res.string.playlist_songs))
+                if (loaded.tracks.isEmpty()) {
+                    Text(
+                        stringResource(if (playlist.canEdit) Res.string.playlist_no_songs_editor else Res.string.playlist_no_songs),
+                        style = AppTheme.typography.bodySmall,
+                        color = colors.textSecondary,
+                    )
+                }
+                Column {
+                    loaded.tracks.forEachIndexed { index, entry ->
+                        key(entry.entryId) {
+                            val visible = remember { MutableTransitionState(initialEntries?.contains(entry.entryId) == true).apply { targetState = true } }
+                            AnimatedVisibility(visible, enter = fadeIn() + expandVertically() + slideInHorizontally { it / 4 }) {
+                                TrackRow(
+                                    api,
+                                    entry.track,
+                                    playing = player.track?.id == entry.track.id,
+                                    onClick = { player.play(tracks, index) },
+                                    trailing = {
+                                        TrackMoreButton(
+                                            api,
+                                            player,
+                                            entry.track,
+                                            proposer = proposerOf(entry),
+                                            onRemove = if (playlist.canEdit) {
+                                                { run { api.removePlaylistTrack(playlist.id, entry.entryId) } }
+                                            } else {
+                                                null
+                                            },
+                                        )
+                                    },
+                                    onSwipeRight = { player.addToQueue(listOf(entry.track), proposerOf(entry)) },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                PlaylistMembersSection(api, loaded, onChange = { detail = it }, onLeft = onBack, myUserId = myUserId)
             }
         }
-
-        PlaylistMembersSection(api, loaded, onChange = { detail = it }, onLeft = onBack, myUserId = myUserId)
     }
 
     val current = detail
-    if (showAddSongs && current != null) {
-        AddSongsSheet(api, current, player, onChange = { detail = it }, onDismiss = { showAddSongs = false })
-    }
     if (showSettings && current != null) {
         PlaylistSettingsSheet(api, current, onChange = { detail = it }, onDeleted = onBack, onDismiss = { showSettings = false })
     }
