@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.apple.android.sdk.authentication.AuthenticationFactory
+import com.apple.android.sdk.authentication.TokenError
 import com.musicroom.app.music.AppleMusicConnection
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.Continuation
@@ -14,10 +15,11 @@ import kotlin.coroutines.resumeWithException
 
 class AndroidAppleMusicConnection(activity: ComponentActivity) : AppleMusicConnection {
     private val manager = AuthenticationFactory.createAuthenticationManager(activity)
+    private val tokenStore = AppleMusicTokenStore(activity)
     private var pending: Continuation<Boolean>? = null
-    private var userToken: String? = null
+    private var userToken: String? = tokenStore.load()?.optString("token")?.takeIf { it.isNotBlank() }
     override val available = true
-    override var connected by mutableStateOf(false)
+    override var connected by mutableStateOf(!userToken.isNullOrBlank())
         private set
 
     private val launcher = activity.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -28,12 +30,24 @@ class AndroidAppleMusicConnection(activity: ComponentActivity) : AppleMusicConne
             continuation.resume(false)
         } else {
             val token = manager.handleTokenResult(data)
-            if (token.isError) {
+            if (token.isError && token.error == TokenError.USER_CANCELLED) {
+                continuation.resume(false)
+            } else if (token.isError) {
                 continuation.resumeWithException(IllegalStateException("Apple Music authorization failed: ${token.error}"))
             } else {
-                userToken = token.musicUserToken
-                connected = !userToken.isNullOrBlank()
-                continuation.resume(connected)
+                try {
+                    val received = token.musicUserToken?.takeIf { it.isNotBlank() }
+                    if (received == null) {
+                        continuation.resume(false)
+                    } else {
+                        tokenStore.save(received, token.storefrontId, token.appleMusicStorefrontId)
+                        userToken = received
+                        connected = true
+                        continuation.resume(true)
+                    }
+                } catch (error: Exception) {
+                    continuation.resumeWithException(error)
+                }
             }
         }
     }
@@ -51,6 +65,7 @@ class AndroidAppleMusicConnection(activity: ComponentActivity) : AppleMusicConne
     }
 
     override fun disconnect() {
+        tokenStore.clear()
         userToken = null
         connected = false
     }

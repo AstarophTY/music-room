@@ -29,8 +29,11 @@ import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.playlist_search_hint
 import com.musicroom.app.generated.resources.reco_top_tracks
 import com.musicroom.app.generated.resources.search_no_results
+import com.musicroom.app.generated.resources.provider_apple_catalog_pending
+import com.musicroom.app.generated.resources.audio_providers_home_action
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppBottomSheet
+import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppTextField
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
@@ -63,12 +66,18 @@ fun TrackPickerSheet(
     var results by remember { mutableStateOf<List<TrackResponse>?>(null) }
     var adding by remember { mutableStateOf<Set<String>>(emptySet()) }
     var error by remember { mutableStateOf<UiText?>(null) }
-    var choosingProvider by remember { mutableStateOf(!player.spotifyConnected) }
+    val appleMusic = AppleMusicConnection.Local.current
+    var choosingProvider by remember { mutableStateOf(!player.spotifyConnected && !appleMusic.connected) }
     var spotifyReady by remember { mutableStateOf(player.spotifyConnected) }
+    val onSpotifyConnected = ProviderSession.onSpotifyConnected.current
 
     LaunchedEffect(query, choosingProvider, spotifyReady) {
         results = null
         if (choosingProvider) return@LaunchedEffect
+        if (appleMusic.connected && !spotifyReady) {
+            results = emptyList()
+            return@LaunchedEffect
+        }
         val text = query.trim()
         if (text.isEmpty() && (!showTopTracks || !spotifyReady)) {
             results = emptyList()
@@ -106,9 +115,14 @@ fun TrackPickerSheet(
         if (choosingProvider) {
             ProviderChoice(
                 api,
-                onSpotifyConnected = { player.spotifyConnected = true; spotifyReady = true; choosingProvider = false },
+                onSpotifyConnected = { player.spotifyConnected = true; spotifyReady = true; choosingProvider = false; onSpotifyConnected() },
                 onContinue = { choosingProvider = false },
+                listenerOption = false,
             )
+        } else {
+        if (appleMusic.connected && !spotifyReady) {
+            Text(stringResource(Res.string.provider_apple_catalog_pending), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+            AppButton(stringResource(Res.string.audio_providers_home_action), onClick = { choosingProvider = true })
         } else {
         AppTextField(query, { query = it }, stringResource(Res.string.playlist_search_hint), Modifier.fillMaxWidth(), leadingIcon = Lucide.Search)
         if (query.isBlank() && showTopTracks && spotifyReady) SectionTitle(stringResource(Res.string.reco_top_tracks))
@@ -138,6 +152,7 @@ fun TrackPickerSheet(
                     },
                 )
             }
+        }
         }
         }
     }

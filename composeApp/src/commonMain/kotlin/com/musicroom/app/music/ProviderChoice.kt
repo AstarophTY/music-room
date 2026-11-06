@@ -16,6 +16,7 @@ import com.musicroom.app.generated.resources.provider_apple_catalog_pending
 import com.musicroom.app.generated.resources.provider_apple_unavailable
 import com.musicroom.app.generated.resources.provider_choice_body
 import com.musicroom.app.generated.resources.provider_choice_listener
+import com.musicroom.app.generated.resources.provider_choice_later
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppTheme
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun ProviderChoice(api: MusicRoomApi, onSpotifyConnected: () -> Unit, onContinue: () -> Unit) {
+fun ProviderChoice(api: MusicRoomApi, onSpotifyConnected: () -> Unit, onContinue: () -> Unit, listenerOption: Boolean = true) {
     val apple = AppleMusicConnection.Local.current
     val scope = rememberCoroutineScope()
     var connecting by remember { mutableStateOf(false) }
@@ -57,5 +58,5 @@ fun ProviderChoice(api: MusicRoomApi, onSpotifyConnected: () -> Unit, onContinue
         )
     }
     error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = AppTheme.colors.error) }
-    AppButton(stringResource(Res.string.provider_choice_listener), onClick = onContinue, variant = AppButtonVariant.Ghost)
+    AppButton(stringResource(if (listenerOption) Res.string.provider_choice_listener else Res.string.provider_choice_later), onClick = onContinue, variant = AppButtonVariant.Ghost)
 }

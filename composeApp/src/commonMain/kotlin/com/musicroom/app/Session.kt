@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
@@ -15,6 +16,7 @@ import com.musicroom.app.auth.SocialSignIn
 import com.musicroom.app.auth.VerifyEmailScreen
 import com.musicroom.app.main.MainScreen
 import com.musicroom.app.music.ProviderChoice
+import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.settings.AppSettings
 import com.musicroom.app.theme.components.AppBottomSheet
 import com.musicroom.app.theme.ThemeMode
@@ -51,6 +53,9 @@ fun Session(
                 onLoggedOut = { onSessionChange(SessionState.LoggedOut()) },
             )
         } else {
+            CompositionLocalProvider(ProviderSession.onSpotifyConnected provides {
+                onSessionChange(SessionState.LoggedIn(session.user.copy(spotifyConnected = true)))
+            }) {
             MainScreen(
                 api = api,
                 user = session.user,
@@ -59,6 +64,7 @@ fun Session(
                 onUserChange = { onSessionChange(SessionState.LoggedIn(it)) },
                 onLoggedOut = { onSessionChange(SessionState.LoggedOut()) },
             )
+            }
             if (!providerChoiceSeen && !session.user.spotifyConnected) {
                 val finish = { settings.providerChoiceSeen = true; providerChoiceSeen = true }
                 AppBottomSheet(onDismiss = finish) {
