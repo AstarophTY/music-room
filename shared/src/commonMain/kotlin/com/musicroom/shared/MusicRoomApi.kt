@@ -489,7 +489,10 @@ class MusicRoomApi(
     }
 
     /** Downloads a public file (album cover...). */
-    suspend fun download(url: String): ByteArray = plainHttp.get(url).bodyOrThrow()
+    suspend fun download(url: String): ByteArray {
+        val target = if (url.startsWith("http://") || url.startsWith("https://")) url else url(url)
+        return plainHttp.get(target).bodyOrThrow()
+    }
 
     suspend fun deleteAvatar(): UserResponse = authorized(HttpMethod.Delete, ApiRoutes.USERS_ME_AVATAR).bodyOrThrow()
 

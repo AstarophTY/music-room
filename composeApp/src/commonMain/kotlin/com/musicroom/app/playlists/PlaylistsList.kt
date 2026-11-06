@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.composables.icons.lucide.ListMusic
 import com.composables.icons.lucide.Lucide
@@ -74,14 +76,21 @@ fun PlaylistsList(
     }
 
     TabContent {
-        Row {
-            Text(stringResource(Res.string.home_playlists_title), Modifier.weight(1f), style = AppTheme.typography.display, color = colors.textPrimary)
-            if (!roomPlaylists.isNullOrEmpty()) {
-                AppButton(stringResource(Res.string.playlists_create), onCreate, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
+        if (WindowSize.current != WindowSize.Compact) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(Res.string.home_playlists_title), Modifier.weight(1f), style = AppTheme.typography.display, color = colors.textPrimary)
+                if (!roomPlaylists.isNullOrEmpty()) {
+                    AppButton(stringResource(Res.string.playlists_create), onCreate, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
+                }
             }
         }
 
-        SectionTitle(stringResource(Res.string.playlists_mine))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle(stringResource(Res.string.playlists_mine), Modifier.weight(1f))
+            if (WindowSize.current == WindowSize.Compact && !roomPlaylists.isNullOrEmpty()) {
+                AppButton(stringResource(Res.string.playlists_create), onCreate, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
+            }
+        }
         when {
             roomPlaylists == null -> status(roomError, loading = true)
             roomPlaylists.isEmpty() -> EmptyState(

@@ -21,9 +21,14 @@ import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import org.jetbrains.compose.resources.stringResource
 
-/** One regular tab of the bottom bar: icon in a pill (highlighted when selected) and label. */
+/** One regular tab of the bottom bar: icon or avatar in a pill (highlighted when selected) and label. */
 @Composable
-fun NavItem(tab: MainTab, selected: Boolean, onClick: () -> Unit) {
+fun NavItem(
+    tab: MainTab,
+    selected: Boolean,
+    onClick: () -> Unit,
+    avatar: (@Composable () -> Unit)? = null,
+) {
     val colors = AppTheme.colors
     val tint by animateColorAsState(if (selected) colors.accentText else colors.textSecondary)
     val pill by animateColorAsState(if (selected) colors.accentSubtle else colors.surface)
@@ -33,7 +38,11 @@ fun NavItem(tab: MainTab, selected: Boolean, onClick: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Box(Modifier.width(52.dp).height(30.dp).background(pill, AppShapes.pill), contentAlignment = Alignment.Center) {
-            Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+            if (avatar != null) {
+                avatar()
+            } else {
+                Icon(tab.icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
+            }
         }
         Text(stringResource(tab.label), style = AppTheme.typography.bodySmall, color = tint, maxLines = 1)
     }

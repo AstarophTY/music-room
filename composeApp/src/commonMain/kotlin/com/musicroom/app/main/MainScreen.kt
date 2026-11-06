@@ -439,10 +439,9 @@ fun MainScreen(
                     when (shown) {
                         tabsKey -> Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
                             MainTopBar(
-                                api,
-                                user,
+                                tab = tab,
+                                user = user,
                                 counts = social.counts,
-                                onOpenProfile = openProfile,
                                 onOpenNotifications = { openSocial(SocialPage.Notifications) },
                                 onOpenMessages = { openSocial(SocialPage.Conversations) },
                             )
@@ -451,7 +450,7 @@ fun MainScreen(
                                 queueToast()
                             }
                             playerBar()
-                            BottomNavBar(selected = tab, onSelect = selectTab)
+                            BottomNavBar(api = api, user = user, selected = tab, onSelect = selectTab)
                         }
                         else -> SocialPage.parse(shown)?.let { socialPage(it) } ?: profilePage(ProfileRoute.valueOf(shown))
                     }

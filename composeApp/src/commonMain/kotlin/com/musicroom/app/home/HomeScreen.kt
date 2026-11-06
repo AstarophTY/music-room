@@ -28,11 +28,13 @@ fun HomeScreen(
     onOpenPlaylists: () -> Unit,
 ) {
     TabContent {
-        Text(
-            stringResource(Res.string.home_greeting, user.displayName),
-            style = AppTheme.typography.display,
-            color = AppTheme.colors.textPrimary,
-        )
+        if (com.musicroom.app.common.WindowSize.current != com.musicroom.app.common.WindowSize.Compact) {
+            Text(
+                stringResource(Res.string.home_greeting, user.displayName),
+                style = AppTheme.typography.display,
+                color = AppTheme.colors.textPrimary,
+            )
+        }
         Reveal(0) { HomeRoomsSection(api, onOpenRoom = onOpenEvent, onSeeAll = onOpenEvents) }
         if (user.spotifyConnected) {
             Reveal(1) { RecommendationsSection(api, player) }

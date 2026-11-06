@@ -67,6 +67,7 @@ import com.musicroom.app.generated.resources.search_no_people
 import com.musicroom.app.generated.resources.search_no_results
 import com.musicroom.app.generated.resources.search_placeholder
 import com.musicroom.app.generated.resources.search_see_all
+import com.musicroom.app.generated.resources.tab_search
 import com.musicroom.app.music.AlbumCard
 import com.musicroom.app.music.ArtistCard
 import com.musicroom.app.music.TrackMoreButton
@@ -316,6 +317,9 @@ fun SearchScreen(
 
     val results: @Composable () -> Unit = {
         TabContent {
+            if (!compact) {
+                Text(stringResource(Res.string.tab_search), style = AppTheme.typography.display, color = colors.textPrimary)
+            }
             AppTextField(
                 query,
                 {

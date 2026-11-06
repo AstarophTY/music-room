@@ -27,6 +27,7 @@ import com.composables.icons.lucide.Users
 import com.musicroom.app.auth.TermsDialog
 import com.musicroom.app.common.Reveal
 import com.musicroom.app.common.TabContent
+import com.musicroom.app.common.WindowSize
 import com.musicroom.app.common.deviceName
 import com.musicroom.app.common.icon
 import com.musicroom.app.generated.resources.Res
@@ -91,7 +92,9 @@ fun SettingsScreen(
     )
 
     TabContent {
-        Text(stringResource(Res.string.tab_settings), style = AppTheme.typography.display, color = colors.textPrimary)
+        if (WindowSize.current != WindowSize.Compact) {
+            Text(stringResource(Res.string.tab_settings), style = AppTheme.typography.display, color = colors.textPrimary)
+        }
         ProfileHeader(api, user)
 
         Reveal(3) {

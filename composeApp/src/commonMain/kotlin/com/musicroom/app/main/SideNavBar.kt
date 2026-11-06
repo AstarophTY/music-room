@@ -79,38 +79,16 @@ fun SideNavBar(
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            Modifier.fillMaxWidth().pressable(onClick = onOpenProfile)
-                .background(if (profileOpen) colors.accentSubtle else Color.Transparent, AppShapes.pill)
-                .padding(vertical = AppTheme.spacing.xs, horizontal = if (collapsed) 0.dp else AppTheme.spacing.xs),
-            horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.spacedBy(AppTheme.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            UserAvatar(api, user, size = 44.dp)
-            if (!collapsed) {
-                Column {
-                    Text(
-                        user.displayName,
-                        style = AppTheme.typography.label,
-                        color = if (profileOpen) colors.accentText else colors.textPrimary,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        stringResource(Res.string.profile_open),
-                        style = AppTheme.typography.bodySmall,
-                        color = colors.textSecondary,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.padding(top = AppTheme.spacing.md))
         MainTab.entries.forEach { tab ->
-            SideNavItem(tab, selected = tab == selected && socialOpen == null, collapsed = collapsed, onClick = { onSelect(tab) })
+            SideNavItem(
+                tab,
+                selected = tab == selected && socialOpen == null,
+                collapsed = collapsed,
+                onClick = { onSelect(tab) },
+                avatar = if (tab == MainTab.Settings) {
+                    { UserAvatar(api, user, size = 22.dp) }
+                } else null,
+            )
         }
         Spacer(Modifier.padding(top = AppTheme.spacing.sm))
         SideNavAction(

@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,7 +35,10 @@ import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.EventResponse
 import com.musicroom.shared.dto.EventStatus
+import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.stringResource
+
+private val roomCoverCache = mutableMapOf<String, String>()
 
 /** Square room card of the home page: what plays (a disc otherwise), its name and who opened the room. */
 @Composable
@@ -42,12 +50,37 @@ fun HomeRoomCard(
     size: Dp = 164.dp,
 ) {
     val colors = AppTheme.colors
+    var roomCover by remember(event.id) {
+        mutableStateOf(event.nowPlaying?.imageUrl ?: roomCoverCache[event.id])
+    }
+
+    LaunchedEffect(event.id, event.nowPlaying?.imageUrl) {
+        if (event.nowPlaying?.imageUrl != null) {
+            roomCover = event.nowPlaying?.imageUrl
+            return@LaunchedEffect
+        }
+        if (roomCover != null) return@LaunchedEffect
+        try {
+            val detail = api.event(event.id)
+            val cover = detail.nowPlaying?.track?.imageUrl
+                ?: detail.next?.track?.imageUrl
+                ?: detail.queue.firstOrNull()?.track?.imageUrl
+            if (cover != null) {
+                roomCoverCache[event.id] = cover
+                roomCover = cover
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
     Column(
         modifier.width(size).pressable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
     ) {
         Box(Modifier.size(size).clip(AppShapes.large).background(colors.surface)) {
-            val cover = event.nowPlaying?.imageUrl
+            val cover = roomCover
             if (cover != null) {
                 RemoteImage(api, cover, Modifier.matchParentSize())
             } else {
