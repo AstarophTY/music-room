@@ -8,6 +8,7 @@ import com.musicroom.server.common.exceptions.ValidationException
 import com.musicroom.server.modules.playlists.entities.Playlist
 import com.musicroom.server.modules.premium.HostedTracksService
 import com.musicroom.server.modules.spotify.SpotifyService
+import com.musicroom.server.modules.applemusic.AppleMusicCatalog
 import com.musicroom.server.modules.users.AvatarImages
 import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.server.modules.users.UsersService
@@ -40,6 +41,7 @@ class PlaylistsService(
     private val spotify: SpotifyService,
     private val hosted: HostedTracksService,
     private val friends: PlaylistFriends,
+    private val appleMusic: AppleMusicCatalog,
 ) {
 
     suspend fun list(userId: UUID): PlaylistListResponse =
@@ -94,7 +96,11 @@ class PlaylistsService(
             throw BadRequestException("A playlist holds ${PlaylistValidation.MAX_TRACKS} songs at most", ApiErrors.PLAYLIST_FULL)
         }
         // A song uploaded to Music Room, or one of the Spotify catalog.
-        val track = if (trackId.startsWith(TrackResponse.HOSTED_PREFIX)) hosted.track(trackId) else spotify.track(userId, trackId)
+        val track = when {
+            trackId.startsWith(TrackResponse.HOSTED_PREFIX) -> hosted.track(trackId)
+            trackId.startsWith("apple:") -> appleMusic.track(trackId)
+            else -> spotify.track(userId, trackId)
+        }
         if (!tracks.add(playlistId, track, userId)) {
             throw ConflictException("This song is already in the playlist", ApiErrors.TRACK_ALREADY_IN_PLAYLIST)
         }

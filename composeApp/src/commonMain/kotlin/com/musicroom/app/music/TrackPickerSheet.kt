@@ -29,7 +29,9 @@ import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.playlist_search_hint
 import com.musicroom.app.generated.resources.reco_top_tracks
 import com.musicroom.app.generated.resources.search_no_results
-import com.musicroom.app.generated.resources.provider_apple_catalog_pending
+import com.musicroom.app.generated.resources.apple_music_storefront_missing
+import com.musicroom.app.generated.resources.apple_music_search_hint
+import com.musicroom.app.generated.resources.apple_music_playback_pending
 import com.musicroom.app.generated.resources.audio_providers_home_action
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppBottomSheet
@@ -59,6 +61,7 @@ fun TrackPickerSheet(
     onAdd: suspend (TrackResponse) -> Unit,
     onDismiss: () -> Unit,
     showTopTracks: Boolean = true,
+    allowAppleMusic: Boolean = false,
 ) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
@@ -71,10 +74,18 @@ fun TrackPickerSheet(
     var spotifyReady by remember { mutableStateOf(player.spotifyConnected) }
     val onSpotifyConnected = ProviderSession.onSpotifyConnected.current
 
-    LaunchedEffect(query, choosingProvider, spotifyReady) {
+    LaunchedEffect(query, choosingProvider, spotifyReady, appleMusic.connected, appleMusic.storefront) {
         results = null
+        error = null
         if (choosingProvider) return@LaunchedEffect
-        if (appleMusic.connected && !spotifyReady) {
+        val appleSelected = appleMusic.connected && !spotifyReady && allowAppleMusic
+        if (appleMusic.connected && !spotifyReady && !allowAppleMusic) {
+            error = UiText.of(Res.string.apple_music_playback_pending)
+            results = emptyList()
+            return@LaunchedEffect
+        }
+        if (appleSelected && appleMusic.storefront.isNullOrBlank()) {
+            error = UiText.of(Res.string.apple_music_storefront_missing)
             results = emptyList()
             return@LaunchedEffect
         }
@@ -85,7 +96,11 @@ fun TrackPickerSheet(
         }
         if (text.isNotEmpty()) delay(350)
         results = try {
-            if (text.isEmpty()) api.myTopTracks().items else api.searchTracks(text).items
+            when {
+                text.isEmpty() -> api.myTopTracks().items
+                appleSelected -> api.searchAppleMusic(text, requireNotNull(appleMusic.storefront)).items
+                else -> api.searchTracks(text).items
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -120,11 +135,7 @@ fun TrackPickerSheet(
                 listenerOption = false,
             )
         } else {
-        if (appleMusic.connected && !spotifyReady) {
-            Text(stringResource(Res.string.provider_apple_catalog_pending), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-            AppButton(stringResource(Res.string.audio_providers_home_action), onClick = { choosingProvider = true })
-        } else {
-        AppTextField(query, { query = it }, stringResource(Res.string.playlist_search_hint), Modifier.fillMaxWidth(), leadingIcon = Lucide.Search)
+        AppTextField(query, { query = it }, stringResource(if (appleMusic.connected && !spotifyReady && allowAppleMusic) Res.string.apple_music_search_hint else Res.string.playlist_search_hint), Modifier.fillMaxWidth(), leadingIcon = Lucide.Search)
         if (query.isBlank() && showTopTracks && spotifyReady) SectionTitle(stringResource(Res.string.reco_top_tracks))
         error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
         val loaded = results
@@ -152,7 +163,6 @@ fun TrackPickerSheet(
                     },
                 )
             }
-        }
         }
         }
     }

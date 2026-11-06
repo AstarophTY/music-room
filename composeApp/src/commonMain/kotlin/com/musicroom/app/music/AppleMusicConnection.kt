@@ -5,6 +5,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 interface AppleMusicConnection {
     val available: Boolean
     val connected: Boolean
+    val storefront: String?
     suspend fun connect(developerToken: String): Boolean
     fun disconnect()
 
@@ -14,6 +15,7 @@ interface AppleMusicConnection {
         private object Unavailable : AppleMusicConnection {
             override val available = false
             override val connected = false
+            override val storefront: String? = null
             override suspend fun connect(developerToken: String) = false
             override fun disconnect() = Unit
         }

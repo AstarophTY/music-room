@@ -5,5 +5,7 @@ import com.musicroom.server.common.Module
 import com.musicroom.server.config.AppleMusicConfig
 
 class AppleMusicModule(config: AppleMusicConfig) : Module {
-    override val controllers: List<Controller> = listOf(AppleMusicController(AppleMusicTokenService(config)))
+    private val tokens = AppleMusicTokenService(config)
+    val catalog = AppleMusicCatalog(tokens)
+    override val controllers: List<Controller> = listOf(AppleMusicController(tokens, catalog))
 }

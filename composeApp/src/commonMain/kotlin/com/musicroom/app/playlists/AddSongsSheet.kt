@@ -33,5 +33,6 @@ fun AddSongsSheet(
         isAdded = { it.id in inPlaylist },
         onAdd = { onChange(api.addPlaylistTrack(detail.playlist.id, it.id)) },
         onDismiss = onDismiss,
+        allowAppleMusic = true,
     )
 }

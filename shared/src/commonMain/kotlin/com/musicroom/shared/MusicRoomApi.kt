@@ -202,6 +202,12 @@ class MusicRoomApi(
     suspend fun appleMusicDeveloperToken(): AppleMusicDeveloperToken =
         authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_DEVELOPER_TOKEN).bodyOrThrow()
 
+    suspend fun searchAppleMusic(query: String, storefront: String): TrackPageResponse =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_SEARCH) {
+            url.parameters.append("q", query)
+            url.parameters.append("storefront", storefront)
+        }.bodyOrThrow()
+
     /** Returns the Spotify page to open in the browser to connect the account. */
     suspend fun spotifyConnect(): SpotifyConnectResponse =
         authorized(HttpMethod.Post, ApiRoutes.SPOTIFY_CONNECT).bodyOrThrow()

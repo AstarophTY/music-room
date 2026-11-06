@@ -8,6 +8,7 @@ import androidx.compose.runtime.snapshotFlow
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.error_spotify_not_connected
+import com.musicroom.app.generated.resources.apple_music_playback_pending
 import com.musicroom.app.generated.resources.player_locked_by_event
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiException
@@ -17,6 +18,7 @@ import com.musicroom.shared.dto.DeviceResponse
 import com.musicroom.shared.dto.PlaybackStateResponse
 import com.musicroom.shared.dto.PlaylistSummaryResponse
 import com.musicroom.shared.dto.TrackResponse
+import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -163,6 +165,10 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
      */
     fun play(tracks: List<TrackResponse>, index: Int) {
         val track = tracks.getOrNull(index) ?: return
+        if (tracks.any { it.source == TrackSource.APPLE_MUSIC }) {
+            error = UiText.of(Res.string.apple_music_playback_pending)
+            return
+        }
         if (tracks.none { it.hosted }) {
             if (!requireSpotify()) return
             appList = null
@@ -217,6 +223,10 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
      * is focused, the event's queue is the queue: the songs are proposed to it instead.
      */
     fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>) {
+        if (songs.any { it.first.source == TrackSource.APPLE_MUSIC }) {
+            error = UiText.of(Res.string.apple_music_playback_pending)
+            return
+        }
         val toEvent = proposeToEvent
         if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
         if (songs.isEmpty()) return

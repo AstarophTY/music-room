@@ -60,6 +60,7 @@ class AppModule(
     )
 
     val spotify = SpotifyModule(database, users.repository, config.spotify, spotifyApi, jwtService, secretBox)
+    val appleMusic = AppleMusicModule(config.appleMusic)
 
     val social = SocialModule(database, users.repository, jwtService)
 
@@ -72,8 +73,8 @@ class AppModule(
         users,
         auth,
         spotify,
-        AppleMusicModule(config.appleMusic),
-        PlaylistsModule(database, users.repository, spotify.service, premium.tracks, social.service),
+        appleMusic,
+        PlaylistsModule(database, users.repository, spotify.service, premium.tracks, social.service, appleMusic.catalog),
         social,
         events,
         premium,

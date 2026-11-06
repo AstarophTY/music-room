@@ -17,7 +17,10 @@ class AndroidAppleMusicConnection(activity: ComponentActivity) : AppleMusicConne
     private val manager = AuthenticationFactory.createAuthenticationManager(activity)
     private val tokenStore = AppleMusicTokenStore(activity)
     private var pending: Continuation<Boolean>? = null
-    private var userToken: String? = tokenStore.load()?.optString("token")?.takeIf { it.isNotBlank() }
+    private val saved = tokenStore.load()
+    private var userToken: String? = saved?.optString("token")?.takeIf { it.isNotBlank() }
+    override var storefront: String? = saved?.optString("storefront")?.takeIf { it.isNotBlank() }
+        private set
     override val available = true
     override var connected by mutableStateOf(!userToken.isNullOrBlank())
         private set
@@ -42,6 +45,7 @@ class AndroidAppleMusicConnection(activity: ComponentActivity) : AppleMusicConne
                     } else {
                         tokenStore.save(received, token.storefrontId, token.appleMusicStorefrontId)
                         userToken = received
+                        storefront = token.storefrontId?.takeIf { it.isNotBlank() }
                         connected = true
                         continuation.resume(true)
                     }
@@ -67,6 +71,7 @@ class AndroidAppleMusicConnection(activity: ComponentActivity) : AppleMusicConne
     override fun disconnect() {
         tokenStore.clear()
         userToken = null
+        storefront = null
         connected = false
     }
 }

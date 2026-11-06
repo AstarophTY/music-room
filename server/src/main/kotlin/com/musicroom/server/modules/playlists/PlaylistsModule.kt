@@ -6,6 +6,7 @@ import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.premium.HostedTracksService
 import com.musicroom.server.modules.spotify.SpotifyService
 import com.musicroom.server.modules.users.UsersRepository
+import com.musicroom.server.modules.applemusic.AppleMusicCatalog
 
 class PlaylistsModule(
     database: DatabaseModule,
@@ -13,6 +14,7 @@ class PlaylistsModule(
     spotify: SpotifyService,
     hosted: HostedTracksService,
     friends: PlaylistFriends,
+    appleMusic: AppleMusicCatalog,
 ) : Module {
     val service = PlaylistsService(
         PlaylistsRepository(database),
@@ -22,6 +24,7 @@ class PlaylistsModule(
         spotify,
         hosted,
         friends,
+        appleMusic,
     )
 
     override val controllers: List<Controller> = listOf(PlaylistsController(service))

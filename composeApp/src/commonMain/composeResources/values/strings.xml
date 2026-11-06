@@ -227,7 +227,10 @@
     <string name="provider_choice_listener">Continue as a listener</string>
     <string name="provider_choice_later">Not now</string>
     <string name="provider_apple_unavailable">Apple Music connection is not available on this platform yet.</string>
-    <string name="provider_apple_catalog_pending">Apple Music song search and playback are not available yet.</string>
+    <string name="provider_apple_catalog_pending">Apple Music song search is available. Playback is not available yet.</string>
+    <string name="apple_music_storefront_missing">Your Apple Music storefront is unavailable. Reconnect Apple Music and try again.</string>
+    <string name="apple_music_playback_pending">Apple Music playback is not available yet.</string>
+    <string name="apple_music_search_hint">Search Apple Music</string>
     <string name="event_host_provider_required">Connecting Spotify is currently required to play music when hosting an event. Apple Music playback is not yet available.</string>
     <string name="audio_providers_home_description">Manage your music provider connections.</string>
     <string name="audio_providers_home_action">Manage providers</string>
