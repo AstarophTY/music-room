@@ -124,8 +124,8 @@ fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> 
                 PlayButton(player, 64.dp)
                 SkipButton(player, forward = true)
             }
-            // An uploaded song plays in the app, not on a Spotify device.
-            if (!player.playingHosted) {
+            // A song the app plays itself (uploaded or from Apple Music) does not play on a Spotify device.
+            if (!player.playingHosted && !player.playingAppleMusic) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                     DeviceButton(player)
                 }

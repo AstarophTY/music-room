@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.core.view.WindowCompat
 import com.musicroom.app.music.AppleMusicConnection
+import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.shared.ClientInfo
 import com.musicroom.shared.MusicRoomApi
 import io.ktor.client.engine.okhttp.OkHttp
@@ -28,21 +29,22 @@ class MainActivity : ComponentActivity() {
         val socialSignIn = AndroidSocialSignIn(this, AppEnv.GOOGLE_CLIENT_ID)
         val settings = AndroidAppSettings(this)
         val appleMusic = AndroidAppleMusicConnection(this)
+        val applePlayback = AndroidAppleMusicPlayback(this, appleMusic, api)
 
         setContent {
-            CompositionLocalProvider(AppleMusicConnection.Local provides appleMusic) {
-            App(
-                api = api,
-                socialSignIn = socialSignIn,
-                settings = settings,
-                // The app can be dark while the phone is light (and the reverse): match the system bar icons.
-                onDarkThemeChange = { dark ->
-                    WindowCompat.getInsetsController(window, window.decorView).apply {
-                        isAppearanceLightStatusBars = !dark
-                        isAppearanceLightNavigationBars = !dark
-                    }
-                },
-            )
+            CompositionLocalProvider(AppleMusicConnection.Local provides appleMusic, AppleMusicPlayback.Local provides applePlayback) {
+                App(
+                    api = api,
+                    socialSignIn = socialSignIn,
+                    settings = settings,
+                    // The app can be dark while the phone is light (and the reverse): match the system bar icons.
+                    onDarkThemeChange = { dark ->
+                        WindowCompat.getInsetsController(window, window.decorView).apply {
+                            isAppearanceLightStatusBars = !dark
+                            isAppearanceLightNavigationBars = !dark
+                        }
+                    },
+                )
             }
         }
     }

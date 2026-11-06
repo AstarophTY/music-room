@@ -47,6 +47,7 @@ import com.musicroom.app.home.HomeScreen
 import com.musicroom.app.player.NowPlayingScreen
 import com.musicroom.app.player.PlayerBar
 import com.musicroom.app.player.PlayerController
+import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.app.player.Proposer
 import com.musicroom.app.player.QueueToast
 import com.musicroom.app.playlists.PlaylistsScreen
@@ -107,7 +108,8 @@ fun MainScreen(
     val tabsKey = "tabs"
     val nowPlayingKey = "now_playing"
     val scope = rememberCoroutineScope()
-    val player = remember(api) { PlayerController(api, scope) }
+    val appleMusicPlayback = AppleMusicPlayback.Local.current
+    val player = remember(api, appleMusicPlayback) { PlayerController(api, scope, appleMusicPlayback) }
     val social = remember(api, user.id) { SocialController(api, user.id, scope) }
     // The event the user listens to: its music plays on their Spotify too, and swiped songs are proposed to it.
     val eventFocus = remember(api) { EventFocus(api, player, scope) }
@@ -152,7 +154,7 @@ fun MainScreen(
             })
             AnimatedVisibility(
                 // Uploaded songs play without Spotify.
-                visible = ((user.spotifyConnected || player.playingHosted) && player.track != null) || player.error != null,
+                visible = ((user.spotifyConnected || player.playingHosted || player.playingAppleMusic) && player.track != null) || player.error != null,
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
@@ -181,7 +183,7 @@ fun MainScreen(
     }
 
     // The player page shows while Spotify is linked (or an uploaded song plays); it closes with the account.
-    val nowPlayingShown = showNowPlaying && (user.spotifyConnected || player.playingHosted)
+    val nowPlayingShown = showNowPlaying && (user.spotifyConnected || player.playingHosted || player.playingAppleMusic)
     val closeNowPlaying = { showNowPlaying = false }
 
     // Opens a social page on top of the others; one already open comes back to the top.

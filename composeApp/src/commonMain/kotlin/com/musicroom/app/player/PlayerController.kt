@@ -6,8 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import com.musicroom.app.common.UiText
+import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.error_spotify_not_connected
+import com.musicroom.app.generated.resources.apple_music_not_connected
 import com.musicroom.app.generated.resources.apple_music_playback_pending
 import com.musicroom.app.generated.resources.player_locked_by_event
 import com.musicroom.shared.ApiErrors
@@ -41,13 +43,18 @@ import kotlin.time.TimeSource
  * "next"); from then on it can no longer move ([sentKey]).
  *
  * Songs uploaded to Music Room are played by the app itself ([HostedPlayback]), Spotify waiting paused meanwhile
- * ([playingHosted]). A list holding some of them is played by the app song after song ([appList]): each Spotify song
- * is started on its own, and the next one starts when it ends. An uploaded song queued during a Spotify album or
- * playlist pauses it, which goes on afterwards ([resumeSpotify]).
+ * ([playingHosted]). Apple Music songs play through the Apple Music SDK on Android ([playingAppleMusic]), Spotify
+ * waiting paused too. A list holding some of them is played by the app song after song ([appList]): each Spotify
+ * song is started on its own, and the next one starts when it ends. An app-local song queued during a Spotify album
+ * or playlist pauses it, which goes on afterwards ([resumeSpotify]).
  */
 @Stable
-class PlayerController(private val api: MusicRoomApi, private val scope: CoroutineScope) {
-    private val spotify: SpotifyRemotePlaybackProvider = SpotifyPlaybackProvider(api)
+class PlayerController(
+    private val api: MusicRoomApi,
+    private val scope: CoroutineScope,
+    private val apple: AppleMusicPlayback,
+    private val spotify: SpotifyRemotePlaybackProvider = SpotifyPlaybackProvider(api),
+) {
     var state by mutableStateOf<PlaybackStateResponse?>(null)
         private set
 
@@ -100,6 +107,12 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     var playingHosted by mutableStateOf(false)
         private set
 
+    var playingAppleMusic by mutableStateOf(false)
+        private set
+    private var appleJob: Job? = null
+    private var appleGeneration = 0L
+    private var appleReady = false
+
     /** A list the app plays song after song, as it holds uploaded songs; null while Spotify plays on its own. */
     private var appList by mutableStateOf<List<TrackResponse>?>(null)
     private var appIndex by mutableStateOf(0)
@@ -144,7 +157,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     val following: List<TrackResponse>
         get() {
             appList?.let { return it.drop(appIndex + 1) }
-            if (playingHosted && !resumeSpotify) return emptyList()
+            if ((playingHosted || playingAppleMusic) && !resumeSpotify) return emptyList()
             val sentId = upNext.firstOrNull { it.key == sentKey }?.track?.id ?: return spotifyQueue
             val index = spotifyQueue.indexOfFirst { it.id == sentId }
             return if (index < 0) spotifyQueue else spotifyQueue.toMutableList().apply { removeAt(index) }
@@ -154,6 +167,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     fun positionMs(): Long {
         val current = state ?: return 0
         if (playingHosted) return current.track?.durationMs?.let { hosted.positionMs().coerceAtMost(it) } ?: hosted.positionMs()
+        if (playingAppleMusic) return apple.positionMs().coerceAtMost(current.track?.durationMs ?: Long.MAX_VALUE)
         val elapsed = if (current.isPlaying) syncedAt.elapsedNow().inWholeMilliseconds else 0
         val position = current.progressMs + elapsed
         return current.track?.durationMs?.let { position.coerceAtMost(it) } ?: position
@@ -165,17 +179,14 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
      */
     fun play(tracks: List<TrackResponse>, index: Int) {
         val track = tracks.getOrNull(index) ?: return
-        if (track.source == TrackSource.APPLE_MUSIC) {
+        if (tracks.any { it.source == TrackSource.APPLE_MUSIC } && !apple.available) {
             error = UiText.of(Res.string.apple_music_playback_pending)
             return
         }
-        if (tracks.any { it.source == TrackSource.APPLE_MUSIC }) {
-            play(listOf(track), 0)
-            return
-        }
-        if (tracks.none { it.hosted }) {
+        if (tracks.none { it.hosted || it.source == TrackSource.APPLE_MUSIC }) {
             if (!requireSpotify()) return
             appList = null
+            resumeSpotify = false
             playOnSpotify(track) { spotify.play(tracks.map { it.uri }, index) }
             return
         }
@@ -203,6 +214,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         appList = null
         resumeSpotify = false
         leaveHosted()
+        leaveAppleMusic()
         track?.let {
             update(PlaybackStateResponse(active = true, isPlaying = true, track = it, deviceName = device))
         }
@@ -227,7 +239,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
      * is focused, the event's queue is the queue: the songs are proposed to it instead.
      */
     fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>) {
-        if (songs.any { it.first.source == TrackSource.APPLE_MUSIC }) {
+        if (songs.any { it.first.source == TrackSource.APPLE_MUSIC } && !apple.available) {
             error = UiText.of(Res.string.apple_music_playback_pending)
             return
         }
@@ -235,7 +247,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
         if (songs.isEmpty()) return
         // Uploaded songs play without Spotify.
-        if (songs.all { it.first.hosted }) {
+        if (songs.all { it.first.hosted || it.first.source == TrackSource.APPLE_MUSIC }) {
             if (!allowed()) return
         } else if (!requireSpotify()) {
             return
@@ -320,8 +332,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
 
     /** Moves playback to [device], playing there unless it was paused. */
     fun transferTo(device: DeviceResponse) {
-        // An uploaded song plays in the app, not on a Spotify device.
-        if (device.isActive || playingHosted) return
+        // App-local tracks do not play on Spotify devices.
+        if (device.isActive || playingHosted || playingAppleMusic) return
         val play = state?.track == null || isPlaying
         devices = devices?.map { it.copy(isActive = it.id == device.id) }
         state?.let { update(it.copy(deviceName = device.name, progressMs = positionMs())) }
@@ -336,6 +348,18 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         if (playingHosted) {
             if (current.isPlaying) hosted.pause() else hosted.resume()
             update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
+            return
+        }
+        if (playingAppleMusic) {
+            if (current.isPlaying) {
+                if (appleReady) apple.pause() else cancelAppleLoad()
+                update(current.copy(isPlaying = false, progressMs = apple.positionMs()))
+            } else if (appleReady) {
+                apple.resume()
+                update(current.copy(isPlaying = true, progressMs = apple.positionMs()))
+            } else {
+                current.track?.let(::startAppleMusic)
+            }
             return
         }
         update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
@@ -356,7 +380,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
                 appIndex--
                 playSingle(list[appIndex])
             }
-            playingHosted || list != null -> seek(0)
+            playingHosted || playingAppleMusic || list != null -> seek(0)
             else -> command { spotify.skipPrevious() }
         }
     }
@@ -364,7 +388,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     fun seek(positionMs: Long) {
         if (!allowed()) return
         state?.let { update(it.copy(progressMs = positionMs)) }
-        if (playingHosted) hosted.seek(positionMs) else command { spotify.seek(positionMs) }
+        if (playingHosted) hosted.seek(positionMs) else if (playingAppleMusic) apple.seek(positionMs) else command { spotify.seek(positionMs) }
     }
 
     /**
@@ -376,13 +400,14 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         val list = appList
         when {
             // Back to the paused Spotify album or playlist: the Spotify song goes before what it plays next.
-            first != null && playingHosted && resumeSpotify && !first.track.hosted -> {
+            first != null && (playingHosted || playingAppleMusic) && resumeSpotify && !isAppTrack(first.track) -> {
                 leaveHosted()
+                leaveAppleMusic()
                 resumeSpotify = false
                 send(first) { spotify.skipNext() }
             }
             first != null && appDriven() -> {
-                if (list == null && !playingHosted && first.track.hosted) resumeSpotify = true
+                if (list == null && !playingHosted && !playingAppleMusic && isAppTrack(first.track)) resumeSpotify = true
                 upNext = upNext - first
                 playSingle(first.track)
             }
@@ -391,23 +416,28 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
                 appIndex++
                 playSingle(list[appIndex])
             }
-            playingHosted && resumeSpotify -> {
+            (playingHosted || playingAppleMusic) && resumeSpotify -> {
                 leaveHosted()
+                leaveAppleMusic()
                 resumeSpotify = false
                 command { spotify.skipNext() }
             }
-            playingHosted || list != null -> stopAtEnd()
+            playingHosted || playingAppleMusic || list != null -> stopAtEnd()
             else -> command { spotify.skipNext() }
         }
     }
 
-    /** The app chooses each song (a list with uploaded songs, or an uploaded song playing or next). */
-    private fun appDriven() = appList != null || playingHosted || upNext.firstOrNull()?.track?.hosted == true
+    /** The app chooses each song (a list with app-local songs, or an app-local song playing or next). */
+    private fun appDriven() = appList != null || playingHosted || playingAppleMusic || upNext.firstOrNull()?.track?.let(::isAppTrack) == true
+
+    private fun isAppTrack(track: TrackResponse) = track.hosted || track.source == TrackSource.APPLE_MUSIC
 
     /** Plays one song: in the app if it was uploaded to Music Room, else on Spotify. */
     private fun playSingle(track: TrackResponse) {
         if (track.hosted) {
             startHosted(track)
+        } else if (track.source == TrackSource.APPLE_MUSIC) {
+            startAppleMusic(track)
         } else if (requireSpotify()) {
             playOnSpotify(track) { spotify.play(listOf(track.uri), 0) }
         } else {
@@ -417,6 +447,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     }
 
     private fun playOnSpotify(track: TrackResponse, start: suspend () -> Unit) {
+        leaveAppleMusic()
         val device = spotifyDevice()
         leaveHosted()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = device))
@@ -425,8 +456,10 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     }
 
     private fun startHosted(track: TrackResponse) {
+        val wasAppPlayback = playingHosted || playingAppleMusic
+        leaveAppleMusic()
         // Spotify goes quiet while the app plays.
-        if (!playingHosted && isPlaying) command { spotify.pause() }
+        if (!wasAppPlayback && isPlaying) command { spotify.pause() }
         playingHosted = true
         stopWaiting()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
@@ -439,17 +472,85 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
         playingHosted = false
     }
 
+    private fun startAppleMusic(track: TrackResponse) {
+        if (!apple.available) {
+            error = UiText.of(Res.string.apple_music_playback_pending)
+            return
+        }
+        if (!apple.connected) {
+            error = UiText.of(Res.string.apple_music_not_connected)
+            return
+        }
+        if (!playingHosted && !playingAppleMusic && isPlaying) command { spotify.pause() }
+        leaveHosted()
+        leaveAppleMusic()
+        playingAppleMusic = true
+        appleReady = false
+        val generation = appleGeneration
+        stopWaiting()
+        update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
+        appleJob = scope.launch {
+            try {
+                apple.play(track.uri, onEnded = { scope.launch { if (isCurrentApplePlayback(generation)) advance() } }, onError = { failure ->
+                    scope.launch {
+                        if (isCurrentApplePlayback(generation)) {
+                            appleReady = false
+                            error = UiText.of(failure)
+                            state?.let { update(it.copy(isPlaying = false)) }
+                        }
+                    }
+                })
+                if (isCurrentApplePlayback(generation)) appleReady = true
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (isCurrentApplePlayback(generation)) {
+                    appleReady = false
+                    error = UiText.of(e)
+                    state?.let { update(it.copy(isPlaying = false)) }
+                }
+            }
+        }
+    }
+
+    /** Whether the Apple Music playback started for [generation] is still the one shown. */
+    private fun isCurrentApplePlayback(generation: Long) = playingAppleMusic && appleGeneration == generation
+
+    private fun leaveAppleMusic() {
+        appleGeneration++
+        appleJob?.cancel()
+        appleJob = null
+        appleReady = false
+        if (playingAppleMusic) {
+            playingAppleMusic = false
+            apple.stop()
+        }
+    }
+
+    private fun cancelAppleLoad() {
+        appleGeneration++
+        appleJob?.cancel()
+        appleJob = null
+        appleReady = false
+        apple.stop()
+    }
+
     /** The list is over: its last song stays shown, paused at its start. */
     private fun stopAtEnd() {
         if (playingHosted) {
             hosted.pause()
             hosted.seek(0)
         }
+        if (playingAppleMusic) {
+            apple.pause()
+            apple.seek(0)
+            appleReady = false
+        }
         state?.let { update(it.copy(isPlaying = false, progressMs = 0)) }
     }
 
-    /** The Spotify device last known (not the app, while it plays an uploaded song). */
-    private fun spotifyDevice(): String? = if (playingHosted) null else state?.deviceName
+    /** The Spotify device last known (not the app, while it plays an app-local song). */
+    private fun spotifyDevice(): String? = if (playingHosted || playingAppleMusic) null else state?.deviceName
 
     /** The app plays the list, or an uploaded song comes next: near the end of a Spotify song, it starts the next one. */
     private fun advanceIfSpotifyEnding() {
@@ -458,8 +559,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     }
 
     private fun spotifyEndsSoon(withinMs: Long): Boolean {
-        if (lockedByEvent || playingHosted || !isPlaying || sentKey != null) return false
-        if (appList == null && upNext.firstOrNull()?.track?.hosted != true) return false
+        if (lockedByEvent || playingHosted || playingAppleMusic || !isPlaying || sentKey != null) return false
+        if (appList == null && upNext.firstOrNull()?.track?.let(::isAppTrack) != true) return false
         val duration = track?.durationMs ?: return false
         return duration - positionMs() <= withinMs
     }
@@ -467,6 +568,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** Stops an uploaded song playing in the app (leaving the signed-in screens). Spotify plays on its own. */
     fun release() {
         leaveHosted()
+        leaveAppleMusic()
     }
 
     /** Returns false when Spotify playback is unavailable. */
@@ -516,7 +618,7 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
                     if (fetched.active && fetched.isPlaying && fetched.track == null && shown != null) fetched.copy(track = shown) else fetched
                 }
                 // While the app plays an uploaded song, Spotify (paused) does not say what is shown.
-                if (!playingHosted) {
+                if (!playingHosted && !playingAppleMusic) {
                     if (!isStillStarting(fetched)) update(fetched)
                     sendIfEnding()
                     advanceIfSpotifyEnding()
@@ -587,8 +689,8 @@ class PlayerController(private val api: MusicRoomApi, private val scope: Corouti
     /** Hands the first [upNext] song to Spotify when the current track is about to end. */
     private fun sendIfEnding() {
         // The event chooses what plays next; the app starts the songs of its own lists and the uploaded ones.
-        if (lockedByEvent || playingHosted || appList != null) return
-        val first = upNext.firstOrNull()?.takeUnless { it.track.hosted } ?: return
+        if (lockedByEvent || playingHosted || playingAppleMusic || appList != null) return
+        val first = upNext.firstOrNull()?.takeUnless { isAppTrack(it.track) } ?: return
         val duration = track?.durationMs ?: return
         if (sentKey != null || duration - positionMs() > SEND_BEFORE_END.inWholeMilliseconds) return
         send(first)
