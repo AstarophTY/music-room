@@ -8,23 +8,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -40,18 +30,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.CirclePlus
 import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.X
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.common.SectionTitle
-import com.musicroom.app.common.SubScreenScaffold
-import com.musicroom.app.common.WindowSize
 import com.musicroom.app.events.EventFocus
 import com.musicroom.app.events.EventQueueList
 import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.common_back
+import com.musicroom.app.generated.resources.common_close
 import com.musicroom.app.generated.resources.now_playing_nothing
 import com.musicroom.app.generated.resources.now_playing_title
 import com.musicroom.app.generated.resources.queue_add_songs
@@ -64,6 +52,7 @@ import com.musicroom.app.generated.resources.track_add_to_playlist
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.playlists.AddToPlaylistSheet
+import com.musicroom.app.theme.components.AppBottomSheet
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppShapes
@@ -72,18 +61,16 @@ import com.musicroom.shared.MusicRoomApi
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Player page: large cover, title, seek bar and controls for the current track, a button to add it to a
- * playlist, then the queue ("Up next"). Phones show them one under the other; large screens put the track
- * on the left and the queue on the right, each scrolling on its own. Songs are added to the queue from a
- * card at the bottom or by swiping a song to the right; songs added in the app show who proposed them and
- * can be moved (hold the handle, then drag) or removed after tapping "Change the order". Tapping a queued song plays it.
+ * Player sheet: large cover, title, seek bar and controls for the current track, a button to add it to a
+ * playlist, then the queue ("Up next"). Songs are added to the queue from a card over it or by swiping a
+ * song to the right; songs added in the app show who proposed them and can be moved (hold the handle, then
+ * drag) or removed after tapping "Change the order". Tapping a queued song plays it.
  * While an event is focused, the queue is the event's: songs added to it are proposed to the event.
  */
 @Composable
-fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> Unit) {
+fun NowPlayingSheet(api: MusicRoomApi, player: PlayerController, onDismiss: () -> Unit) {
     val colors = AppTheme.colors
     val uriHandler = LocalUriHandler.current
-    val wide = WindowSize.current == WindowSize.Expanded
     var addingToQueue by remember { mutableStateOf(false) }
     var choosingPlaylist by remember { mutableStateOf(false) }
     var reordering by remember { mutableStateOf(false) }
@@ -104,7 +91,7 @@ fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> 
                 RemoteImage(
                     api,
                     track.imageUrl,
-                    Modifier.widthIn(max = if (wide) 400.dp else 320.dp).fillMaxWidth().aspectRatio(1f).clip(AppShapes.large),
+                    Modifier.widthIn(max = 280.dp).fillMaxWidth().aspectRatio(1f).clip(AppShapes.large),
                 )
                 Text(track.name, style = AppTheme.typography.heading, color = colors.textPrimary, textAlign = TextAlign.Center)
                 Text(
@@ -211,44 +198,15 @@ fun NowPlayingScreen(api: MusicRoomApi, player: PlayerController, onBack: () -> 
         }
     }
 
-    if (wide) {
-        Column(Modifier.fillMaxSize().background(colors.background).safeDrawingPadding()) {
-            Row(Modifier.fillMaxWidth().padding(AppTheme.spacing.xs), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onBack) {
-                    Icon(Lucide.ArrowLeft, contentDescription = stringResource(Res.string.common_back), tint = colors.textPrimary)
-                }
-                Text(stringResource(Res.string.now_playing_title), style = AppTheme.typography.heading, color = colors.textPrimary)
-            }
-            Row(Modifier.weight(1f).fillMaxWidth().padding(horizontal = AppTheme.spacing.lg)) {
-                Column(
-                    Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                        .padding(vertical = AppTheme.spacing.md),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
-                ) {
-                    Column(
-                        Modifier.widthIn(max = 480.dp),
-                        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
-                        content = trackSection,
-                    )
-                }
-                Box(
-                    Modifier.padding(horizontal = AppTheme.spacing.lg, vertical = AppTheme.spacing.md)
-                        .width(AppTheme.spacing.border).fillMaxHeight().background(colors.border),
-                )
-                Column(
-                    Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState())
-                        .padding(vertical = AppTheme.spacing.md),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
-                    content = queueSection,
-                )
+    AppBottomSheet(onDismiss) { close ->
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(Res.string.now_playing_title), Modifier.weight(1f), style = AppTheme.typography.heading, color = colors.textPrimary)
+            IconButton(onClick = close) {
+                Icon(Lucide.X, contentDescription = stringResource(Res.string.common_close), tint = colors.textSecondary)
             }
         }
-    } else {
-        SubScreenScaffold(title = stringResource(Res.string.now_playing_title), onBack = onBack) {
-            trackSection()
-            queueSection()
-        }
+        trackSection()
+        queueSection()
     }
 
     if (addingToQueue) AddToQueueSheet(api, player, onDismiss = { addingToQueue = false })

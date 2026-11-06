@@ -13,7 +13,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.events.EventFocus
 import com.musicroom.app.theme.components.pressable
@@ -23,7 +22,7 @@ import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TrackResponse
 
 /**
- * Track in a list: cover, title, artists, and its length (an equalizer instead while it plays).
+ * Track in a list: cover, title, artists, and its length.
  * [trailing] adds an action at the end of the row (add, remove...). With [onSwipeRight], swiping the row
  * to the right adds the song to the queue, or proposes it to the focused event ([EventFocus]) when there is one.
  */
@@ -69,11 +68,7 @@ fun TrackRow(
             )
         }
         ProviderIcon(track.source)
-        if (playing) {
-            Equalizer(color = colors.accentText, height = 16.dp)
-        } else {
-            Text(Durations.format(track.durationMs), style = AppTheme.typography.bodySmall, color = colors.textDisabled)
-        }
+        Text(Durations.format(track.durationMs), style = AppTheme.typography.bodySmall, color = colors.textDisabled)
         trailing?.invoke()
     }
 }

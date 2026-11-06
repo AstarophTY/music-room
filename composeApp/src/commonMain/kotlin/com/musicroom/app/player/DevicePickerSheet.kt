@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.RefreshCw
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_loading
@@ -136,7 +135,6 @@ fun DevicePickerSheet(player: PlayerController, onDismiss: () -> Unit) {
                                 Text(stringResource(Res.string.devices_active), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
                             }
                         }
-                        if (device.isActive && player.isPlaying) Equalizer(color = colors.accentText, height = 16.dp)
                     }
                 }
             }

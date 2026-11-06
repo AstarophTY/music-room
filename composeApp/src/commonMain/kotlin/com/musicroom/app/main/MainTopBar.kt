@@ -16,7 +16,6 @@ import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import com.musicroom.app.common.UserAvatar
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.app_name
 import com.musicroom.app.generated.resources.messages_title
@@ -31,8 +30,8 @@ import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Avatar on the left (opens the profile), app name, a small live equalizer, then the notifications bell and the
- * chats, each with the number of what waits.
+ * Avatar on the left (opens the profile), app name, then the notifications bell and the chats, each with the
+ * number of what waits.
  */
 @Composable
 fun MainTopBar(
@@ -63,7 +62,6 @@ fun MainTopBar(
             style = AppTheme.typography.heading,
             color = colors.textPrimary,
         )
-        Equalizer(color = colors.accentText, height = 18.dp)
         Row {
             BadgedIconButton(Lucide.Bell, stringResource(Res.string.notifications_title), counts.unreadNotifications, onOpenNotifications)
             BadgedIconButton(Lucide.MessageCircle, stringResource(Res.string.messages_title), counts.unreadMessages, onOpenMessages)

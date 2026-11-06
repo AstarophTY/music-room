@@ -71,11 +71,12 @@
     <string name="tab_search">Recherche</string>
     <string name="tab_events">Événements</string>
     <string name="tab_playlists">Playlists</string>
-    <string name="tab_create">Créer</string>
     <string name="home_greeting">Salut %1$s</string>
     <string name="home_hero_title">Laisse la salle choisir le prochain son.</string>
     <string name="home_hero_body">Lance un événement en direct : chacun propose des sons et vote en temps réel.</string>
     <string name="home_hero_button">Lancer un événement</string>
+    <string name="home_rooms_title">Salles publiques</string>
+    <string name="home_rooms_empty">Aucune salle publique pour le moment. Lance-en une et invite tes amis.</string>
     <string name="home_playlists_title">Tes playlists</string>
     <string name="search_placeholder">Titres, artistes, albums, personnes</string>
     <string name="search_browse">Explorer par ambiance</string>

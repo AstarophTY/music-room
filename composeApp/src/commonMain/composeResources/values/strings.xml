@@ -71,11 +71,12 @@
     <string name="tab_search">Search</string>
     <string name="tab_events">Events</string>
     <string name="tab_playlists">Playlists</string>
-    <string name="tab_create">Create</string>
     <string name="home_greeting">Hey %1$s</string>
     <string name="home_hero_title">Let the room pick the next song.</string>
     <string name="home_hero_body">Start a live event: everyone suggests tracks and votes in real time.</string>
     <string name="home_hero_button">Start an event</string>
+    <string name="home_rooms_title">Public rooms</string>
+    <string name="home_rooms_empty">No public room for now. Start one and invite your friends.</string>
     <string name="home_playlists_title">Your playlists</string>
     <string name="search_placeholder">Songs, artists, albums, people</string>
     <string name="search_browse">Browse by mood</string>

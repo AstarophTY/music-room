@@ -20,10 +20,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.CircleCheck
 import com.composables.icons.lucide.CircleAlert
+import com.composables.icons.lucide.Disc3
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Radio
 import com.composables.icons.lucide.X
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_focus_listening
 import com.musicroom.app.generated.resources.event_focus_proposed
@@ -35,9 +35,9 @@ import com.musicroom.shared.dto.EventStatus
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Thin bar above the player while an event is focused: its name (an equalizer while its music plays), or for a
- * moment the song just proposed to it by a swipe (or why it was refused). Tapping it opens the event ([onOpen]);
- * the cross stops listening to it.
+ * Thin bar above the player while an event is focused: its name (a disc while its music plays), or for a moment
+ * the song just proposed to it by a swipe (or why it was refused). Tapping it opens the event ([onOpen]); the
+ * cross stops listening to it.
  */
 @Composable
 fun EventFocusBar(focus: EventFocus, onOpen: (String) -> Unit, modifier: Modifier = Modifier) {
@@ -58,7 +58,8 @@ fun EventFocusBar(focus: EventFocus, onOpen: (String) -> Unit, modifier: Modifie
             Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
                 val problem = notice?.problem
                 when {
-                    notice == null && event.status == EventStatus.PLAYING -> Equalizer(color = colors.accentText, height = 12.dp)
+                    notice == null && event.status == EventStatus.PLAYING ->
+                        Icon(Lucide.Disc3, contentDescription = null, tint = colors.accentText, modifier = Modifier.size(16.dp))
                     notice == null -> Icon(Lucide.Radio, contentDescription = null, tint = colors.accentText, modifier = Modifier.size(16.dp))
                     problem != null -> Icon(Lucide.CircleAlert, contentDescription = null, tint = colors.error, modifier = Modifier.size(16.dp))
                     else -> Icon(Lucide.CircleCheck, contentDescription = null, tint = colors.accentText, modifier = Modifier.size(16.dp))

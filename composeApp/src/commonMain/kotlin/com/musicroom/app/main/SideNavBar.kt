@@ -29,7 +29,6 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.PanelLeftClose
 import com.composables.icons.lucide.PanelLeftOpen
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.UserAvatar
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.app_name
@@ -138,7 +137,6 @@ fun SideNavBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (!collapsed) {
-                Equalizer(color = colors.accentText, height = 18.dp, modifier = Modifier.padding(start = AppTheme.spacing.sm))
                 Text(
                     stringResource(Res.string.app_name),
                     style = AppTheme.typography.label,

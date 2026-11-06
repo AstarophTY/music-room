@@ -1,21 +1,16 @@
 package com.musicroom.app.music
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
@@ -38,18 +33,7 @@ fun TrackCard(
         modifier.width(size).pressable(onClick = onClick),
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
     ) {
-        Box {
-            RemoteImage(api, track.imageUrl, Modifier.size(size).clip(AppShapes.medium))
-            if (playing) {
-                Box(
-                    Modifier.align(Alignment.BottomStart).padding(AppTheme.spacing.sm)
-                        .background(colors.accent, AppShapes.pill)
-                        .padding(horizontal = AppTheme.spacing.sm, vertical = AppTheme.spacing.xs),
-                ) {
-                    Equalizer(color = colors.onAccent, height = 14.dp)
-                }
-            }
-        }
+        RemoteImage(api, track.imageUrl, Modifier.size(size).clip(AppShapes.medium))
         Text(
             track.name,
             style = AppTheme.typography.label,
