@@ -21,15 +21,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ExternalLink
 import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.Play
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_loading
+import com.musicroom.app.generated.resources.messages_title
+import com.musicroom.app.generated.resources.notifications_title
 import com.musicroom.app.generated.resources.playlists_by
 import com.musicroom.app.generated.resources.playlists_open_spotify
 import com.musicroom.app.generated.resources.playlists_play
@@ -39,12 +43,14 @@ import com.musicroom.app.generated.resources.search_load_more
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
+import com.musicroom.app.social.BadgedIconButton
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistSummaryResponse
+import com.musicroom.shared.dto.SocialCountsResponse
 import com.musicroom.shared.dto.TrackResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -58,7 +64,15 @@ import org.jetbrains.compose.resources.stringResource
  * their "..." (also to a playlist).
  */
 @Composable
-fun PlaylistDetail(api: MusicRoomApi, playlist: PlaylistSummaryResponse, player: PlayerController, onBack: () -> Unit) {
+fun PlaylistDetail(
+    api: MusicRoomApi,
+    playlist: PlaylistSummaryResponse,
+    player: PlayerController,
+    counts: SocialCountsResponse,
+    onOpenNotifications: () -> Unit,
+    onOpenMessages: () -> Unit,
+    onBack: () -> Unit,
+) {
     val colors = AppTheme.colors
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
@@ -84,7 +98,14 @@ fun PlaylistDetail(api: MusicRoomApi, playlist: PlaylistSummaryResponse, player:
 
     LaunchedEffect(playlist.id) { load(0) }
 
-    SubScreenScaffold(title = playlist.name, onBack = onBack) {
+    SubScreenScaffold(
+        title = playlist.name,
+        onBack = onBack,
+        actions = {
+            BadgedIconButton(Lucide.Bell, stringResource(Res.string.notifications_title), counts.unreadNotifications, onOpenNotifications)
+            BadgedIconButton(Lucide.MessageCircle, stringResource(Res.string.messages_title), counts.unreadMessages, onOpenMessages)
+        },
+    ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg),
             verticalAlignment = Alignment.CenterVertically,
@@ -117,9 +138,6 @@ fun PlaylistDetail(api: MusicRoomApi, playlist: PlaylistSummaryResponse, player:
                     variant = AppButtonVariant.Secondary,
                     icon = Lucide.ExternalLink,
                 )
-            }
-            IconButton(onClick = { player.addToQueue(tracks) }, enabled = tracks.isNotEmpty()) {
-                Icon(Lucide.ListPlus, contentDescription = stringResource(Res.string.queue_add), tint = colors.textPrimary)
             }
         }
 

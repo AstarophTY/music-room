@@ -145,6 +145,7 @@ fun SearchScreen(
     var opening by remember { mutableStateOf(true) }
     val artistPage = "artist"
     val albumPage = "album"
+    val moodPage = "mood"
     val resultsPage = "results"
     // Songs shown under "All" before "See all".
     val topTrackCount = 5
@@ -269,6 +270,7 @@ fun SearchScreen(
 
     fun back() {
         opening = false
+        if (pages.lastOrNull()?.startsWith("$moodPage|") == true) mood = null
         pages = pages.dropLast(1)
     }
     BackHandler(enabled = pages.isNotEmpty()) { back() }
@@ -348,7 +350,7 @@ fun SearchScreen(
                 query,
                 {
                     query = it
-                    mood = null
+                    if (mood != null) back()
                 },
                 stringResource(Res.string.search_placeholder),
                 Modifier.fillMaxWidth(),
@@ -366,7 +368,7 @@ fun SearchScreen(
                             }
                         }
                         if (selectedMood != null) {
-                            IconButton(onClick = { mood = null }) {
+                            IconButton(onClick = { back() }) {
                                 Icon(Lucide.X, contentDescription = stringResource(Res.string.common_clear), tint = colors.textSecondary)
                             }
                         }
@@ -469,7 +471,10 @@ fun SearchScreen(
                                 val (label, icon) = moods[index]
                                 Box(
                                     Modifier.weight(1f).height(96.dp)
-                                        .pressable(onClick = { mood = index })
+                                        .pressable(onClick = {
+                                            mood = index
+                                            open(moodPage, index.toString(), "")
+                                        })
                                         .background(tileColors[index % tileColors.size], AppShapes.large)
                                         .padding(AppTheme.spacing.md),
                                 ) {

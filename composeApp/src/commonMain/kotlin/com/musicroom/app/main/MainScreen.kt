@@ -274,6 +274,9 @@ fun MainScreen(
                 onCreate = openCreate,
                 openRoomPlaylistId = openRoomPlaylist,
                 openSpotifyPlaylistId = openSpotifyPlaylist,
+                counts = social.counts,
+                onOpenNotifications = { openSocial(SocialPage.Notifications) },
+                onOpenMessages = { openSocial(SocialPage.Conversations) },
                 onOpenRoomPlaylist = { openRoomPlaylist = it },
                 onOpenSpotifyPlaylist = { openSpotifyPlaylist = it },
             )

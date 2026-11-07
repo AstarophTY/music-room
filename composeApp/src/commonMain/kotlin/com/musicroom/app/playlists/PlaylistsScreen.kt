@@ -21,6 +21,7 @@ import com.musicroom.app.player.PlayerController
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistResponse
 import com.musicroom.shared.dto.PlaylistSummaryResponse
+import com.musicroom.shared.dto.SocialCountsResponse
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
 
@@ -38,6 +39,9 @@ fun PlaylistsScreen(
     onCreate: () -> Unit,
     openRoomPlaylistId: String?,
     openSpotifyPlaylistId: String?,
+    counts: SocialCountsResponse,
+    onOpenNotifications: () -> Unit,
+    onOpenMessages: () -> Unit,
     onOpenRoomPlaylist: (String?) -> Unit,
     onOpenSpotifyPlaylist: (String?) -> Unit,
 ) {
@@ -93,10 +97,20 @@ fun PlaylistsScreen(
     ) { target ->
         when {
             target.startsWith("room:") ->
-                RoomPlaylistScreen(api, target.removePrefix("room:"), user.id, player, onBack = { onOpenRoomPlaylist(null) })
+                RoomPlaylistScreen(
+                    api, target.removePrefix("room:"), user.id, player,
+                    counts, onOpenNotifications, onOpenMessages,
+                    onBack = { onOpenRoomPlaylist(null) },
+                )
             target.startsWith("spotify:") -> {
                 val playlist = spotifyPlaylists?.firstOrNull { it.id == target.removePrefix("spotify:") }
-                if (playlist != null) PlaylistDetail(api, playlist, player, onBack = { onOpenSpotifyPlaylist(null) })
+                if (playlist != null) {
+                    PlaylistDetail(
+                        api, playlist, player,
+                        counts, onOpenNotifications, onOpenMessages,
+                        onBack = { onOpenSpotifyPlaylist(null) },
+                    )
+                }
             }
             else -> PlaylistsList(
                 api, user, roomPlaylists, roomError, spotifyPlaylists, spotifyError,

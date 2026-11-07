@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
@@ -28,9 +29,14 @@ import com.musicroom.app.generated.resources.common_back
 import com.musicroom.app.theme.tokens.AppTheme
 import org.jetbrains.compose.resources.stringResource
 
-/** Full-screen page with a fixed back arrow and title (profile, settings, a playlist). Centered column on large screens. */
+/** Full-screen page with a fixed back arrow, a title, optional [actions] on its right, and scrolling content. */
 @Composable
-fun SubScreenScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun SubScreenScaffold(
+    title: String,
+    onBack: () -> Unit,
+    actions: @Composable RowScope.() -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit,
+) {
     val colors = AppTheme.colors
     Box(
         Modifier.fillMaxSize().background(colors.background).safeDrawingPadding().imePadding(),
@@ -44,7 +50,8 @@ fun SubScreenScaffold(title: String, onBack: () -> Unit, content: @Composable Co
                 IconButton(onClick = onBack) {
                     Icon(Lucide.ArrowLeft, contentDescription = stringResource(Res.string.common_back), tint = colors.textPrimary)
                 }
-                Text(title, style = AppTheme.typography.heading, color = colors.textPrimary)
+                Text(title, Modifier.weight(1f), style = AppTheme.typography.heading, color = colors.textPrimary)
+                actions()
             }
             Column(
                 Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())

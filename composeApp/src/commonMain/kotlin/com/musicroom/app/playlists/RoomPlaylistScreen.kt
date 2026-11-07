@@ -34,8 +34,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Camera
+import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
+import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.Play
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Settings
@@ -46,6 +48,8 @@ import com.musicroom.app.common.rememberImagePicker
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.common_retry
+import com.musicroom.app.generated.resources.messages_title
+import com.musicroom.app.generated.resources.notifications_title
 import com.musicroom.app.generated.resources.playlist_add_songs
 import com.musicroom.app.generated.resources.playlist_no_songs
 import com.musicroom.app.generated.resources.playlist_no_songs_editor
@@ -60,6 +64,7 @@ import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.player.Proposer
+import com.musicroom.app.social.BadgedIconButton
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.components.pressable
@@ -69,6 +74,7 @@ import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.AvatarColor
 import com.musicroom.shared.dto.PlaylistDetailResponse
 import com.musicroom.shared.dto.PlaylistTrackResponse
+import com.musicroom.shared.dto.SocialCountsResponse
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -87,6 +93,9 @@ fun RoomPlaylistScreen(
     playlistId: String,
     myUserId: String,
     player: PlayerController,
+    counts: SocialCountsResponse,
+    onOpenNotifications: () -> Unit,
+    onOpenMessages: () -> Unit,
     onBack: () -> Unit,
 ) {
     val colors = AppTheme.colors
@@ -130,6 +139,12 @@ fun RoomPlaylistScreen(
     }
 
     val loaded = detail
+    // Queued songs show who proposed them in the playlist.
+    fun proposerOf(entry: PlaylistTrackResponse): Proposer? {
+        val shown = detail ?: return null
+        return (listOf(shown.playlist.owner) + shown.members).firstOrNull { it.userId == entry.addedById }?.let(Proposer::of)
+            ?: entry.addedById?.let { Proposer(it, entry.addedBy, AvatarColor.YELLOW, null) }
+    }
     AnimatedContent(
         targetState = showAddSongs && loaded != null,
         transitionSpec = {
@@ -141,7 +156,14 @@ fun RoomPlaylistScreen(
         if (adding && loaded != null) {
             AddSongsPage(api, loaded, player, onChange = { detail = it }, onBack = { showAddSongs = false })
         } else {
-            SubScreenScaffold(title = loaded?.playlist?.name.orEmpty(), onBack = onBack) {
+            SubScreenScaffold(
+                title = loaded?.playlist?.name.orEmpty(),
+                onBack = onBack,
+                actions = {
+                    BadgedIconButton(Lucide.Bell, stringResource(Res.string.notifications_title), counts.unreadNotifications, onOpenNotifications)
+                    BadgedIconButton(Lucide.MessageCircle, stringResource(Res.string.messages_title), counts.unreadMessages, onOpenMessages)
+                },
+            ) {
                 if (loaded == null) {
                     val failure = error
                     if (failure != null) {
@@ -154,11 +176,6 @@ fun RoomPlaylistScreen(
                 }
                 val playlist = loaded.playlist
                 val tracks = loaded.tracks.map { it.track }
-                // Queued songs show who proposed them in the playlist.
-                val proposerOf: (PlaylistTrackResponse) -> Proposer? = { entry ->
-                    (listOf(playlist.owner) + loaded.members).firstOrNull { it.userId == entry.addedById }?.let(Proposer::of)
-                        ?: entry.addedById?.let { Proposer(it, entry.addedBy, AvatarColor.YELLOW, null) }
-                }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.lg), verticalAlignment = Alignment.CenterVertically) {
                     val editCover = if (playlist.canEdit) pickImage else null
