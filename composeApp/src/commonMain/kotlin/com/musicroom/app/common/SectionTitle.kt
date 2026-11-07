@@ -6,7 +6,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.musicroom.app.theme.tokens.AppTheme
 
+/** Section heading; [color] lets the player draw it white over its blurred cover. */
 @Composable
-fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, modifier = modifier, style = AppTheme.typography.heading, color = Color.White)
+fun SectionTitle(text: String, modifier: Modifier = Modifier, color: Color = AppTheme.colors.textPrimary) {
+    Text(text, modifier = modifier, style = AppTheme.typography.heading, color = color)
 }

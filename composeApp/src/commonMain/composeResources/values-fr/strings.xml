@@ -87,7 +87,14 @@
     <string name="genre_electro">Électro</string>
     <string name="genre_jazz">Jazz</string>
     <string name="genre_chill">Détente</string>
-    <string name="events_title">Trouve un événement</string>
+    <string name="genre_rnb">R&amp;B</string>
+    <string name="genre_latin">Latino</string>
+    <string name="genre_classical">Classique</string>
+    <string name="genre_reggae">Reggae</string>
+    <string name="genre_country">Country</string>
+    <string name="genre_metal">Metal</string>
+    <string name="genre_indie">Indie</string>
+    <string name="genre_soul">Soul</string>
     <string name="events_filter_nearby">À proximité</string>
     <string name="events_filter_public">Publics</string>
     <string name="events_filter_invited">Invitations</string>

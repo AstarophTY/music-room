@@ -39,13 +39,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.AudioLines
+import com.composables.icons.lucide.Coffee
+import com.composables.icons.lucide.Flame
 import com.composables.icons.lucide.Guitar
 import com.composables.icons.lucide.Headphones
+import com.composables.icons.lucide.Heart
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Mic
+import com.composables.icons.lucide.Music2
 import com.composables.icons.lucide.Piano
 import com.composables.icons.lucide.Search
 import com.composables.icons.lucide.Sparkles
+import com.composables.icons.lucide.Star
+import com.composables.icons.lucide.Sun
+import com.composables.icons.lucide.TreePine
+import com.composables.icons.lucide.Waves
 import com.composables.icons.lucide.X
 import com.musicroom.app.common.SectionTitle
 import com.musicroom.app.common.TabContent
@@ -56,11 +64,19 @@ import com.musicroom.app.generated.resources.common_clear
 import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.apple_music_storefront_missing
 import com.musicroom.app.generated.resources.genre_chill
+import com.musicroom.app.generated.resources.genre_classical
+import com.musicroom.app.generated.resources.genre_country
 import com.musicroom.app.generated.resources.genre_electro
 import com.musicroom.app.generated.resources.genre_hiphop
+import com.musicroom.app.generated.resources.genre_indie
 import com.musicroom.app.generated.resources.genre_jazz
+import com.musicroom.app.generated.resources.genre_latin
+import com.musicroom.app.generated.resources.genre_metal
 import com.musicroom.app.generated.resources.genre_pop
+import com.musicroom.app.generated.resources.genre_reggae
+import com.musicroom.app.generated.resources.genre_rnb
 import com.musicroom.app.generated.resources.genre_rock
+import com.musicroom.app.generated.resources.genre_soul
 import com.musicroom.app.generated.resources.search_browse
 import com.musicroom.app.generated.resources.search_load_more
 import com.musicroom.app.generated.resources.search_no_people
@@ -144,6 +160,14 @@ fun SearchScreen(
         Triple(Res.string.genre_electro, Lucide.AudioLines, "electronic"),
         Triple(Res.string.genre_jazz, Lucide.Piano, "jazz"),
         Triple(Res.string.genre_chill, Lucide.Headphones, "chill"),
+        Triple(Res.string.genre_rnb, Lucide.Heart, "r-n-b"),
+        Triple(Res.string.genre_latin, Lucide.Sun, "latin"),
+        Triple(Res.string.genre_classical, Lucide.Music2, "classical"),
+        Triple(Res.string.genre_reggae, Lucide.Waves, "reggae"),
+        Triple(Res.string.genre_country, Lucide.TreePine, "country"),
+        Triple(Res.string.genre_metal, Lucide.Flame, "metal"),
+        Triple(Res.string.genre_indie, Lucide.Star, "indie"),
+        Triple(Res.string.genre_soul, Lucide.Coffee, "soul"),
     )
     val tileColors = listOf(colors.accentSubtle, colors.accentSubtleStrong, colors.surfaceSubtle)
     val selectedMood = mood?.let { moods.getOrNull(it) }
@@ -458,6 +482,8 @@ fun SearchScreen(
                                     )
                                 }
                             }
+                            // Keep the tiles of a short last row the same width as the others.
+                            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }

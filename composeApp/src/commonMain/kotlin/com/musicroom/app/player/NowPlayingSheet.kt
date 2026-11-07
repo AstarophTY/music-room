@@ -123,7 +123,7 @@ fun NowPlayingSheet(
                 ) {
                     TrackSection(api, player, onAddToPlaylist = { choosingPlaylist = true })
                     if (event != null && focus != null) {
-                        SectionTitle(stringResource(Res.string.queue_title))
+                        SectionTitle(stringResource(Res.string.queue_title), color = Color.White)
                         EventQueueList(api, focus)
                     } else {
                         SoloQueue(api, player)
@@ -280,7 +280,7 @@ private fun SoloQueue(api: MusicRoomApi, player: PlayerController) {
 
     Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            SectionTitle(stringResource(Res.string.queue_title), Modifier.weight(1f))
+            SectionTitle(stringResource(Res.string.queue_title), Modifier.weight(1f), color = Color.White)
             AnimatedVisibility(
                 upNext.size > 1 || reordering,
                 enter = scaleIn(spring(dampingRatio = 0.5f, stiffness = 400f)) + fadeIn(),

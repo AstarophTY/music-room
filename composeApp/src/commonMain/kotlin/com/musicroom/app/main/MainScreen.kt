@@ -432,13 +432,16 @@ fun MainScreen(
                 ) { shown ->
                     when (shown) {
                         tabsKey -> Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
-                            MainTopBar(
-                                tab = tab,
-                                user = user,
-                                counts = social.counts,
-                                onOpenNotifications = { openSocial(SocialPage.Notifications) },
-                                onOpenMessages = { openSocial(SocialPage.Conversations) },
-                            )
+                            // An open event draws its own header (back, name, actions) instead of the tab bar.
+                            if (tab != MainTab.Events || openEvent == null) {
+                                MainTopBar(
+                                    tab = tab,
+                                    user = user,
+                                    counts = social.counts,
+                                    onOpenNotifications = { openSocial(SocialPage.Notifications) },
+                                    onOpenMessages = { openSocial(SocialPage.Conversations) },
+                                )
+                            }
                             Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
                                 content()
                                 queueToast()
