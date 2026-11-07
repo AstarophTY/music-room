@@ -28,16 +28,15 @@ import com.musicroom.app.generated.resources.common_back
 import com.musicroom.app.theme.tokens.AppTheme
 import org.jetbrains.compose.resources.stringResource
 
-/** Full-screen page with a back arrow and a title (profile, settings). Centered column on large screens. */
+/** Full-screen page with a fixed back arrow and title (profile, settings, a playlist). Centered column on large screens. */
 @Composable
 fun SubScreenScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     val colors = AppTheme.colors
     Box(
-        Modifier.fillMaxSize().background(colors.background).safeDrawingPadding().imePadding()
-            .verticalScroll(rememberScrollState()),
+        Modifier.fillMaxSize().background(colors.background).safeDrawingPadding().imePadding(),
         contentAlignment = Alignment.TopCenter,
     ) {
-        Column(Modifier.fillMaxWidth().widthIn(max = 680.dp)) {
+        Column(Modifier.fillMaxSize().widthIn(max = 680.dp)) {
             Row(
                 Modifier.fillMaxWidth().padding(AppTheme.spacing.xs),
                 verticalAlignment = Alignment.CenterVertically,
@@ -48,7 +47,8 @@ fun SubScreenScaffold(title: String, onBack: () -> Unit, content: @Composable Co
                 Text(title, style = AppTheme.typography.heading, color = colors.textPrimary)
             }
             Column(
-                Modifier.fillMaxWidth().padding(horizontal = AppTheme.spacing.lg, vertical = AppTheme.spacing.md),
+                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
+                    .padding(horizontal = AppTheme.spacing.lg, vertical = AppTheme.spacing.md),
                 verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
                 content = content,
             )

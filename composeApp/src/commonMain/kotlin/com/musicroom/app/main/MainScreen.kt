@@ -100,6 +100,8 @@ fun MainScreen(
     var sideNavCollapsed by rememberSaveable { mutableStateOf(false) }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var openRoomPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
+    // The Spotify playlist open in the Playlists tab.
+    var openSpotifyPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
     // The event open in the Events tab.
     var openEvent by rememberSaveable { mutableStateOf<String?>(null) }
     var showNowPlaying by rememberSaveable { mutableStateOf(false) }
@@ -271,7 +273,9 @@ fun MainScreen(
                 player,
                 onCreate = openCreate,
                 openRoomPlaylistId = openRoomPlaylist,
+                openSpotifyPlaylistId = openSpotifyPlaylist,
                 onOpenRoomPlaylist = { openRoomPlaylist = it },
+                onOpenSpotifyPlaylist = { openSpotifyPlaylist = it },
             )
             MainTab.Settings -> settingsScreen()
         }
@@ -431,23 +435,27 @@ fun MainScreen(
                     },
                 ) { shown ->
                     when (shown) {
-                        tabsKey -> Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
-                            // An open event draws its own header (back, name, actions) instead of the tab bar.
-                            if (tab != MainTab.Events || openEvent == null) {
-                                MainTopBar(
-                                    tab = tab,
-                                    user = user,
-                                    counts = social.counts,
-                                    onOpenNotifications = { openSocial(SocialPage.Notifications) },
-                                    onOpenMessages = { openSocial(SocialPage.Conversations) },
-                                )
+                        tabsKey -> {
+                            // A page opened from a tab (an event, a playlist) draws its own header instead of the tab bar.
+                            val detailOpen = (tab == MainTab.Events && openEvent != null) ||
+                                (tab == MainTab.Playlists && (openRoomPlaylist != null || openSpotifyPlaylist != null))
+                            Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
+                                if (!detailOpen) {
+                                    MainTopBar(
+                                        tab = tab,
+                                        user = user,
+                                        counts = social.counts,
+                                        onOpenNotifications = { openSocial(SocialPage.Notifications) },
+                                        onOpenMessages = { openSocial(SocialPage.Conversations) },
+                                    )
+                                }
+                                Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
+                                    content()
+                                    queueToast()
+                                }
+                                playerBar()
+                                BottomNavBar(api = api, user = user, selected = tab, onSelect = selectTab)
                             }
-                            Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
-                                content()
-                                queueToast()
-                            }
-                            playerBar()
-                            BottomNavBar(api = api, user = user, selected = tab, onSelect = selectTab)
                         }
                         else -> SocialPage.parse(shown)?.let { socialPage(it) } ?: profilePage(ProfileRoute.valueOf(shown))
                     }

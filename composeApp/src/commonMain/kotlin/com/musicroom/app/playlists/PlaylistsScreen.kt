@@ -13,7 +13,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.backhandler.BackHandler
@@ -38,14 +37,15 @@ fun PlaylistsScreen(
     player: PlayerController,
     onCreate: () -> Unit,
     openRoomPlaylistId: String?,
+    openSpotifyPlaylistId: String?,
     onOpenRoomPlaylist: (String?) -> Unit,
+    onOpenSpotifyPlaylist: (String?) -> Unit,
 ) {
     var spotifyPlaylists by remember { mutableStateOf<List<PlaylistSummaryResponse>?>(null) }
     var roomPlaylists by remember { mutableStateOf<List<PlaylistResponse>?>(null) }
     var spotifyError by remember { mutableStateOf<UiText?>(null) }
     var roomError by remember { mutableStateOf<UiText?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
-    var openSpotifyId by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(user.spotifyConnected, attempt) {
         if (!user.spotifyConnected) return@LaunchedEffect
@@ -75,12 +75,12 @@ fun PlaylistsScreen(
     val list = "list"
     val page = when {
         openRoomPlaylistId != null -> "room:$openRoomPlaylistId"
-        openSpotifyId != null -> "spotify:$openSpotifyId"
+        openSpotifyPlaylistId != null -> "spotify:$openSpotifyPlaylistId"
         else -> list
     }
     BackHandler(enabled = page != list) {
         onOpenRoomPlaylist(null)
-        openSpotifyId = null
+        onOpenSpotifyPlaylist(null)
     }
 
     AnimatedContent(
@@ -96,12 +96,12 @@ fun PlaylistsScreen(
                 RoomPlaylistScreen(api, target.removePrefix("room:"), user.id, player, onBack = { onOpenRoomPlaylist(null) })
             target.startsWith("spotify:") -> {
                 val playlist = spotifyPlaylists?.firstOrNull { it.id == target.removePrefix("spotify:") }
-                if (playlist != null) PlaylistDetail(api, playlist, player, onBack = { openSpotifyId = null })
+                if (playlist != null) PlaylistDetail(api, playlist, player, onBack = { onOpenSpotifyPlaylist(null) })
             }
             else -> PlaylistsList(
                 api, user, roomPlaylists, roomError, spotifyPlaylists, spotifyError,
                 onRetry = { attempt++ }, onCreate = onCreate,
-                onOpenRoom = onOpenRoomPlaylist, onOpenSpotify = { openSpotifyId = it },
+                onOpenRoom = onOpenRoomPlaylist, onOpenSpotify = { onOpenSpotifyPlaylist(it) },
             )
         }
     }

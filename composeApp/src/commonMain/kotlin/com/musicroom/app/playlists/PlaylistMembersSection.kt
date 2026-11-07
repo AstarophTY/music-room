@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -191,15 +192,26 @@ fun PlaylistMembersSection(
                 email,
                 { email = it },
                 stringResource(Res.string.playlist_invite_email),
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().padding(top = AppTheme.spacing.md),
                 enabled = !busy,
                 keyboardType = KeyboardType.Email,
                 leadingIcon = Lucide.Mail,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                AppChip(accessLabel(PlaylistAccess.READ), selected = inviteAccess == PlaylistAccess.READ, onClick = { access = PlaylistAccess.READ })
+                // Same size as the "Add" button next to it.
+                AppButton(
+                    accessLabel(PlaylistAccess.READ),
+                    { access = PlaylistAccess.READ },
+                    enabled = !busy,
+                    variant = if (inviteAccess == PlaylistAccess.READ) AppButtonVariant.Primary else AppButtonVariant.Secondary,
+                )
                 if (shared) {
-                    AppChip(accessLabel(PlaylistAccess.WRITE), selected = inviteAccess == PlaylistAccess.WRITE, onClick = { access = PlaylistAccess.WRITE })
+                    AppButton(
+                        accessLabel(PlaylistAccess.WRITE),
+                        { access = PlaylistAccess.WRITE },
+                        enabled = !busy,
+                        variant = if (inviteAccess == PlaylistAccess.WRITE) AppButtonVariant.Primary else AppButtonVariant.Secondary,
+                    )
                 }
                 Row(Modifier.weight(1f)) {}
                 AppButton(
