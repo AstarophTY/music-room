@@ -514,4 +514,5 @@
     <string name="error_audio_too_large">Ce fichier est trop lourd (20 Mo au plus).</string>
     <string name="error_hosted_track_limit">Tu as ajouté le nombre maximum de sons. Supprimes-en un pour en ajouter un autre.</string>
     <string name="error_hosted_track_not_allowed">Les événements jouent sur Spotify : les sons ajoutés à Music Room ne peuvent pas y aller.</string>
+    <string name="queue_propose_songs">Proposer des morceaux</string>
 </resources>

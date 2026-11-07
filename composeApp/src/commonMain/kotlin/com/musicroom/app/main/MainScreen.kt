@@ -83,6 +83,7 @@ import kotlinx.coroutines.launch
  * Logged-in part of the app: top bar, current tab, bottom bar, the player sheet (opened from the player bar),
  * the profile pages (on large screens, next to the side menu and the settings categories) and the social pages
  * (friends, chats, notifications, other users' profiles), with a banner when a notification arrives.
+ * The player sheet only accompanies playback: events are browsed and opened on the Events page, never in the sheet.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
@@ -144,18 +145,21 @@ fun MainScreen(
     }
     // Follows what Spotify plays while an account is linked.
     LaunchedEffect(user.spotifyConnected) { if (user.spotifyConnected) player.sync() }
+    // Opens an event (or the list when id is null) on the Events page, closing whatever is over the tabs,
+    // the player sheet included.
+    val openEvents: (String?) -> Unit = { id ->
+        openEvent = id
+        profileRoute = null
+        socialPages = emptyList()
+        showNowPlaying = false
+        tab = MainTab.Events
+    }
     val playerBar: @Composable () -> Unit = {
         Column {
-            EventFocusBar(eventFocus, onOpen = { id ->
-                profileRoute = null
-                socialPages = emptyList()
-                showNowPlaying = false
-                openEvent = id
-                tab = MainTab.Events
-            })
+            EventFocusBar(eventFocus, onOpen = { id -> openEvents(id) })
             AnimatedVisibility(
                 // Uploaded songs play without Spotify.
-                visible = ((user.spotifyConnected || player.playingHosted || player.playingAppleMusic) && player.track != null) || player.error != null,
+                visible = ((user.spotifyConnected || player.playingHosted || player.playingAppleMusic) && player.track != null) || player.error != null || eventFocus.event != null,
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {
@@ -180,7 +184,7 @@ fun MainScreen(
     }
 
     // The player sheet shows while Spotify is linked (or the app plays a song itself); it closes with the account.
-    val nowPlayingShown = showNowPlaying && (user.spotifyConnected || player.playingHosted || player.playingAppleMusic)
+    val nowPlayingShown = showNowPlaying
     val closeNowPlaying = { showNowPlaying = false }
 
     // Opens a social page on top of the others; one already open comes back to the top.
@@ -233,15 +237,8 @@ fun MainScreen(
                 user = user,
                 player = player,
                 onCreate = openCreate,
-                onOpenEvent = { id ->
-                    socialPages = emptyList()
-                    openEvent = id
-                    tab = MainTab.Events
-                },
-                onOpenEvents = {
-                    socialPages = emptyList()
-                    tab = MainTab.Events
-                },
+                onOpenEvent = { id -> openEvents(id) },
+                onOpenEvents = { openEvents(null) },
                 onOpenRoomPlaylist = { id ->
                     socialPages = emptyList()
                     openRoomPlaylist = id
@@ -324,12 +321,7 @@ fun MainScreen(
                         tab = MainTab.Playlists
                     }
                 },
-                onOpenEvent = { id ->
-                    closeSocialAnd {
-                        openEvent = id
-                        tab = MainTab.Events
-                    }
-                },
+                onOpenEvent = { id -> openEvents(id) },
             )
             SocialPage.Conversations -> ConversationsScreen(
                 api,
@@ -430,10 +422,10 @@ fun MainScreen(
                         when {
                             forward ->
                                 slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)) togetherWith
-                                    slideOutHorizontally(tween(300)) { -it / 4 } + fadeOut(tween(250))
+                                        slideOutHorizontally(tween(300)) { -it / 4 } + fadeOut(tween(250))
                             else ->
                                 (slideInHorizontally(tween(300)) { -it / 4 } + fadeIn(tween(250)) togetherWith
-                                    slideOutHorizontally(tween(300)) { it } + fadeOut(tween(200)))
+                                        slideOutHorizontally(tween(300)) { it } + fadeOut(tween(200)))
                                     .apply { targetContentZIndex = -1f }
                         }
                     },
@@ -459,7 +451,11 @@ fun MainScreen(
                 }
             }
             banner()
-            if (nowPlayingShown) NowPlayingSheet(api, player, onDismiss = closeNowPlaying)
+            if (nowPlayingShown) NowPlayingSheet(
+                api = api,
+                player = player,
+                onDismiss = closeNowPlaying,
+            )
         }
     }
 
@@ -479,11 +475,7 @@ fun MainScreen(
             },
             onEventCreated = { id ->
                 showCreate = false
-                profileRoute = null
-                socialPages = emptyList()
-                closeNowPlaying()
-                openEvent = id
-                tab = MainTab.Events
+                openEvents(id)
             },
         )
     }

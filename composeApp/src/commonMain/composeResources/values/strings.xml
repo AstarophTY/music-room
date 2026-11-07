@@ -535,4 +535,5 @@
     <string name="error_audio_too_large">This file is too big (20 MB at most).</string>
     <string name="error_hosted_track_limit">You uploaded as many songs as allowed. Delete one to add another.</string>
     <string name="error_hosted_track_not_allowed">Events play on Spotify: songs uploaded to Music Room cannot go there.</string>
+    <string name="queue_propose_songs">Suggest songs</string>
 </resources>
