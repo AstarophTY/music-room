@@ -2,6 +2,10 @@ package com.musicroom.server.modules.applemusic
 
 import com.musicroom.server.common.exceptions.BadRequestException
 import com.musicroom.server.common.exceptions.NotFoundException
+import com.musicroom.shared.dto.AlbumResponse
+import com.musicroom.shared.dto.AlbumType
+import com.musicroom.shared.dto.ArtistResponse
+import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.TrackPageResponse
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.TrackSource
@@ -24,20 +28,60 @@ import kotlinx.serialization.json.longOrNull
 class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
     private val client = HttpClient(CIO)
 
-    suspend fun search(query: String, storefront: String): TrackPageResponse {
+    suspend fun search(query: String, storefront: String): SearchResponse {
         val region = validateStorefront(storefront)
         if (query.isBlank() || query.length > 200) throw BadRequestException("Invalid search query")
         val response = client.get("https://api.music.apple.com/v1/catalog/$region/search") {
             bearerAuth(tokens.create())
             parameter("term", query)
-            parameter("types", "songs")
+            parameter("types", "songs,albums,artists")
             parameter("limit", 25)
         }
         check(response.status.isSuccess()) { "Apple Music catalog search failed (${response.status.value})" }
         val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject
-        val songs = root["results"]?.jsonObject?.get("songs")?.jsonObject?.get("data")?.jsonArray.orEmpty()
-        val tracks = songs.map { song(it.jsonObject, region) }
-        return TrackPageResponse(tracks, tracks.size)
+        val results = root["results"]?.jsonObject
+        val songs = results?.get("songs")?.jsonObject?.get("data")?.jsonArray.orEmpty()
+        val albums = results?.get("albums")?.jsonObject?.get("data")?.jsonArray.orEmpty()
+        val artists = results?.get("artists")?.jsonObject?.get("data")?.jsonArray.orEmpty()
+        return SearchResponse(
+            tracks = songs.map { song(it.jsonObject, region) },
+            artists = artists.map { artist(it.jsonObject, region) },
+            albums = albums.map { album(it.jsonObject, region) },
+        )
+    }
+
+    private fun artist(item: JsonObject, storefront: String): ArtistResponse {
+        val id = item.getValue("id").jsonPrimitive.content
+        val attributes = item.getValue("attributes").jsonObject
+        fun value(key: String) = attributes[key]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val image = attributes["artwork"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+            ?.replace("{w}", "300")?.replace("{h}", "300")
+        return ArtistResponse(
+            id = "apple:$storefront:$id",
+            name = value("name"),
+            imageUrl = image,
+            uri = id,
+        )
+    }
+
+    private fun album(item: JsonObject, storefront: String): AlbumResponse {
+        val id = item.getValue("id").jsonPrimitive.content
+        val attributes = item.getValue("attributes").jsonObject
+        fun value(key: String) = attributes[key]?.jsonPrimitive?.contentOrNull.orEmpty()
+        val image = attributes["artwork"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
+            ?.replace("{w}", "300")?.replace("{h}", "300")
+        return AlbumResponse(
+            id = "apple:$storefront:$id",
+            name = value("name"),
+            artists = listOf(value("artistName")).filter { it.isNotBlank() }.map {
+                ArtistResponse(id = "apple:$storefront:$id", name = it, imageUrl = null, uri = it)
+            },
+            imageUrl = image,
+            releaseYear = value("releaseDate").take(4).takeIf { it.isNotBlank() },
+            trackCount = attributes["trackCount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
+            type = AlbumType.ALBUM,
+            uri = id,
+        )
     }
 
     suspend fun track(identifier: String): TrackResponse {

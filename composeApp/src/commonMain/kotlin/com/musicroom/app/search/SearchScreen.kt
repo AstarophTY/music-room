@@ -207,11 +207,11 @@ fun SearchScreen(
                 val spotifyResult = spotifyTask?.await()
                 val appleResult = appleTask?.await()
                 val spotifyData = spotifyResult?.getOrNull() ?: SearchResponse()
-                val appleTracks = appleResult?.getOrNull()?.items.orEmpty()
+                val appleData = appleResult?.getOrNull() ?: SearchResponse()
                 val mixed = buildList {
-                    for (index in 0 until maxOf(spotifyData.tracks.size, appleTracks.size)) {
+                    for (index in 0 until maxOf(spotifyData.tracks.size, appleData.tracks.size)) {
                         spotifyData.tracks.getOrNull(index)?.let(::add)
-                        appleTracks.getOrNull(index)?.let(::add)
+                        appleData.tracks.getOrNull(index)?.let(::add)
                     }
                 }
                 val failure = spotifyResult?.exceptionOrNull() ?: appleResult?.exceptionOrNull()
@@ -219,7 +219,12 @@ fun SearchScreen(
                 if ((spotifyResult == null || spotifyResult.isFailure) && (appleResult == null || appleResult.isFailure)) {
                     found = null
                 } else {
-                    found = spotifyData.copy(tracks = mixed)
+                    found = SearchResponse(
+                        tracks = mixed,
+                        artists = spotifyData.artists + appleData.artists,
+                        albums = spotifyData.albums + appleData.albums,
+                        nextTrackOffset = spotifyData.nextTrackOffset,
+                    )
                     tracks = mixed
                     nextOffset = spotifyData.nextTrackOffset
                 }

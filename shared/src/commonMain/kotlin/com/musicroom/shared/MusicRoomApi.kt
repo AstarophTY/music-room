@@ -202,7 +202,7 @@ class MusicRoomApi(
     suspend fun appleMusicDeveloperToken(): AppleMusicDeveloperToken =
         authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_DEVELOPER_TOKEN).bodyOrThrow()
 
-    suspend fun searchAppleMusic(query: String, storefront: String): TrackPageResponse =
+    suspend fun searchAppleMusic(query: String, storefront: String): SearchResponse =
         authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_SEARCH) {
             url.parameters.append("q", query)
             url.parameters.append("storefront", storefront)

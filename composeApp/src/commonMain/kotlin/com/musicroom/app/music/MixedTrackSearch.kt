@@ -13,7 +13,7 @@ class MixedTrackSearch(private val api: MusicRoomApi) {
         spotify = spotify,
         appleStorefront = appleStorefront,
         spotifyRequest = { api.searchTracks(query).items },
-        appleRequest = { api.searchAppleMusic(query, it).items },
+        appleRequest = { api.searchAppleMusic(query, it).tracks },
     )
 
     suspend fun suggestions(spotify: Boolean, appleStorefront: String?): Result = fetch(
