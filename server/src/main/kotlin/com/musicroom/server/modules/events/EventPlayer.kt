@@ -7,6 +7,7 @@ import com.musicroom.server.modules.events.entities.EventTracksTable
 import com.musicroom.server.modules.spotify.SpotifyService
 import com.musicroom.shared.dto.EventStatus
 import com.musicroom.shared.dto.PlayRequest
+import com.musicroom.shared.dto.TrackSource
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.TimeSource
@@ -93,7 +94,7 @@ class EventPlayer(
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
         when {
             event.status == EventStatus.PAUSED && current != null -> {
-                if (streams(event)) spotify.play(event.ownerId, PlayRequest())
+                if (current.track.source == TrackSource.SPOTIFY && streams(event)) spotify.play(event.ownerId, PlayRequest())
                 // The clock goes on from where it was paused.
                 positions[event.id] = progressMs(event) to System.currentTimeMillis()
             }
@@ -106,7 +107,8 @@ class EventPlayer(
     }
 
     suspend fun pause(event: Event) = lock(event.id).withLock {
-        if (streams(event)) spotify.pause(event.ownerId)
+        val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+        if (current?.track?.source == TrackSource.SPOTIFY && streams(event)) spotify.pause(event.ownerId)
         positions[event.id] = progressMs(event) to System.currentTimeMillis()
         events.setStatus(event.id, EventStatus.PAUSED)
         onChange(event.id)
@@ -123,7 +125,8 @@ class EventPlayer(
     /** Stops the event's music: the current song counts as played, the next one goes back to the vote. */
     suspend fun stop(event: Event) = lock(event.id).withLock {
         try {
-            if (streams(event)) spotify.pause(event.ownerId)
+            val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+            if (current?.track?.source == TrackSource.SPOTIFY && streams(event)) spotify.pause(event.ownerId)
         } catch (e: HttpException) {
             // Nothing to pause on Spotify: stopping the event is enough.
         }
@@ -149,7 +152,8 @@ class EventPlayer(
     }
 
     private suspend fun check(event: Event) {
-        if (!streams(event)) return checkClock(event)
+        val currentTrack = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+        if (currentTrack?.track?.source != TrackSource.SPOTIFY || !streams(event)) return checkClock(event)
         val state = spotify.playbackState(event.ownerId)
         positions[event.id] = state.progressMs to System.currentTimeMillis()
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
@@ -197,6 +201,7 @@ class EventPlayer(
     /** Hands the most voted song to Spotify's queue: it plays after the current one. */
     private suspend fun queueTop(event: Event) {
         val top = tracks.top(event.id) ?: return
+        if (top.track.source != TrackSource.SPOTIFY) return
         tracks.setStatus(top.id, EventTracksTable.NEXT)
         try {
             spotify.addToQueue(event.ownerId, listOf(top.track.uri))
@@ -216,7 +221,12 @@ class EventPlayer(
     }
 
     private suspend fun playTrack(event: Event, track: EventTrack) {
-        if (streams(event)) spotify.play(event.ownerId, PlayRequest(uris = listOf(track.track.uri)))
+        if (track.track.source == TrackSource.SPOTIFY) {
+            if (streams(event)) spotify.play(event.ownerId, PlayRequest(uris = listOf(track.track.uri)))
+        } else {
+            val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+            if (current?.track?.source == TrackSource.SPOTIFY && streams(event)) spotify.pause(event.ownerId)
+        }
         tracks.setStatus(track.id, EventTracksTable.PLAYING)
         startedAt[event.id] = TimeSource.Monotonic.markNow()
         positions[event.id] = 0L to System.currentTimeMillis()

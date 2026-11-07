@@ -10,6 +10,8 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_location_failed
+import com.musicroom.app.generated.resources.event_track_unavailable
+import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.PlayerController
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
@@ -21,6 +23,7 @@ import com.musicroom.shared.dto.EventTrackResponse
 import com.musicroom.shared.dto.EventVoteLicense
 import com.musicroom.shared.dto.GeoPoint
 import com.musicroom.shared.dto.TrackResponse
+import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -37,7 +40,7 @@ import kotlin.time.Clock
  * Focusing needs a linked Spotify Premium account ([canFocus]), since it plays on the user's Spotify.
  */
 @Stable
-class EventFocus(private val api: MusicRoomApi, private val player: PlayerController, private val scope: CoroutineScope) {
+class EventFocus(private val api: MusicRoomApi, private val player: PlayerController, private val scope: CoroutineScope, private val apple: AppleMusicConnection) {
     /** The focused event, kept up to date while [run] follows it. */
     var event by mutableStateOf<EventResponse?>(null)
         private set
@@ -59,6 +62,8 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
 
     /** What was last played on the user's Spotify for the event: the song and whether it was playing. */
     private var synced: Pair<String?, Boolean>? = null
+    private var listenJob: Job? = null
+    private var spotifyPremium = false
     private var nextNoticeId = 0L
     private var noticeJob: Job? = null
 
@@ -68,9 +73,10 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     }
 
     /** Whether the user can focus an event (Spotify Premium linked); false drops the current focus. */
-    fun updateCanFocus(premium: Boolean) {
-        canFocus = premium
-        if (!premium) unfocus()
+    fun updateCanFocus(premium: Boolean, appleAvailable: Boolean = false) {
+        spotifyPremium = premium
+        canFocus = premium || appleAvailable
+        if (!canFocus) unfocus()
     }
 
     fun focus(newEvent: EventResponse) {
@@ -85,6 +91,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     }
 
     fun unfocus() {
+        listenJob?.cancel()
         event = null
         detail = null
         synced = null
@@ -189,25 +196,61 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
      * The owner's own Spotify already plays it.
      */
     private fun listenAlong(detail: EventDetailResponse) {
-        if (detail.event.isOwner || !player.spotifyConnected) return
         val track = detail.nowPlaying?.track
+        if (detail.event.isOwner && track?.source == TrackSource.SPOTIFY && spotifyPremium) {
+            listenJob?.cancel()
+            synced = track.id to (detail.event.status == EventStatus.PLAYING)
+            player.stopEventLocalPlayback()
+            return
+        }
         val playing = track != null && detail.event.status == EventStatus.PLAYING
         val target = track?.id to playing
         if (target == synced) return
         val previous = synced
         synced = target
+        listenJob?.cancel()
         when {
             playing && track != null -> {
-                player.forEvent { player.play(listOf(track), 0) }
-                scope.launch {
-                    // Spotify needs a moment to start the song before it can jump to the event's moment.
+                listenJob = scope.launch {
+                    if (player.isPlaying && player.track?.id != track.id) {
+                        player.forEvent { player.togglePlay() }
+                    }
+                    val playable = try {
+                        resolveTrack(track)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (playable == null) {
+                        player.reportPlaybackError(UiText.of(Res.string.event_track_unavailable))
+                        return@launch
+                    }
+                    if (event?.id != detail.event.id || synced != target) return@launch
+                    player.forEvent { player.play(listOf(playable), 0) }
                     delay(SEEK_DELAY_MS)
-                    if (event?.id != detail.event.id) return@launch
+                    if (event?.id != detail.event.id || synced != target) return@launch
                     player.forEvent { player.seek(detail.progressMs + (Clock.System.now().toEpochMilliseconds() - detail.sentAt)) }
                 }
             }
             // Paused or stopped by the owner: pause too.
             previous?.second == true && player.isPlaying -> player.forEvent { player.togglePlay() }
+        }
+    }
+
+    private suspend fun resolveTrack(track: TrackResponse): TrackResponse? {
+        if (track.source == TrackSource.MUSIC_ROOM) return track
+        if (track.source == TrackSource.SPOTIFY && spotifyPremium) return track
+        if (track.source == TrackSource.APPLE_MUSIC && apple.connected) return track
+        val isrc = track.isrc?.takeIf { it.matches(Regex("[A-Za-z0-9]{12}")) } ?: return null
+        return when {
+            track.source == TrackSource.SPOTIFY && apple.connected -> {
+                val storefront = apple.storefront ?: return null
+                api.matchAppleMusic(isrc, storefront).items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
+            }
+            track.source == TrackSource.APPLE_MUSIC && spotifyPremium ->
+                api.searchTracks("isrc:$isrc").items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
+            else -> null
         }
     }
 

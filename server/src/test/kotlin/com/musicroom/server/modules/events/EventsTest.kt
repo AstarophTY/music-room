@@ -31,6 +31,8 @@ import com.musicroom.shared.dto.NotificationsResponse
 import com.musicroom.shared.dto.ProposeTrackRequest
 import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.SpotifyConnectResponse
+import com.musicroom.shared.dto.TrackResponse
+import com.musicroom.shared.dto.TrackSource
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -67,6 +69,50 @@ import org.testcontainers.junit.jupiter.Testcontainers
 
 @Testcontainers(disabledWithoutDocker = true)
 class EventsTest {
+    @Test
+    fun `apple track uses the clock even when the owner has spotify premium`() = testApplication {
+        val client = client()
+        val owner = client.user(spotify = true)
+        val event = client.create(owner).event
+        val apple = TrackResponse(
+            id = "apple:us:54321", name = "Apple track", artists = listOf("Artist"),
+            album = "Album", durationMs = 200_000, uri = "54321", source = TrackSource.APPLE_MUSIC,
+        )
+        EventTracksRepository(TestDatabase.module).propose(UUID.fromString(event.id), apple, UUID.fromString(owner.id))
+        spotify.plays.clear()
+        val started: EventDetailResponse = client.json(HttpMethodCall.POST, ApiRoutes.eventPlay(event.id), owner).body()
+        assertEquals(apple.id, started.nowPlaying?.track?.id)
+        appModule.events.service.player.tick(UUID.fromString(event.id))
+        assertTrue(spotify.plays.isEmpty())
+        assertEquals(apple.id, client.detail(owner, event.id).nowPlaying?.track?.id)
+    }
+
+
+    @Test
+    fun `apple track is never queued on spotify and uses the event clock`() = testApplication {
+        val client = client()
+        val owner = client.user(spotify = true)
+        val event = client.create(owner).event
+        client.propose(owner, event.id, "t1")
+        client.json(HttpMethodCall.POST, ApiRoutes.eventPlay(event.id), owner)
+        val apple = TrackResponse(
+            id = "apple:us:12345", name = "Apple track", artists = listOf("Artist"),
+            album = "Album", durationMs = 200_000, uri = "12345", source = TrackSource.APPLE_MUSIC,
+        )
+        EventTracksRepository(TestDatabase.module).propose(UUID.fromString(event.id), apple, UUID.fromString(owner.id))
+        spotify.queued.clear()
+        val pausesBefore = spotify.pauses
+        spotify.playbackState = SpotifyPlaybackState(isPlaying = true, progressMs = 190_000, item = spotify.tracks.getValue("t1"))
+        appModule.events.service.player.tick(UUID.fromString(event.id))
+        assertTrue(spotify.queued.isEmpty())
+        assertEquals(apple.id, client.detail(owner, event.id).queue.first().track.id)
+
+        spotify.playbackState = SpotifyPlaybackState(isPlaying = false, progressMs = 0, item = spotify.tracks.getValue("t1"))
+        appModule.events.service.player.tick(UUID.fromString(event.id))
+        assertEquals(apple.id, client.detail(owner, event.id).nowPlaying?.track?.id)
+        assertTrue(spotify.pauses > pausesBefore)
+        assertTrue(spotify.plays.none { it.second?.uris?.contains(apple.uri) == true })
+    }
 
     private val spotify = FakeSpotifyApi().apply {
         tracks = listOf("t1", "t2", "t3").associateWith { FakeSpotifyApi.track(it, "Daft Punk").copy(durationMs = 200_000) }

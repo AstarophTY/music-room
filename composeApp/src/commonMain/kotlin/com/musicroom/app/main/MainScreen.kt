@@ -48,6 +48,7 @@ import com.musicroom.app.player.NowPlayingSheet
 import com.musicroom.app.player.PlayerBar
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.music.AppleMusicPlayback
+import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.Proposer
 import com.musicroom.app.player.QueueToast
 import com.musicroom.app.playlists.PlaylistsScreen
@@ -108,16 +109,17 @@ fun MainScreen(
     val tabsKey = "tabs"
     val scope = rememberCoroutineScope()
     val appleMusicPlayback = AppleMusicPlayback.Local.current
+    val appleMusicConnection = AppleMusicConnection.Local.current
     val player = remember(api, appleMusicPlayback) { PlayerController(api, scope, appleMusicPlayback) }
     val social = remember(api, user.id) { SocialController(api, user.id, scope) }
     // The event the user listens to: its music plays on their Spotify too, and swiped songs are proposed to it.
-    val eventFocus = remember(api) { EventFocus(api, player, scope) }
+    val eventFocus = remember(api, player, appleMusicConnection) { EventFocus(api, player, scope, appleMusicConnection) }
     val locate = rememberLocationProvider()
     LaunchedEffect(eventFocus) { eventFocus.run() }
     // An uploaded song plays in the app: it stops with the signed-in screens (logout).
     DisposableEffect(player) { onDispose { player.release() } }
     // Listening to an event plays on the user's Spotify: only with Premium.
-    LaunchedEffect(eventFocus, user.spotifyConnected) {
+    LaunchedEffect(eventFocus, user.spotifyConnected, appleMusicPlayback.connected) {
         val status = if (!user.spotifyConnected) {
             null
         } else {
@@ -129,7 +131,7 @@ fun MainScreen(
                 null
             }
         }
-        eventFocus.updateCanFocus(status?.connected == true && status.product == "premium")
+        eventFocus.updateCanFocus(status?.connected == true && status.product == "premium", appleMusicPlayback.available && appleMusicPlayback.connected)
     }
     // Live friends, messages and notifications while logged in.
     LaunchedEffect(social) { social.run() }

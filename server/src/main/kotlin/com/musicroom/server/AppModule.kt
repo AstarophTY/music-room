@@ -66,7 +66,7 @@ class AppModule(
 
     val premium = PremiumModule(database, users.repository, config.stripe, stripeApi)
 
-    val events = EventsModule(database, spotify.service, social.service, jwtService)
+    val events = EventsModule(database, spotify.service, social.service, jwtService, appleMusic.catalog)
 
     val modules: List<Module> = listOf(
         SystemModule(config, database),

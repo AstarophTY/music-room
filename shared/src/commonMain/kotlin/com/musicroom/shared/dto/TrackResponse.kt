@@ -18,6 +18,7 @@ data class TrackResponse(
     val spotifyUrl: String? = null,
     val uri: String,
     val source: TrackSource = TrackSource.SPOTIFY,
+    val isrc: String? = null,
 ) {
     /** Uploaded to Music Room: the app plays it, Spotify cannot. */
     val hosted: Boolean get() = source == TrackSource.MUSIC_ROOM

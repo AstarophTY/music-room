@@ -23,10 +23,46 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerControllerAppleMusicTest {
+    @Test
+    fun localEventPlaybackStopsBeforeSpotifyTakesOver() = runTest {
+        val fixture = fixture(this)
+        try {
+            fixture.controller.play(listOf(track("apple-1", TrackSource.APPLE_MUSIC)), 0)
+            runCurrent()
+            fixture.controller.stopEventLocalPlayback()
+            assertFalse(fixture.controller.playingAppleMusic)
+            assertEquals(1, fixture.apple.stopCalls)
+            assertNull(fixture.controller.track)
+        } finally {
+            fixture.controller.release()
+            fixture.api.close()
+        }
+    }
+    @Test
+    fun spotifyTrackInMixedListPlaysWhenApplePlaybackIsUnavailable() = runTest {
+        val fixture = fixture(this)
+        try {
+            fixture.apple.available = false
+            val spotifyTrack = track("spotify-1", TrackSource.SPOTIFY)
+            val appleTrack = track("apple-1", TrackSource.APPLE_MUSIC)
+
+            fixture.controller.play(listOf(spotifyTrack, appleTrack), 0)
+            runCurrent()
+
+            assertEquals(spotifyTrack.id, fixture.controller.track?.id)
+            assertTrue(fixture.controller.isPlaying)
+            assertTrue(fixture.apple.requests.isEmpty())
+        } finally {
+            fixture.controller.release()
+            fixture.api.close()
+        }
+    }
+
     @Test
     fun appleTrackNeedsAConnectionBeforePlaying() = runTest {
         val fixture = fixture(this)
@@ -165,7 +201,7 @@ class PlayerControllerAppleMusicTest {
     )
 
     private class FakeAppleMusicPlayback : AppleMusicPlayback {
-        override val available = true
+        override var available = true
         override var connected = true
         val requests = mutableListOf<Request>()
         var stopCalls = 0

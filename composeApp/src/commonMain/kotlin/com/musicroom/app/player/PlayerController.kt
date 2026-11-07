@@ -179,7 +179,7 @@ class PlayerController(
      */
     fun play(tracks: List<TrackResponse>, index: Int) {
         val track = tracks.getOrNull(index) ?: return
-        if (tracks.any { it.source == TrackSource.APPLE_MUSIC } && !apple.available) {
+        if (track.source == TrackSource.APPLE_MUSIC && !apple.available) {
             error = UiText.of(Res.string.apple_music_playback_pending)
             return
         }
@@ -571,6 +571,15 @@ class PlayerController(
         leaveAppleMusic()
     }
 
+    /** Stops device-local event audio before the host's Spotify takes over. */
+    fun stopEventLocalPlayback() {
+        if (!playingHosted && !playingAppleMusic) return
+        leaveHosted()
+        leaveAppleMusic()
+        state = null
+        refreshNow.trySend(Unit)
+    }
+
     /** Returns false when Spotify playback is unavailable. */
     private fun requireSpotify(): Boolean {
         if (!allowed()) return false
@@ -605,6 +614,10 @@ class PlayerController(
     fun dismissError() {
         error = null
         needsDevice = false
+    }
+
+    fun reportPlaybackError(problem: UiText) {
+        error = problem
     }
 
     /** Keeps the state in sync with Spotify until cancelled: often while playing, rarely otherwise. */

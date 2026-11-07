@@ -10,6 +10,7 @@ import com.musicroom.server.modules.events.entities.EventTrack
 import com.musicroom.server.modules.events.entities.EventTracksTable
 import com.musicroom.server.modules.social.PeopleRepository
 import com.musicroom.server.modules.spotify.SpotifyService
+import com.musicroom.server.modules.applemusic.AppleMusicCatalog
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.EventValidation
 import com.musicroom.shared.GeoDistance
@@ -42,6 +43,7 @@ class EventsService(
     private val people: PeopleRepository,
     private val spotify: SpotifyService,
     private val friends: EventFriends,
+    private val appleMusic: AppleMusicCatalog,
 ) {
     val hub = EventsHub { eventId, userIds -> render(eventId, userIds) }
     val player = EventPlayer(events, tracks, spotify, onChange = hub::changed)
@@ -104,8 +106,8 @@ class EventsService(
         if (trackId.startsWith(TrackResponse.HOSTED_PREFIX)) {
             throw BadRequestException("Songs uploaded to Music Room cannot play in an event", ApiErrors.HOSTED_TRACK_NOT_ALLOWED)
         }
-        // The details come from Spotify, not from the app.
-        val track = spotify.track(userId, trackId)
+        // Resolve catalogue metadata on the server before accepting a track.
+        val track = if (trackId.startsWith("apple:")) appleMusic.track(trackId) else spotify.track(userId, trackId)
         tracks.propose(eventId, track, userId)
         hub.changed(eventId)
         return detail(userId, eventId)

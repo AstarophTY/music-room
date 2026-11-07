@@ -233,7 +233,7 @@
     <string name="apple_music_storefront_missing">Your Apple Music storefront is unavailable. Reconnect Apple Music and try again.</string>
     <string name="apple_music_playback_pending">Apple Music playback is not available yet.</string>
     <string name="apple_music_search_hint">Search Apple Music</string>
-    <string name="event_host_provider_required">Connecting Spotify is currently required to play music when hosting an event. Apple Music playback is not yet available.</string>
+    <string name="event_host_provider_required">Connect an audio provider to host an event with music.</string>
     <string name="audio_providers_home_description">Manage your music provider connections.</string>
     <string name="audio_providers_home_action">Manage providers</string>
     <string name="apple_music_connecting">Connecting to Apple Music…</string>
@@ -450,7 +450,7 @@
     <string name="event_paused">Paused</string>
     <string name="event_now_playing">Now playing</string>
     <string name="event_nothing_playing">Nothing plays yet.</string>
-    <string name="event_host_streams">%1$s runs the music: listen to the event to hear it on your Spotify, or just vote.</string>
+    <string name="event_host_streams">%1$s runs the music. Listen with a supported connected provider, or vote.</string>
     <string name="event_start">Start the music</string>
     <string name="event_resume">Resume</string>
     <string name="event_pause">Pause</string>
@@ -467,8 +467,9 @@
     <string name="event_proposed_by">proposed by %1$s</string>
     <string name="event_focus">Listen to this event</string>
     <string name="event_unfocus">Stop listening</string>
-    <string name="event_focus_hint">Your Spotify follows its music, and songs added to the queue (or swiped to the right) are proposed here.</string>
-    <string name="event_focus_premium">Listening to an event needs a linked Spotify Premium account.</string>
+    <string name="event_focus_hint">Your player follows the event, and songs added to the queue are proposed here.</string>
+    <string name="event_focus_premium">Listening requires a connected provider that supports the current song.</string>
+    <string name="event_track_unavailable">This song is not available from your connected music provider.</string>
     <string name="player_locked_by_event">You are listening to an event: stop listening to it to play your own music.</string>
     <string name="event_focus_listening">Listening to %1$s</string>
     <string name="event_focus_proposed">%1$s proposed</string>

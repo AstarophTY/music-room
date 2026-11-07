@@ -64,6 +64,20 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
         return chartTracks(Json.parseToJsonElement(response.bodyAsText()).jsonObject, region)
     }
 
+    suspend fun matchIsrc(isrc: String, storefront: String): TrackPageResponse {
+        val region = validateStorefront(storefront)
+        if (!isrc.matches(Regex("[A-Za-z0-9]{12}"))) throw BadRequestException("Invalid recording code")
+        val response = client.get("https://api.music.apple.com/v1/catalog/$region/songs") {
+            bearerAuth(tokens.create())
+            parameter("filter[isrc]", isrc.uppercase())
+            parameter("limit", 25)
+        }
+        check(response.status.isSuccess()) { "Apple Music catalog lookup failed (${response.status.value})" }
+        val data = Json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]?.jsonArray.orEmpty()
+        val tracks = data.map { song(it.jsonObject, region) }.filter { it.isrc.equals(isrc, ignoreCase = true) }
+        return TrackPageResponse(tracks, tracks.size)
+    }
+
     internal fun chartTracks(root: JsonObject, storefront: String): TrackPageResponse {
         val charts = root["results"]?.jsonObject?.get("songs")?.jsonArray.orEmpty()
         val songs = charts.firstOrNull()?.jsonObject?.get("data")?.jsonArray.orEmpty()
@@ -82,6 +96,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             album = value("albumName"), imageUrl = image,
             durationMs = attributes["durationInMillis"]?.jsonPrimitive?.longOrNull ?: 0,
             explicit = value("contentRating") == "explicit", uri = id, source = TrackSource.APPLE_MUSIC,
+            isrc = value("isrc").ifBlank { null },
         )
     }
 

@@ -24,6 +24,11 @@ class AppleMusicController(private val tokens: AppleMusicTokenService, private v
                 val storefront = call.request.queryParameters["storefront"] ?: throw BadRequestException("Missing storefront")
                 call.respond(catalog.charts(storefront))
             }
+            get(ApiRoutes.APPLE_MUSIC_MATCH) {
+                val storefront = call.request.queryParameters["storefront"] ?: throw BadRequestException("Missing storefront")
+                val isrc = call.request.queryParameters["isrc"] ?: throw BadRequestException("Missing recording code")
+                call.respond(catalog.matchIsrc(isrc, storefront))
+            }
         }
     }
 }

@@ -34,6 +34,7 @@ import com.musicroom.app.theme.components.AppBottomSheet
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistResponse
 import org.jetbrains.compose.resources.stringResource
@@ -66,7 +67,7 @@ fun CreateSheet(
                 if (shown == "playlist") {
                     NewPlaylistForm(api, onBack = { form = "" }, onCreated = onPlaylistCreated)
                 } else if (shown == "event") {
-                    if (spotifyConnected) {
+                    if (spotifyConnected || (AppleMusicPlayback.Local.current.available && AppleMusicPlayback.Local.current.connected)) {
                         NewEventForm(api, onBack = { form = "" }, onCreated = onEventCreated)
                     } else {
                         Text(stringResource(Res.string.event_host_provider_required), style = AppTheme.typography.body, color = AppTheme.colors.textPrimary)

@@ -14,6 +14,7 @@ data class SpotifyTrack(
     val durationMs: Long = 0,
     val explicit: Boolean = false,
     val externalUrls: SpotifyExternalUrls? = null,
+    val externalIds: SpotifyExternalIds? = null,
     val uri: String = "",
     /** The track asked for, when Spotify plays another version of it available in the user's country. */
     val linkedFrom: LinkedTrack? = null,
@@ -38,6 +39,7 @@ data class SpotifyTrack(
             explicit = explicit,
             spotifyUrl = externalUrls?.spotify,
             uri = uri,
+            isrc = externalIds?.isrc,
         )
     }
 }

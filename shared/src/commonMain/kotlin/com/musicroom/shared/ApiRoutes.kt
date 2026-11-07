@@ -31,6 +31,7 @@ object ApiRoutes {
     const val APPLE_MUSIC_DEVELOPER_TOKEN = "$API_V1/apple-music/developer-token"
     const val APPLE_MUSIC_SEARCH = "$API_V1/apple-music/search"
     const val APPLE_MUSIC_CHARTS = "$API_V1/apple-music/charts"
+    const val APPLE_MUSIC_MATCH = "$API_V1/apple-music/match"
 
     const val MUSIC = "$API_V1/music"
     const val MUSIC_SEARCH = "$MUSIC/search"

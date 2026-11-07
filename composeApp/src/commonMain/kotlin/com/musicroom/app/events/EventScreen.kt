@@ -384,6 +384,7 @@ fun EventScreen(
             onAdd = { room.propose(it) },
             onDismiss = { showPicker = false },
             showTopTracks = user.spotifyConnected,
+            allowAppleMusic = true,
         )
     }
     if (showInvite) EventInviteSheet(api, room, onDismiss = { showInvite = false })
