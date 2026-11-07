@@ -15,6 +15,12 @@ class AppleMusicController(private val tokens: AppleMusicTokenService, private v
             get(ApiRoutes.APPLE_MUSIC_DEVELOPER_TOKEN) {
                 call.respond(AppleMusicDeveloperToken(tokens.create()))
             }
+            get(ApiRoutes.APPLE_MUSIC_ARTIST) {
+                call.respond(catalog.artistDetail(call.request.queryParameters["id"] ?: throw BadRequestException("Missing artist")))
+            }
+            get(ApiRoutes.APPLE_MUSIC_ALBUM) {
+                call.respond(catalog.albumDetail(call.request.queryParameters["id"] ?: throw BadRequestException("Missing album")))
+            }
             get(ApiRoutes.APPLE_MUSIC_SEARCH) {
                 val query = call.request.queryParameters["q"] ?: throw BadRequestException("Missing search query")
                 val storefront = call.request.queryParameters["storefront"] ?: throw BadRequestException("Missing storefront")

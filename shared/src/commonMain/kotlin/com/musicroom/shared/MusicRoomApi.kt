@@ -235,9 +235,13 @@ class MusicRoomApi(
     suspend fun search(query: String): SearchResponse =
         authorized(HttpMethod.Get, ApiRoutes.MUSIC_SEARCH_ALL) { url.parameters.append("q", query) }.bodyOrThrow()
 
-    suspend fun artist(id: String): ArtistDetailResponse = authorized(HttpMethod.Get, ApiRoutes.artist(id)).bodyOrThrow()
+    suspend fun artist(id: String): ArtistDetailResponse = if (id.startsWith("apple:")) {
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_ARTIST) { parameter("id", id) }.bodyOrThrow()
+    } else authorized(HttpMethod.Get, ApiRoutes.artist(id)).bodyOrThrow()
 
-    suspend fun album(id: String): AlbumDetailResponse = authorized(HttpMethod.Get, ApiRoutes.album(id)).bodyOrThrow()
+    suspend fun album(id: String): AlbumDetailResponse = if (id.startsWith("apple:")) {
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_ALBUM) { parameter("id", id) }.bodyOrThrow()
+    } else authorized(HttpMethod.Get, ApiRoutes.album(id)).bodyOrThrow()
 
     suspend fun track(id: String): TrackResponse = authorized(HttpMethod.Get, ApiRoutes.track(id)).bodyOrThrow()
 

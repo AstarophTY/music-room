@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.musicroom.app.music.Durations
 import com.musicroom.app.theme.tokens.AppTheme
@@ -31,7 +32,7 @@ fun SeekBar(player: PlayerController, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         val shown = dragged?.let { (it * duration).toLong() } ?: position
-        Text(Durations.format(shown), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+        Text(Durations.format(shown), style = AppTheme.typography.bodySmall, color = Color.White)
         Slider(
             value = dragged ?: fraction,
             onValueChange = { dragged = it },
@@ -50,6 +51,6 @@ fun SeekBar(player: PlayerController, modifier: Modifier = Modifier) {
                 disabledInactiveTrackColor = colors.border,
             ),
         )
-        Text(Durations.format(duration), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+        Text(Durations.format(duration), style = AppTheme.typography.bodySmall, color = Color.White)
     }
 }

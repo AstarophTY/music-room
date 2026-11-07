@@ -26,7 +26,7 @@ fun AlbumCard(api: MusicRoomApi, album: AlbumResponse, onClick: () -> Unit, modi
     val colors = AppTheme.colors
     Column(modifier.pressable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
         RemoteImage(api, album.imageUrl, Modifier.fillMaxWidth().aspectRatio(1f).clip(AppShapes.medium))
-        ProviderIcon(TrackSource.SPOTIFY)
+        ProviderIcon(if (album.id.startsWith("apple:")) TrackSource.APPLE_MUSIC else TrackSource.SPOTIFY)
         Text(album.name, style = AppTheme.typography.label, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
             listOfNotNull(albumLabel(album), album.artists.joinToString(", ") { it.name }.takeIf { showArtists && it.isNotEmpty() })

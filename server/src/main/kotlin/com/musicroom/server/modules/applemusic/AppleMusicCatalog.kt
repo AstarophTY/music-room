@@ -2,6 +2,8 @@ package com.musicroom.server.modules.applemusic
 
 import com.musicroom.server.common.exceptions.BadRequestException
 import com.musicroom.server.common.exceptions.NotFoundException
+import com.musicroom.shared.dto.AlbumDetailResponse
+import com.musicroom.shared.dto.ArtistDetailResponse
 import com.musicroom.shared.dto.AlbumResponse
 import com.musicroom.shared.dto.AlbumType
 import com.musicroom.shared.dto.ArtistResponse
@@ -82,6 +84,43 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             type = AlbumType.ALBUM,
             uri = id,
         )
+    }
+
+    private suspend fun catalogItem(identifier: String, type: String, include: String): Pair<JsonObject, String> {
+        val parts = identifier.split(':')
+        if (parts.size != 3 || parts[0] != "apple" || !parts[2].matches(Regex("[0-9]{1,32}"))) {
+            throw BadRequestException("Invalid Apple Music identifier")
+        }
+        val region = validateStorefront(parts[1])
+        val response = client.get("https://api.music.apple.com/v1/catalog/$region/$type/${parts[2]}") {
+            bearerAuth(tokens.create())
+            parameter("include", include)
+        }
+        if (response.status == HttpStatusCode.NotFound) throw NotFoundException("Apple Music item not found")
+        check(response.status.isSuccess()) { "Apple Music catalog request failed (${response.status.value})" }
+        val data = Json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]?.jsonArray
+        return (data?.firstOrNull()?.jsonObject ?: throw NotFoundException("Apple Music item not found")) to region
+    }
+
+    private fun relationship(item: JsonObject, name: String) =
+        item["relationships"]?.jsonObject?.get(name)?.jsonObject?.get("data")?.jsonArray.orEmpty()
+
+    suspend fun artistDetail(identifier: String): ArtistDetailResponse {
+        val (item, region) = catalogItem(identifier, "artists", "albums")
+        val artist = artist(item, region)
+        val albums = relationship(item, "albums").map { album(it.jsonObject, region) }
+        val tracks = search(artist.name, region).tracks.filter { track ->
+            track.artists.any { it.equals(artist.name, ignoreCase = true) }
+        }
+        return ArtistDetailResponse(artist, tracks, albums)
+    }
+
+    suspend fun albumDetail(identifier: String): AlbumDetailResponse {
+        val (item, region) = catalogItem(identifier, "albums", "tracks,artists")
+        val artists = relationship(item, "artists").map { artist(it.jsonObject, region) }
+        val album = album(item, region).copy(artists = artists)
+        val tracks = relationship(item, "tracks").map { song(it.jsonObject, region) }
+        return AlbumDetailResponse(album, tracks)
     }
 
     suspend fun track(identifier: String): TrackResponse {

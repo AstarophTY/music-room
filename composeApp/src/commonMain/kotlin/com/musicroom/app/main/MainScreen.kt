@@ -104,6 +104,7 @@ fun MainScreen(
     var openSpotifyPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
     // The event open in the Events tab.
     var openEvent by rememberSaveable { mutableStateOf<String?>(null) }
+    var searchDetailOpen by remember { mutableStateOf(false) }
     var showNowPlaying by rememberSaveable { mutableStateOf(false) }
     var lastSettingsPage by remember { mutableStateOf(ProfileRoute.EditProfile) }
     // Social pages opened over the tabs (friends, chats, notifications, profiles), the last one on top: SocialPage keys.
@@ -257,6 +258,7 @@ fun MainScreen(
                 player,
                 social,
                 onOpenUser = { openSocial(SocialPage.Profile(it)) },
+                onDetailOpenChange = { searchDetailOpen = it },
             )
             MainTab.Events -> EventsScreen(
                 api,
@@ -440,7 +442,8 @@ fun MainScreen(
                     when (shown) {
                         tabsKey -> {
                             // A page opened from a tab (an event, a playlist) draws its own header instead of the tab bar.
-                            val detailOpen = (tab == MainTab.Events && openEvent != null) ||
+                            val detailOpen = (tab == MainTab.Search && searchDetailOpen) ||
+                                (tab == MainTab.Events && openEvent != null) ||
                                 (tab == MainTab.Playlists && (openRoomPlaylist != null || openSpotifyPlaylist != null))
                             Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
                                 if (!detailOpen) {

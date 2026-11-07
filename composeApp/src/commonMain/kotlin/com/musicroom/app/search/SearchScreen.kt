@@ -26,6 +26,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -128,6 +129,7 @@ fun SearchScreen(
     player: PlayerController,
     social: SocialController,
     onOpenUser: (String) -> Unit,
+    onDetailOpenChange: (Boolean) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var mood by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -147,6 +149,10 @@ fun SearchScreen(
     val albumPage = "album"
     val moodPage = "mood"
     val resultsPage = "results"
+    SideEffect {
+        val current = pages.lastOrNull()
+        onDetailOpenChange(current?.startsWith("$artistPage|") == true || current?.startsWith("$albumPage|") == true)
+    }
     // Songs shown under "All" before "See all".
     val topTrackCount = 5
     val scope = rememberCoroutineScope()

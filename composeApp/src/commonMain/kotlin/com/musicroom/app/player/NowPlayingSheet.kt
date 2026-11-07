@@ -118,7 +118,7 @@ fun NowPlayingSheet(
             Column(Modifier.fillMaxSize()) {
                 Column(
                     Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
-                        .padding(start = AppTheme.spacing.lg, end = AppTheme.spacing.lg, top = 28.dp, bottom = AppTheme.spacing.md),
+                        .padding(start = AppTheme.spacing.lg, end = AppTheme.spacing.lg, top = AppTheme.spacing.xl, bottom = AppTheme.spacing.md),
                     verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
                 ) {
                     TrackSection(api, player, onAddToPlaylist = { choosingPlaylist = true })
@@ -144,7 +144,7 @@ fun NowPlayingSheet(
                 }
             }
             Box(
-                Modifier.align(Alignment.TopCenter).padding(top = AppTheme.spacing.sm)
+                Modifier.align(Alignment.TopCenter).padding(top = AppTheme.spacing.lg)
                     .size(width = 36.dp, height = 4.dp)
                     .background(colors.textSecondary.copy(alpha = 0.5f), CircleShape),
             )

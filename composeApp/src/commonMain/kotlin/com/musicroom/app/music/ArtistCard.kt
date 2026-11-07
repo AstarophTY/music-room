@@ -30,7 +30,7 @@ import com.musicroom.shared.dto.ArtistResponse
 import com.musicroom.shared.dto.TrackSource
 import org.jetbrains.compose.resources.stringResource
 
-/** Round photo of an artist (a microphone when Spotify has none) with their name and "Artist" under it. */
+/** Round photo of an artist (a microphone when no image is available) with their name and "Artist" under it. */
 @Composable
 fun ArtistCard(api: MusicRoomApi, artist: ArtistResponse, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AppTheme.colors
@@ -58,6 +58,6 @@ fun ArtistCard(api: MusicRoomApi, artist: ArtistResponse, onClick: () -> Unit, m
             textAlign = TextAlign.Center,
         )
         Text(stringResource(Res.string.artist_label), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-        ProviderIcon(TrackSource.SPOTIFY)
+        ProviderIcon(if (artist.id.startsWith("apple:")) TrackSource.APPLE_MUSIC else TrackSource.SPOTIFY)
     }
 }
