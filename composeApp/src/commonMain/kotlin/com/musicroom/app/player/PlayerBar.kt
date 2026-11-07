@@ -30,6 +30,7 @@ import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.common.WindowSize
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_close
+import com.musicroom.app.generated.resources.event_nothing_playing
 import com.musicroom.app.generated.resources.now_playing_open
 import com.musicroom.app.generated.resources.spotify_open
 import com.musicroom.app.theme.components.AppButton
@@ -51,7 +52,7 @@ import org.jetbrains.compose.resources.stringResource
 fun PlayerBar(api: MusicRoomApi, player: PlayerController, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val track = player.track
     val error = player.error
-    if (track == null && error == null) return
+    if (track == null && error == null && player.eventRemote == null) return
     val colors = AppTheme.colors
     val border = AppTheme.spacing.border
     val wide = WindowSize.current == WindowSize.Expanded
@@ -80,7 +81,26 @@ fun PlayerBar(api: MusicRoomApi, player: PlayerController, onOpen: () -> Unit, m
                 }
             }
         }
-        if (track == null) return@Column
+        if (track == null) {
+            // Listening to an event that plays nothing yet: its owner can still start it from here.
+            if (player.eventRemote != null) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = AppTheme.spacing.md, end = AppTheme.spacing.xs, top = AppTheme.spacing.sm, bottom = AppTheme.spacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stringResource(Res.string.event_nothing_playing),
+                        style = AppTheme.typography.bodySmall,
+                        color = colors.textSecondary,
+                        modifier = Modifier.weight(1f).clip(AppShapes.small).pressable(onClick = onOpen),
+                    )
+                    PlayButton(player, 40.dp)
+                    SkipButton(player, forward = true)
+                }
+            }
+            return@Column
+        }
 
         // Cover and titles: tapping them opens the player page.
         val summary: @Composable (Int, Modifier) -> Unit = { coverSize, summaryModifier ->

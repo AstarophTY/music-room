@@ -91,14 +91,24 @@ class PlayerController(
         private set
 
     /**
-     * An event is focused: only the event's music plays ([forEvent]); the user's own commands (play, pause, skip,
-     * queue...) are refused with an [error] until they stop listening to it.
+     * An event is focused: only the event's music plays ([forEvent]), and the buttons drive it ([eventRemote]).
+     * Playing a song of their own makes the user leave the event ([leaveEvent]); songs added to the queue are
+     * proposed to it ([proposeToEvent]).
      */
     var lockedByEvent by mutableStateOf(false)
         private set
 
     /** Proposes songs to the focused event; while [lockedByEvent], songs added to the queue go there. Set by the focus. */
     var proposeToEvent: ((List<TrackResponse>) -> Unit)? = null
+
+    /**
+     * The focused event's remote, set by the focus: the buttons then drive the event's music (its owner only), and the
+     * ones the event cannot do are greyed out, see [canTogglePlay], [canSkipNext], [canSkipPrevious] and [canSeek].
+     */
+    var eventRemote by mutableStateOf<EventRemote?>(null)
+
+    /** Stops listening to the focused event; set by the focus. Called when the user plays a song of their own. */
+    var leaveEvent: (() -> Unit)? = null
 
     /** A command sent by the focused event, allowed while [lockedByEvent]. */
     private var eventCommand = false
@@ -152,6 +162,15 @@ class PlayerController(
 
     val track: TrackResponse? get() = state?.track
     val isPlaying: Boolean get() = state?.isPlaying == true
+
+    /** What the play / pause button shows: the focused event's status, else what the player does. */
+    val showsPlaying: Boolean get() = eventRemote?.playing ?: isPlaying
+
+    /** With an event focused, only its owner starts, pauses and skips; the event has no "previous" and no seek. */
+    val canTogglePlay: Boolean get() = eventRemote?.canControl ?: true
+    val canSkipNext: Boolean get() = eventRemote?.let { it.canControl && it.canSkip } ?: true
+    val canSkipPrevious: Boolean get() = eventRemote == null
+    val canSeek: Boolean get() = eventRemote == null
 
     /** What Spotify plays after [upNext] on its own; the song already handed to it is left out. */
     val following: List<TrackResponse>
@@ -239,12 +258,13 @@ class PlayerController(
      * is focused, the event's queue is the queue: the songs are proposed to it instead.
      */
     fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>) {
+        // Proposing to a focused event plays nothing here: no need for the local Apple Music playback.
+        val toEvent = proposeToEvent
+        if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
         if (songs.any { it.first.source == TrackSource.APPLE_MUSIC } && !apple.available) {
             error = UiText.of(Res.string.apple_music_playback_pending)
             return
         }
-        val toEvent = proposeToEvent
-        if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
         if (songs.isEmpty()) return
         // Uploaded songs play without Spotify.
         if (songs.all { it.first.hosted || it.first.source == TrackSource.APPLE_MUSIC }) {
@@ -343,6 +363,7 @@ class PlayerController(
     }
 
     fun togglePlay() {
+        if (viaEvent { it.togglePlay() }) return
         if (!allowed()) return
         val current = state ?: return
         if (playingHosted) {
@@ -368,11 +389,13 @@ class PlayerController(
 
     /** Skips to the first [upNext] song, or to the next song of the list. */
     fun next() {
+        if (viaEvent { if (it.canSkip) it.skip() }) return
         if (allowed()) advance()
     }
 
     /** Back to the previous song of a list the app plays (at its start), else to the start of the song. */
     fun previous() {
+        if (eventRemote != null && !eventCommand) return
         if (!allowed()) return
         val list = appList
         when {
@@ -386,6 +409,7 @@ class PlayerController(
     }
 
     fun seek(positionMs: Long) {
+        if (eventRemote != null && !eventCommand) return
         if (!allowed()) return
         state?.let { update(it.copy(progressMs = positionMs)) }
         if (playingHosted) hosted.seek(positionMs) else if (playingAppleMusic) apple.seek(positionMs) else command { spotify.seek(positionMs) }
@@ -603,12 +627,32 @@ class PlayerController(
         }
     }
 
-    /** False, with an explanation, for the user's own commands while an event is focused. */
+    /**
+     * A button pressed while an event is focused drives the event's music (its owner only), not the user's own: runs
+     * [command] on the remote when the user may, and returns true. False when no event is focused, and for the
+     * focus's own commands ([forEvent]).
+     */
+    private fun viaEvent(command: (EventRemote) -> Unit): Boolean {
+        val remote = eventRemote ?: return false
+        if (eventCommand) return false
+        if (remote.canControl) command(remote)
+        return true
+    }
+
+    /**
+     * Always true: when the user plays a song of their own while an event is focused, they simply stop listening to
+     * it ([leaveEvent]) and the command goes on. The focus's own commands ([forEvent]) never leave it.
+     */
     private fun allowed(): Boolean {
         if (!lockedByEvent || eventCommand) return true
-        needsDevice = false
-        error = LOCKED_ERROR
-        return false
+        val leave = leaveEvent
+        if (leave != null) {
+            leave()
+        } else {
+            eventRemote = null
+            lockForEvent(false)
+        }
+        return true
     }
 
     fun dismissError() {

@@ -35,10 +35,6 @@ class EventRoom(private val api: MusicRoomApi, val eventId: String, private val 
     var deleted by mutableStateOf(false)
         private set
 
-    /** An owner command is running (play, pause...). */
-    var busy by mutableStateOf(false)
-        private set
-
     /** Reads the user's position; null on platforms without one. Set by the page. */
     var locate: (suspend () -> GeoPoint?)? = null
 
@@ -107,14 +103,6 @@ class EventRoom(private val api: MusicRoomApi, val eventId: String, private val 
 
     fun remove(trackId: String) = send { api.removeEventTrack(eventId, trackId) }
 
-    fun play() = command { api.playEvent(eventId) }
-
-    fun pause() = command { api.pauseEvent(eventId) }
-
-    fun skip() = command { api.skipEvent(eventId) }
-
-    fun stop() = command { api.stopEvent(eventId) }
-
     fun invite(userId: String) = send { api.inviteToEvent(eventId, userId) }
 
     fun uninvite(userId: String) = send {
@@ -142,22 +130,6 @@ class EventRoom(private val api: MusicRoomApi, val eventId: String, private val 
         }
         if (found == null) error = UiText.of(Res.string.event_location_failed)
         return (found != null) to found
-    }
-
-    /** Runs an owner command; a missing Spotify account asks to link it. */
-    private fun command(action: suspend () -> EventDetailResponse) {
-        busy = true
-        scope.launch {
-            try {
-                detail = action()
-                error = null
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                error = UiText.of(e)
-            }
-            busy = false
-        }
     }
 
     /** Sends a change; its answer is the new state. On failure, goes back to [revertTo] and shows the problem. */

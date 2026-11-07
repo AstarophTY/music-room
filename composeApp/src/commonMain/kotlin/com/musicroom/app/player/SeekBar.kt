@@ -17,7 +17,7 @@ import androidx.compose.ui.unit.dp
 import com.musicroom.app.music.Durations
 import com.musicroom.app.theme.tokens.AppTheme
 
-/** Elapsed time, a slider to move in the track (applied when released), and the track length. */
+/** Elapsed time, a slider to move in the track (applied when released), and the track length. Greyed out while an event is focused. */
 @Composable
 fun SeekBar(player: PlayerController, modifier: Modifier = Modifier) {
     val colors = AppTheme.colors
@@ -40,10 +40,14 @@ fun SeekBar(player: PlayerController, modifier: Modifier = Modifier) {
                 dragged = null
             },
             modifier = Modifier.weight(1f).height(24.dp),
+            enabled = player.canSeek,
             colors = SliderDefaults.colors(
                 thumbColor = colors.accent,
                 activeTrackColor = colors.accent,
                 inactiveTrackColor = colors.border,
+                disabledThumbColor = colors.textDisabled,
+                disabledActiveTrackColor = colors.textDisabled,
+                disabledInactiveTrackColor = colors.border,
             ),
         )
         Text(Durations.format(duration), style = AppTheme.typography.bodySmall, color = colors.textSecondary)

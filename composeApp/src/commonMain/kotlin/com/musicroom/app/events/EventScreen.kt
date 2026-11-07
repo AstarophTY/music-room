@@ -32,18 +32,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ArrowLeft
-import com.composables.icons.lucide.CircleStop
 import com.composables.icons.lucide.Globe
 import com.composables.icons.lucide.HeadphoneOff
 import com.composables.icons.lucide.Headphones
 import com.composables.icons.lucide.Lock
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MapPin
-import com.composables.icons.lucide.Pause
-import com.composables.icons.lucide.Play
 import com.composables.icons.lucide.Plus
 import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.SkipForward
 import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Vote
@@ -70,18 +66,13 @@ import com.musicroom.app.generated.resources.event_focus_premium
 import com.musicroom.app.generated.resources.event_unfocus
 import com.musicroom.app.generated.resources.event_listeners
 import com.musicroom.app.generated.resources.event_next
-import com.musicroom.app.generated.resources.event_pause
 import com.musicroom.app.generated.resources.event_propose
 import com.musicroom.app.generated.resources.event_propose_added
 import com.musicroom.app.generated.resources.event_propose_title
 import com.musicroom.app.generated.resources.event_queue
 import com.musicroom.app.generated.resources.event_queue_empty_body
 import com.musicroom.app.generated.resources.event_queue_empty_title
-import com.musicroom.app.generated.resources.event_resume
 import com.musicroom.app.generated.resources.event_settings
-import com.musicroom.app.generated.resources.event_skip
-import com.musicroom.app.generated.resources.event_start
-import com.musicroom.app.generated.resources.event_stop
 import com.musicroom.app.generated.resources.event_visibility_private
 import com.musicroom.app.generated.resources.event_visibility_public
 import com.musicroom.app.music.TrackPickerSheet
@@ -94,7 +85,6 @@ import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
-import com.musicroom.shared.dto.EventStatus
 import com.musicroom.shared.dto.EventVisibility
 import com.musicroom.shared.dto.EventVoteLicense
 import com.musicroom.shared.dto.UserResponse
@@ -230,45 +220,7 @@ fun EventScreen(
                 EventNowPlaying(api, detail) {
                     Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
                         if (event.isOwner) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                                when (event.status) {
-                                    EventStatus.PLAYING -> AppButton(
-                                        stringResource(Res.string.event_pause),
-                                        room::pause,
-                                        Modifier.weight(1f),
-                                        enabled = !room.busy,
-                                        variant = AppButtonVariant.Secondary,
-                                        icon = Lucide.Pause,
-                                    )
-                                    else -> AppButton(
-                                        stringResource(if (event.status == EventStatus.PAUSED) Res.string.event_resume else Res.string.event_start),
-                                        room::play,
-                                        Modifier.weight(1f),
-                                        enabled = !room.busy,
-                                        icon = Lucide.Play,
-                                    )
-                                }
-                                if (event.status != EventStatus.WAITING) {
-                                    AppButton(
-                                        stringResource(Res.string.event_skip),
-                                        room::skip,
-                                        Modifier.weight(1f),
-                                        enabled = !room.busy,
-                                        variant = AppButtonVariant.Secondary,
-                                        icon = Lucide.SkipForward,
-                                    )
-                                }
-                            }
-                            if (event.status != EventStatus.WAITING) {
-                                AppButton(
-                                    stringResource(Res.string.event_stop),
-                                    room::stop,
-                                    Modifier.fillMaxWidth(),
-                                    enabled = !room.busy,
-                                    variant = AppButtonVariant.Ghost,
-                                    icon = Lucide.CircleStop,
-                                )
-                            }
+                            // The music is driven from the player (play, pause, next): only the problem shows here.
                             detail.playbackIssue?.let { code ->
                                 Text(UiText.of(ApiException(409, code, null)).resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
                             }
