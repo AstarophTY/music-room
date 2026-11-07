@@ -189,7 +189,7 @@ fun SearchScreen(
         loading = true
         try {
             coroutineScope {
-                val useSpotify = user.spotifyConnected || !appleMusic.connected
+                val useSpotify = user.spotifyConnected
                 if (appleMusic.connected && appleMusic.storefront.isNullOrBlank()) {
                     error = UiText.of(Res.string.apple_music_storefront_missing)
                 }
