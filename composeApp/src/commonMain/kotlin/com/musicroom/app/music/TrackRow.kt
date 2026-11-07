@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.musicroom.app.common.RemoteImage
@@ -35,12 +36,13 @@ fun TrackRow(
     modifier: Modifier = Modifier,
     trailing: (@Composable () -> Unit)? = null,
     onSwipeRight: (() -> Unit)? = null,
+    upNextList: Boolean = false
 ) {
     if (onSwipeRight != null) {
         val focus = EventFocus.Local.current
         val toEvent = focus?.event != null
         SwipeToAdd({ if (focus != null && toEvent) focus.propose(track) else onSwipeRight() }, modifier, toEvent) {
-            TrackRow(api, track, playing, onClick, trailing = trailing)
+            TrackRow(api, track, playing, onClick, trailing = trailing, upNextList = upNextList)
         }
         return
     }
@@ -55,20 +57,20 @@ fun TrackRow(
             Text(
                 track.name,
                 style = AppTheme.typography.label,
-                color = if (playing) colors.accentText else colors.textPrimary,
+                color = if (upNextList) Color.White else (if (playing) colors.accentText else colors.textPrimary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 track.artists.joinToString(", "),
                 style = AppTheme.typography.bodySmall,
-                color = colors.textSecondary,
+                color = if (upNextList) Color.White else colors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        ProviderIcon(track.source)
-        Text(Durations.format(track.durationMs), style = AppTheme.typography.bodySmall, color = colors.textDisabled)
+        ProviderIcon(track.source, tint = if (upNextList) Color.White else null)
+        Text(Durations.format(track.durationMs), style = AppTheme.typography.bodySmall, color = if (upNextList) Color.White else colors.textDisabled)
         trailing?.invoke()
     }
 }

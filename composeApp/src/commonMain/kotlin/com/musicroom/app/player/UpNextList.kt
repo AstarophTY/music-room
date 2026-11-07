@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -121,7 +122,7 @@ fun UpNextList(api: MusicRoomApi, player: PlayerController, reordering: Boolean)
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (editing) {
                                         IconButton(onClick = { player.removeFromQueue(entry.key) }) {
-                                            Icon(Lucide.X, contentDescription = stringResource(Res.string.queue_remove), tint = colors.textSecondary)
+                                            Icon(Lucide.X, contentDescription = stringResource(Res.string.queue_remove), tint = Color.White)
                                         }
                                         Box(
                                             Modifier.size(48.dp).pointerInput(entry.key) {
@@ -157,7 +158,7 @@ fun UpNextList(api: MusicRoomApi, player: PlayerController, reordering: Boolean)
                                             Icon(
                                                 Lucide.GripVertical,
                                                 contentDescription = stringResource(Res.string.queue_drag),
-                                                tint = if (isDragged) colors.accentText else colors.textPrimary,
+                                                tint = Color.White,
                                                 modifier = Modifier.graphicsLayer {
                                                     rotationZ = wiggle.value
                                                     scaleX = grab
@@ -169,11 +170,12 @@ fun UpNextList(api: MusicRoomApi, player: PlayerController, reordering: Boolean)
                                         entry.proposer?.let {
                                             PersonAvatar(api, it.userId, it.name, it.avatarColor, it.avatarVersion, size = 28.dp)
                                         }
-                                        TrackMoreButton(api, player, entry.track)
+                                        TrackMoreButton(api, player, entry.track, tint = Color.White)
                                     }
                                 }
                             }
                         },
+                        upNextList = true
                     )
                 }
             }

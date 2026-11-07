@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.composables.icons.lucide.CirclePlus
 import com.composables.icons.lucide.Ellipsis
@@ -42,13 +43,14 @@ fun TrackMoreButton(
     track: TrackResponse,
     proposer: Proposer? = null,
     onRemove: (() -> Unit)? = null,
+    tint: Color? = null,
 ) {
     val colors = AppTheme.colors
     var menuOpen by remember { mutableStateOf(false) }
     var choosingPlaylist by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { menuOpen = true }) {
-            Icon(Lucide.Ellipsis, contentDescription = stringResource(Res.string.track_more), tint = colors.textSecondary)
+            Icon(Lucide.Ellipsis, contentDescription = stringResource(Res.string.track_more), tint = tint ?: colors.textSecondary)
         }
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }, containerColor = colors.surface) {
             @Composable

@@ -47,7 +47,7 @@ import org.jetbrains.compose.resources.stringResource
 fun ReorderButton(reordering: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AppTheme.colors
     val background by animateColorAsState(if (reordering) colors.accent else Color.Transparent)
-    val content by animateColorAsState(if (reordering) colors.onAccent else colors.textPrimary)
+    val content by animateColorAsState(if (reordering) colors.onAccent else Color.White)
     val turn by animateFloatAsState(
         if (reordering) 180f else 0f,
         spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
