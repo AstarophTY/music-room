@@ -15,7 +15,9 @@ import com.musicroom.app.auth.AuthScreen
 import com.musicroom.app.auth.SocialSignIn
 import com.musicroom.app.auth.VerifyEmailScreen
 import com.musicroom.app.main.MainScreen
-import com.musicroom.app.music.ProviderChoice
+import com.musicroom.app.music.MusicProviderConnection
+import com.musicroom.app.music.AppleMusicConnection
+import com.musicroom.app.music.AppleMusicProviderConnection
 import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.settings.AppSettings
 import com.musicroom.app.theme.components.AppBottomSheet
@@ -53,28 +55,24 @@ fun Session(
                 onLoggedOut = { onSessionChange(SessionState.LoggedOut()) },
             )
         } else {
-            CompositionLocalProvider(ProviderSession.onSpotifyConnected provides {
-                onSessionChange(SessionState.LoggedIn(session.user.copy(spotifyConnected = true)))
-            }) {
+            val appleConnection = AppleMusicConnection.Local.current
+            val appleProvider = if (appleConnection.available) {
+                AppleMusicProviderConnection(api, appleConnection)
+            } else {
+                null
+            }
+            val initialConnections = remember(api, appleProvider) {
+                listOfNotNull(appleProvider)
+            }
             MainScreen(
                 api = api,
                 user = session.user,
+                connections = initialConnections,
                 themeMode = themeMode,
                 onThemeModeChange = onThemeModeChange,
                 onUserChange = { onSessionChange(SessionState.LoggedIn(it)) },
                 onLoggedOut = { onSessionChange(SessionState.LoggedOut()) },
             )
-            }
-            if (!providerChoiceSeen && !session.user.spotifyConnected) {
-                val finish = { settings.providerChoiceSeen = true; providerChoiceSeen = true }
-                AppBottomSheet(onDismiss = finish) {
-                    ProviderChoice(
-                        api,
-                        onSpotifyConnected = { onSessionChange(SessionState.LoggedIn(session.user.copy(spotifyConnected = true))); finish() },
-                        onContinue = finish,
-                    )
-                }
-            }
         }
     }
 }

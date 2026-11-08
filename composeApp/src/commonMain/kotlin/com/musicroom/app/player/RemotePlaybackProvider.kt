@@ -11,6 +11,8 @@ interface RemotePlaybackProvider : PlaybackProvider {
     fun notConnectedError(): UiText
     fun isDisconnected(error: Exception): Boolean = false
     fun isMissingDevice(error: Exception): Boolean = false
+    /** Whether a remote account is currently linked and reachable. */
+    suspend fun isConnected(): Boolean = false
     suspend fun devices(): DevicesResponse
     suspend fun transferPlayback(deviceId: String, play: Boolean)
     suspend fun queue(): QueueResponse

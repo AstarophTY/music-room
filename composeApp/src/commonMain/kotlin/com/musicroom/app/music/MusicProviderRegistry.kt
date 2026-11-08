@@ -17,52 +17,56 @@ class MusicProviderRegistry private constructor(private val providers: List<Prov
     companion object {
         suspend fun playbackAvailability(
             api: MusicRoomApi,
-            spotifyConnected: Boolean,
-            appleConnected: Boolean,
-            applePlaybackAvailable: Boolean,
-            appleStorefront: String?,
+            connections: List<MusicProviderConnection>,
         ): MusicPlaybackAvailability {
-            val spotifyPlayable = if (!spotifyConnected) false else try {
-                val status = api.spotifyStatus()
-                status.connected && status.product == "premium"
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                false
-            }
-            val applePlayable = appleConnected && applePlaybackAvailable
-            val registry = connected(api, spotifyPlayable, applePlayable, appleStorefront)
+            val connected = connections.filter { it.connected }
             val playable = buildSet {
-                if (spotifyPlayable) add(TrackSource.SPOTIFY)
-                if (applePlayable) add(TrackSource.APPLE_MUSIC)
+                connected.forEach { add(it.source) }
             }
-            val remote = if (spotifyPlayable) setOf(TrackSource.SPOTIFY) else emptySet()
+            val remote = buildSet {
+                connected.filter { it.providesRemotePlayback }.forEach { add(it.source) }
+            }
+            val registry = connectedRegistry(api, connected)
             return MusicPlaybackAvailability(registry.eventTrackResolver(), playable, remote)
         }
+
+        private fun connectedRegistry(api: MusicRoomApi, connected: List<MusicProviderConnection>): MusicProviderRegistry =
+            MusicProviderRegistry(buildList {
+                connected.forEach { conn ->
+                    when (conn.source) {
+                        TrackSource.SPOTIFY -> add(Spotify(api))
+                        TrackSource.APPLE_MUSIC -> {
+                            val appleConn = conn as? AppleMusicProviderConnection
+                            add(AppleMusic(api, appleConn?.storefront))
+                        }
+                        else -> Unit
+                    }
+                }
+            })
 
         fun connected(api: MusicRoomApi, spotify: Boolean, appleConnected: Boolean, appleStorefront: String?): MusicProviderRegistry =
             MusicProviderRegistry(buildList {
                 if (spotify) add(Spotify(api))
                 if (appleConnected) add(AppleMusic(api, appleStorefront))
             })
-    }
 
-    private class Spotify(private val api: MusicRoomApi) : Provider {
-        override val source = TrackSource.SPOTIFY
-        override val searchable = true
-        override suspend fun search(query: String, mood: String?) = api.search(query)
-        override suspend fun tracks(query: String) = api.searchTracks(query).items
-        override suspend fun suggestions() = api.myTopTracks().items
-        override suspend fun find(isrc: String) = api.searchTracks("isrc:$isrc").items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
-    }
+        private class Spotify(private val api: MusicRoomApi) : Provider {
+            override val source = TrackSource.SPOTIFY
+            override val searchable = true
+            override suspend fun search(query: String, mood: String?) = api.search(query)
+            override suspend fun tracks(query: String) = api.searchTracks(query).items
+            override suspend fun suggestions() = api.myTopTracks().items
+            override suspend fun find(isrc: String) = api.searchTracks("isrc:$isrc").items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
+        }
 
-    private class AppleMusic(private val api: MusicRoomApi, private val storefront: String?) : Provider {
-        override val source = TrackSource.APPLE_MUSIC
-        override val searchable get() = storefront != null
-        override suspend fun search(query: String, mood: String?) = api.searchAppleMusic(mood ?: query, requireNotNull(storefront))
-        override suspend fun suggestions() = api.appleMusicCharts(requireNotNull(storefront)).items
-        override suspend fun find(isrc: String) = storefront?.let { region ->
-            api.matchAppleMusic(isrc, region).items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
+        private class AppleMusic(private val api: MusicRoomApi, private val storefront: String?) : Provider {
+            override val source = TrackSource.APPLE_MUSIC
+            override val searchable get() = storefront != null
+            override suspend fun search(query: String, mood: String?) = api.searchAppleMusic(mood ?: query, requireNotNull(storefront))
+            override suspend fun suggestions() = api.appleMusicCharts(requireNotNull(storefront)).items
+            override suspend fun find(isrc: String) = storefront?.let { region ->
+                api.matchAppleMusic(isrc, region).items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
+            }
         }
     }
 }

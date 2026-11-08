@@ -71,8 +71,14 @@ class PlayerController(
     /** Who adds songs from this app; set by the screen once the user is known. */
     var me: Proposer? = null
 
-    /** Whether the user linked Spotify; set by the screen. */
-    var remoteConnected = true
+    /** Whether the remote provider account is linked; updated by the screen from the provider connections. */
+    var remoteConnected = false
+        private set
+
+    /** Updates remote connection state from the set of sources that can control playback remotely. */
+    fun updateRemoteConnected(remoteSources: Set<TrackSource>) {
+        remoteConnected = remoteSources.contains(remote.source)
+    }
 
     val queueNotice: QueueNotice? get() = queue.notice
 

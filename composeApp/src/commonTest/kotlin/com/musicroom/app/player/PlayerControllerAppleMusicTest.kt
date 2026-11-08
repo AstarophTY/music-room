@@ -32,7 +32,7 @@ class PlayerControllerAppleMusicTest {
     fun connectedDeviceProviderQueuesWithoutRemoteAccount() = runTest {
         val fixture = fixture(this)
         try {
-            fixture.controller.remoteConnected = false
+            fixture.controller.updateRemoteConnected(setOf())
             val song = track("apple-1", TrackSource.APPLE_MUSIC)
             assertTrue(fixture.controller.addToQueue(listOf(song)))
             runCurrent()

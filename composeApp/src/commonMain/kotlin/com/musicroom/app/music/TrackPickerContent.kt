@@ -20,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.composables.icons.lucide.CircleCheck
 import com.composables.icons.lucide.CirclePlus
+import com.musicroom.app.music.SpotifyMusicProviderConnection
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Search
 import com.musicroom.app.common.SectionTitle
@@ -30,6 +31,10 @@ import com.musicroom.app.generated.resources.search_placeholder
 import com.musicroom.app.generated.resources.song_suggestions
 import com.musicroom.app.generated.resources.search_no_results
 import com.musicroom.app.generated.resources.apple_music_storefront_missing
+import com.musicroom.app.music.AppleMusicConnection
+import com.musicroom.app.music.AppleMusicProviderConnection
+import com.musicroom.app.music.MusicProviderConnection
+import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppTextField
 import com.musicroom.app.theme.tokens.AppTheme
@@ -54,6 +59,7 @@ fun TrackPickerContent(
     isAdded: (TrackResponse) -> Boolean,
     onAdd: suspend (TrackResponse) -> Unit,
     showTopTracks: Boolean = true,
+    connections: List<MusicProviderConnection> = emptyList(),
 ) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
@@ -62,8 +68,8 @@ fun TrackPickerContent(
     var adding by remember { mutableStateOf<Set<String>>(emptySet()) }
     var error by remember { mutableStateOf<UiText?>(null) }
     val appleMusic = AppleMusicConnection.Local.current
-    var choosingProvider by remember { mutableStateOf(!player.remoteConnected && !appleMusic.connected) }
-    var spotifyReady by remember { mutableStateOf(player.remoteConnected) }
+    val spotifyReady = connections.any { it.connected && it.providesRemotePlayback }
+    var choosingProvider by remember { mutableStateOf(!spotifyReady && !appleMusic.connected) }
     val onSpotifyConnected = ProviderSession.onSpotifyConnected.current
 
     LaunchedEffect(query, choosingProvider, spotifyReady, appleMusic.connected, appleMusic.storefront) {
@@ -122,7 +128,7 @@ fun TrackPickerContent(
         if (choosingProvider) {
             ProviderChoice(
                 api,
-                onSpotifyConnected = { player.remoteConnected = true; spotifyReady = true; choosingProvider = false; onSpotifyConnected() },
+                onSpotifyConnected = { choosingProvider = false; onSpotifyConnected() },
                 onContinue = { choosingProvider = false },
                 listenerOption = false,
             )
