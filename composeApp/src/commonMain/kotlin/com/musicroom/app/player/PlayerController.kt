@@ -23,12 +23,9 @@ import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -65,13 +62,9 @@ class PlayerController(
     var needsDevice by mutableStateOf(false)
         private set
 
-    /** Songs added in the app, in the order they will play. */
-    var upNext by mutableStateOf<List<QueueEntry>>(emptyList())
-        private set
-
-    /** The [upNext] entry already handed to Spotify: it plays next and can no longer move. Always the first one. */
-    var sentKey by mutableStateOf<Long?>(null)
-        private set
+    private val queue = PlayerQueue(scope)
+    val upNext: List<QueueEntry> get() = queue.entries
+    val sentKey: Long? get() = queue.sentKey
 
     /** Spotify's own queue (songs added elsewhere, then the rest of the album or playlist), from [followQueue]. */
     private var spotifyQueue by mutableStateOf<List<TrackResponse>>(emptyList())
@@ -86,9 +79,7 @@ class PlayerController(
     /** Whether the user linked Spotify; set by the screen. */
     var spotifyConnected = true
 
-    /** Confirmation of the last songs added to the queue, cleared after a few seconds. */
-    var queueNotice by mutableStateOf<QueueNotice?>(null)
-        private set
+    val queueNotice: QueueNotice? get() = queue.notice
 
     /**
      * An event is focused: only the event's music plays ([forEvent]), and the buttons drive it ([eventRemote]).
@@ -172,24 +163,9 @@ class PlayerController(
     ))
 
     private var queueChanges by mutableStateOf(0)
-    private var noticeJob: Job? = null
-    private var nextKey = 0L
-    private var nextNoticeId = 0L
 
     private var syncedAt by mutableStateOf(TimeSource.Monotonic.markNow())
-    private val refreshNow = Channel<Unit>(Channel.CONFLATED)
-
-    /**
-     * After a play command, Spotify can take a few seconds to start on a device that was idle (a phone in
-     * the background): until then it reports nothing playing. Polls that do not show the requested track
-     * yet are ignored until [pendingUntil], so the track does not disappear from the player.
-     */
-    private var pendingTrackId: String? = null
-    private var pendingUntil: TimeSource.Monotonic.ValueTimeMark? = null
-
-    /** After moving playback: polls are ignored until they show the music on [pendingDevice] (playing if [pendingPlaying]). */
-    private var pendingDevice: String? = null
-    private var pendingPlaying = false
+    private val synchronizer = RemotePlaybackSynchronizer()
 
     val track: TrackResponse? get() = state?.track
     val isPlaying: Boolean get() = state?.isPlaying == true
@@ -277,7 +253,7 @@ class PlayerController(
         track?.let {
             update(PlaybackStateResponse(active = true, isPlaying = true, track = it, deviceName = device))
         }
-        waitFor(track?.id)
+        synchronizer.waitFor(track?.id)
         command { spotify.play(index = index, contextUri = uri) }
     }
 
@@ -312,47 +288,23 @@ class PlayerController(
         } else if (!requireSpotify()) {
             return
         }
-        var added = songs.map { (track, proposer) -> QueueEntry(nextKey++, track, proposer) }
-        upNext = upNext + added
+        var added = queue.append(songs)
         if (track == null) {
             // Nothing plays: the first song starts now (the player shows it, no need to confirm it).
-            val first = upNext.first()
-            upNext = upNext.drop(1)
+            val first = requireNotNull(queue.takeFirst())
             added = added - first
             play(listOf(first.track), 0)
         } else {
             sendIfEnding()
         }
-        if (added.isNotEmpty()) showNotice(QueueNotice(nextNoticeId++, added))
+        queue.announce(added)
     }
 
-    /** The songs of [notice] can still be taken back: some wait in [upNext] and were not handed to Spotify. */
-    fun canUndo(notice: QueueNotice): Boolean = notice.entries.any { entry -> entry.key != sentKey && upNext.any { it.key == entry.key } }
-
-    /** Takes back the songs of [notice] that were not handed to Spotify yet. */
-    fun undo(notice: QueueNotice) {
-        val keys = notice.entries.map { it.key }.toSet() - setOfNotNull(sentKey)
-        upNext = upNext.filterNot { it.key in keys }
-        dismissNotice()
-    }
-
-    fun dismissNotice() {
-        noticeJob?.cancel()
-        queueNotice = null
-    }
-
-    /** Moves an [upNext] entry [offset] places (negative: earlier). The song handed to Spotify stays first. */
-    fun move(key: Long, offset: Int) {
-        val from = upNext.indexOfFirst { it.key == key }
-        if (from < 0 || key == sentKey) return
-        val to = (from + offset).coerceIn(if (sentKey != null) 1 else 0, upNext.lastIndex)
-        if (to != from) upNext = upNext.toMutableList().apply { add(to, removeAt(from)) }
-    }
-
-    /** Removes an [upNext] entry, unless it was already handed to Spotify. */
-    fun removeFromQueue(key: Long) {
-        if (key != sentKey) upNext = upNext.filterNot { it.key == key }
-    }
+    fun canUndo(notice: QueueNotice): Boolean = queue.canUndo(notice)
+    fun undo(notice: QueueNotice) = queue.undo(notice)
+    fun dismissNotice() = queue.dismissNotice()
+    fun move(key: Long, offset: Int) = queue.move(key, offset)
+    fun removeFromQueue(key: Long) = queue.remove(key)
 
     /** Plays an [upNext] entry now; the current album or playlist goes on after it. */
     fun playNow(entry: QueueEntry) {
@@ -360,7 +312,7 @@ class PlayerController(
         when (sentKey) {
             entry.key -> next()
             null -> {
-                upNext = listOf(entry) + upNext.filterNot { it.key == entry.key }
+                queue.bringToFront(entry)
                 next()
             }
             else -> {
@@ -398,7 +350,7 @@ class PlayerController(
         devices = devices?.map { it.copy(isActive = it.id == device.id) }
         state?.let { update(it.copy(deviceName = device.name, progressMs = positionMs())) }
         // While Spotify moves the music it can briefly report it paused or playing nowhere: keep what is shown.
-        waitFor(track?.id, device = device.name, playing = play)
+        synchronizer.waitFor(track?.id, device = device.name, playing = play)
         command { spotify.transferPlayback(device.id, play) }
     }
 
@@ -469,7 +421,7 @@ class PlayerController(
             }
             first != null && appDriven() -> {
                 if (list == null && !playingHosted && !playingAppleMusic && isAppTrack(first.track)) resumeSpotify = true
-                upNext = upNext - first
+                queue.remove(first)
                 playSingle(first.track)
             }
             first != null -> send(first) { spotify.skipNext() }
@@ -500,7 +452,7 @@ class PlayerController(
         val device = spotifyDevice()
         leaveHosted()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = device))
-        waitFor(track.id)
+        synchronizer.waitFor(track.id)
         command(action = start)
     }
 
@@ -510,7 +462,7 @@ class PlayerController(
         // Spotify goes quiet while the app plays.
         if (!wasAppPlayback && isPlaying) command { spotify.pause() }
         playingHosted = true
-        stopWaiting()
+        synchronizer.stopWaiting()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
         hosted.play(track)
     }
@@ -526,7 +478,7 @@ class PlayerController(
         leaveHosted()
         leaveAppleMusic()
         playingAppleMusic = true
-        stopWaiting()
+        synchronizer.stopWaiting()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
         appleSession.start(track)
     }
@@ -572,7 +524,7 @@ class PlayerController(
         leaveHosted()
         leaveAppleMusic()
         state = null
-        refreshNow.trySend(Unit)
+        synchronizer.requestRefresh()
     }
 
     /** Returns false when Spotify playback is unavailable. */
@@ -636,82 +588,31 @@ class PlayerController(
     }
 
     /** Keeps the state in sync with Spotify until cancelled: often while playing, rarely otherwise. */
-    suspend fun sync() {
-        while (true) {
-            try {
-                val fetched = spotify.playbackState().let { fetched ->
-                    // Spotify can report the music playing without saying what (just after it moved to another
-                    // device): the last known track stays shown rather than the player disappearing.
-                    val shown = state?.track
-                    if (fetched.active && fetched.isPlaying && fetched.track == null && shown != null) fetched.copy(track = shown) else fetched
-                }
-                // While the app plays an uploaded song, Spotify (paused) does not say what is shown.
-                if (!playingHosted && !playingAppleMusic) {
-                    if (!isStillStarting(fetched)) update(fetched)
-                    sendIfEnding()
-                    advanceIfSpotifyEnding()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                // Keep the last known state; a failed poll is not worth an error message.
+    suspend fun sync() = synchronizer.run(
+        fetch = { spotify.playbackState() },
+        onState = { remote ->
+            val shown = state?.track
+            val fetched = if (remote.active && remote.isPlaying && remote.track == null && shown != null) remote.copy(track = shown) else remote
+            if (deviceSession == null) {
+                if (!synchronizer.isStillStarting(fetched)) update(fetched)
+                sendIfEnding()
+                advanceIfSpotifyEnding()
             }
-            val interval = when {
-                pendingUntil != null -> 1.seconds
-                // The app starts the next song itself: it watches the end closely.
+        },
+        interval = {
+            when {
+                synchronizer.waiting -> 1.seconds
                 spotifyEndsSoon(WATCH_END.inWholeMilliseconds) -> 500.milliseconds
                 isPlaying -> 5.seconds
                 else -> 15.seconds
             }
-            withTimeoutOrNull(interval) { refreshNow.receive() }
-        }
-    }
-
-    private fun showNotice(notice: QueueNotice) {
-        noticeJob?.cancel()
-        queueNotice = notice
-        noticeJob = scope.launch {
-            delay(NOTICE_DURATION)
-            queueNotice = null
-        }
-    }
-
-    private fun waitFor(trackId: String?, device: String? = null, playing: Boolean = false) {
-        pendingTrackId = trackId
-        pendingDevice = device
-        pendingPlaying = playing
-        pendingUntil = TimeSource.Monotonic.markNow() + START_TIMEOUT
-    }
-
-    private fun stopWaiting() {
-        pendingTrackId = null
-        pendingDevice = null
-        pendingPlaying = false
-        pendingUntil = null
-    }
-
-    /** [fetched] does not show the requested track (or device) yet, while Spotify may still be starting it. */
-    private fun isStillStarting(fetched: PlaybackStateResponse): Boolean {
-        val until = pendingUntil ?: return false
-        val expected = pendingTrackId
-        val started = fetched.track != null && (expected == null || fetched.track?.id == expected) &&
-            (pendingDevice == null || fetched.deviceName == pendingDevice) && (!pendingPlaying || fetched.isPlaying)
-        if (started || until.hasPassedNow()) {
-            stopWaiting()
-            return false
-        }
-        return true
-    }
+        },
+    )
 
     private fun update(newState: PlaybackStateResponse) {
         state = newState
         syncedAt = TimeSource.Monotonic.markNow()
-        // The song handed to Spotify started: it leaves the queue.
-        val sent = upNext.firstOrNull { it.key == sentKey }
-        if (sent != null && newState.track?.id == sent.track.id) {
-            upNext = upNext - sent
-            sentKey = null
-        }
+        queue.onTrackChanged(newState.track?.id)
     }
 
     /** Hands the first [upNext] song to Spotify when the current track is about to end. */
@@ -726,8 +627,8 @@ class PlayerController(
 
     /** Adds [entry] to Spotify's queue, then runs [then]; on failure it can move again. */
     private fun send(entry: QueueEntry, then: suspend () -> Unit = {}) {
-        sentKey = entry.key
-        command(onError = { if (sentKey == entry.key) sentKey = null }) {
+        queue.markSent(entry)
+        command(onError = { queue.cancelSent(entry.key) }) {
             spotify.addToQueue(listOf(entry.track.uri))
             queueChanges++
             then()
@@ -744,19 +645,19 @@ class PlayerController(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                stopWaiting()
+                synchronizer.stopWaiting()
                 onError()
                 // Unlinked meanwhile (from another device): ask to link it again rather than show an error.
                 if ((e as? ApiException)?.error == ApiErrors.SPOTIFY_NOT_CONNECTED) {
                     state = null
                     error = UiText.of(e)
-                    refreshNow.trySend(Unit)
+                    synchronizer.requestRefresh()
                     return@launch
                 }
                 error = UiText.of(e)
                 needsDevice = (e as? ApiException)?.error == ApiErrors.SPOTIFY_NO_DEVICE
             }
-            refreshNow.trySend(Unit)
+            synchronizer.requestRefresh()
         }
     }
 
@@ -764,14 +665,8 @@ class PlayerController(
         /** Shown when the user plays music themselves while an event is focused. */
         private val LOCKED_ERROR = UiText.of(Res.string.player_locked_by_event)
 
-        /** How long a play command may take to show up in Spotify's state. */
-        private val START_TIMEOUT = 8.seconds
-
         /** How long before the end of a track the next queued song is handed to Spotify (polls are 5 s apart). */
         private val SEND_BEFORE_END = 20.seconds
-
-        /** How long the confirmation of songs added to the queue stays. */
-        private val NOTICE_DURATION = 4.seconds
 
         /** Shown as the device while the app plays an uploaded song. */
         const val HOSTED_DEVICE = "Music Room"
