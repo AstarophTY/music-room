@@ -89,6 +89,7 @@ import com.musicroom.app.music.AlbumCard
 import com.musicroom.app.music.ArtistCard
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
+import com.musicroom.app.music.MusicCatalogSearch
 import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.social.FriendButton
@@ -109,8 +110,6 @@ import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import org.jetbrains.compose.resources.stringResource
 
 /**
@@ -194,47 +193,17 @@ fun SearchScreen(
         if (selectedMood == null) delay(350)
         loading = true
         try {
-            coroutineScope {
-                val useSpotify = user.spotifyConnected
-                if (appleMusic.connected && appleMusic.storefront.isNullOrBlank()) {
-                    error = UiText.of(Res.string.apple_music_storefront_missing)
-                }
-                suspend fun <T> attempt(block: suspend () -> T): kotlin.Result<T> = try {
-                    kotlin.Result.success(block())
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    kotlin.Result.failure(e)
-                }
-                val spotifyTask = if (useSpotify) async { attempt { api.search(searchQuery) } } else null
-                val appleTask = appleMusic.storefront?.takeIf { appleMusic.connected }?.let { region ->
-                    async { attempt { api.searchAppleMusic(selectedMood?.third ?: searchQuery, region) } }
-                }
-                val spotifyResult = spotifyTask?.await()
-                val appleResult = appleTask?.await()
-                val spotifyData = spotifyResult?.getOrNull() ?: SearchResponse()
-                val appleData = appleResult?.getOrNull() ?: SearchResponse()
-                val mixed = buildList {
-                    for (index in 0 until maxOf(spotifyData.tracks.size, appleData.tracks.size)) {
-                        spotifyData.tracks.getOrNull(index)?.let(::add)
-                        appleData.tracks.getOrNull(index)?.let(::add)
-                    }
-                }
-                val failure = spotifyResult?.exceptionOrNull() ?: appleResult?.exceptionOrNull()
-                if (failure is Exception) error = UiText.of(failure)
-                if ((spotifyResult == null || spotifyResult.isFailure) && (appleResult == null || appleResult.isFailure)) {
-                    found = null
-                } else {
-                    found = SearchResponse(
-                        tracks = mixed,
-                        artists = spotifyData.artists + appleData.artists,
-                        albums = spotifyData.albums + appleData.albums,
-                        nextTrackOffset = spotifyData.nextTrackOffset,
-                    )
-                    tracks = mixed
-                    nextOffset = spotifyData.nextTrackOffset
-                }
+            if (appleMusic.connected && appleMusic.storefront.isNullOrBlank()) {
+                error = UiText.of(Res.string.apple_music_storefront_missing)
             }
+            val catalog = MusicCatalogSearch.connected(
+                api, user.spotifyConnected, appleMusic.storefront.takeIf { appleMusic.connected },
+            )
+            val result = catalog.search(searchQuery, selectedMood?.third)
+            result.failures.firstOrNull()?.let { error = UiText.of(it) }
+            found = result.response
+            tracks = result.response?.tracks.orEmpty()
+            nextOffset = result.response?.nextTrackOffset
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -52,7 +52,7 @@ import kotlin.time.TimeSource
 class PlayerController(
     private val api: MusicRoomApi,
     private val scope: CoroutineScope,
-    private val apple: AppleMusicPlayback,
+    apple: AppleMusicPlayback,
     private val spotify: SpotifyRemotePlaybackProvider = SpotifyPlaybackProvider(api),
 ) {
     var state by mutableStateOf<PlaybackStateResponse?>(null)
@@ -119,9 +119,6 @@ class PlayerController(
 
     var playingAppleMusic by mutableStateOf(false)
         private set
-    private var appleJob: Job? = null
-    private var appleGeneration = 0L
-    private var appleReady = false
 
     /** A list the app plays song after song, as it holds uploaded songs; null while Spotify plays on its own. */
     private var appList by mutableStateOf<List<TrackResponse>?>(null)
@@ -139,6 +136,40 @@ class PlayerController(
             state?.let { update(it.copy(isPlaying = false)) }
         },
     )
+
+    private val appleSession = AppleMusicPlaybackSession(
+        apple, scope,
+        onEnded = { advance() },
+        onError = { failure ->
+            error = UiText.of(failure)
+            state?.let { update(it.copy(isPlaying = false)) }
+        },
+    )
+
+    private val playbackRouter = TrackPlaybackRouter(listOf(
+        object : TrackPlaybackRouter.Provider {
+            override val source = TrackSource.MUSIC_ROOM
+            override val managesOwnQueue = false
+            override fun play(track: TrackResponse) = startHosted(track)
+        },
+        object : TrackPlaybackRouter.Provider {
+            override val source = TrackSource.APPLE_MUSIC
+            override val managesOwnQueue = false
+            override fun availabilityError() = if (appleSession.available) null else UiText.of(Res.string.apple_music_playback_pending)
+            override fun play(track: TrackResponse) {
+                val problem = availabilityError() ?: if (!appleSession.connected) UiText.of(Res.string.apple_music_not_connected) else null
+                if (problem != null) error = problem else startAppleMusic(track)
+            }
+        },
+        object : TrackPlaybackRouter.Provider {
+            override val source = TrackSource.SPOTIFY
+            override val managesOwnQueue = true
+            override fun play(track: TrackResponse) {
+                if (requireSpotify()) playOnSpotify(track) { spotify.play(listOf(track.uri), 0) }
+                else stopAtEnd()
+            }
+        },
+    ))
 
     private var queueChanges by mutableStateOf(0)
     private var noticeJob: Job? = null
@@ -182,11 +213,17 @@ class PlayerController(
             return if (index < 0) spotifyQueue else spotifyQueue.toMutableList().apply { removeAt(index) }
         }
 
+    private val deviceSession: DevicePlaybackSession?
+        get() = when {
+            playingHosted -> hosted
+            playingAppleMusic -> appleSession
+            else -> null
+        }
+
     /** Position in the track, moving forward between two syncs while it plays. */
     fun positionMs(): Long {
         val current = state ?: return 0
-        if (playingHosted) return current.track?.durationMs?.let { hosted.positionMs().coerceAtMost(it) } ?: hosted.positionMs()
-        if (playingAppleMusic) return apple.positionMs().coerceAtMost(current.track?.durationMs ?: Long.MAX_VALUE)
+        deviceSession?.let { return it.positionMs().coerceAtMost(current.track?.durationMs ?: Long.MAX_VALUE) }
         val elapsed = if (current.isPlaying) syncedAt.elapsedNow().inWholeMilliseconds else 0
         val position = current.progressMs + elapsed
         return current.track?.durationMs?.let { position.coerceAtMost(it) } ?: position
@@ -198,11 +235,11 @@ class PlayerController(
      */
     fun play(tracks: List<TrackResponse>, index: Int) {
         val track = tracks.getOrNull(index) ?: return
-        if (track.source == TrackSource.APPLE_MUSIC && !apple.available) {
-            error = UiText.of(Res.string.apple_music_playback_pending)
+        playbackRouter.availabilityError(track)?.let {
+            error = it
             return
         }
-        if (tracks.none { it.hosted || it.source == TrackSource.APPLE_MUSIC }) {
+        if (tracks.none(::isAppTrack)) {
             if (!requireSpotify()) return
             appList = null
             resumeSpotify = false
@@ -223,7 +260,10 @@ class PlayerController(
     }
 
     /** Plays [album] as a whole from its track at [index], shown right away from [tracks]. */
-    fun playAlbum(album: AlbumResponse, tracks: List<TrackResponse>, index: Int) = playContext(album.uri, tracks, index)
+    fun playAlbum(album: AlbumResponse, tracks: List<TrackResponse>, index: Int) {
+        if (tracks.getOrNull(index)?.let(::isAppTrack) == true) play(tracks, index)
+        else playContext(album.uri, tracks, index)
+    }
 
     /** Plays a Spotify playlist or album ([uri]) from [index]. */
     private fun playContext(uri: String, tracks: List<TrackResponse>, index: Int) {
@@ -261,13 +301,13 @@ class PlayerController(
         // Proposing to a focused event plays nothing here: no need for the local Apple Music playback.
         val toEvent = proposeToEvent
         if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
-        if (songs.any { it.first.source == TrackSource.APPLE_MUSIC } && !apple.available) {
-            error = UiText.of(Res.string.apple_music_playback_pending)
+        songs.firstNotNullOfOrNull { playbackRouter.availabilityError(it.first) }?.let {
+            error = it
             return
         }
         if (songs.isEmpty()) return
         // Uploaded songs play without Spotify.
-        if (songs.all { it.first.hosted || it.first.source == TrackSource.APPLE_MUSIC }) {
+        if (songs.all { isAppTrack(it.first) }) {
             if (!allowed()) return
         } else if (!requireSpotify()) {
             return
@@ -366,20 +406,16 @@ class PlayerController(
         if (viaEvent { it.togglePlay() }) return
         if (!allowed()) return
         val current = state ?: return
-        if (playingHosted) {
-            if (current.isPlaying) hosted.pause() else hosted.resume()
-            update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
-            return
-        }
-        if (playingAppleMusic) {
+        val local = deviceSession
+        if (local != null) {
             if (current.isPlaying) {
-                if (appleReady) apple.pause() else cancelAppleLoad()
-                update(current.copy(isPlaying = false, progressMs = apple.positionMs()))
-            } else if (appleReady) {
-                apple.resume()
-                update(current.copy(isPlaying = true, progressMs = apple.positionMs()))
+                local.pause()
+                update(current.copy(isPlaying = false, progressMs = local.positionMs()))
+            } else if (local.canResume) {
+                local.resume()
+                update(current.copy(isPlaying = true, progressMs = local.positionMs()))
             } else {
-                current.track?.let(::startAppleMusic)
+                current.track?.let(::playSingle)
             }
             return
         }
@@ -412,7 +448,8 @@ class PlayerController(
         if (eventRemote != null && !eventCommand) return
         if (!allowed()) return
         state?.let { update(it.copy(progressMs = positionMs)) }
-        if (playingHosted) hosted.seek(positionMs) else if (playingAppleMusic) apple.seek(positionMs) else command { spotify.seek(positionMs) }
+        val local = deviceSession
+        if (local != null) local.seek(positionMs) else command { spotify.seek(positionMs) }
     }
 
     /**
@@ -454,21 +491,9 @@ class PlayerController(
     /** The app chooses each song (a list with app-local songs, or an app-local song playing or next). */
     private fun appDriven() = appList != null || playingHosted || playingAppleMusic || upNext.firstOrNull()?.track?.let(::isAppTrack) == true
 
-    private fun isAppTrack(track: TrackResponse) = track.hosted || track.source == TrackSource.APPLE_MUSIC
+    private fun isAppTrack(track: TrackResponse) = playbackRouter.appManaged(track)
 
-    /** Plays one song: in the app if it was uploaded to Music Room, else on Spotify. */
-    private fun playSingle(track: TrackResponse) {
-        if (track.hosted) {
-            startHosted(track)
-        } else if (track.source == TrackSource.APPLE_MUSIC) {
-            startAppleMusic(track)
-        } else if (requireSpotify()) {
-            playOnSpotify(track) { spotify.play(listOf(track.uri), 0) }
-        } else {
-            // No Spotify to play it: the list stops there.
-            stopAtEnd()
-        }
-    }
+    private fun playSingle(track: TrackResponse) = playbackRouter.play(track)
 
     private fun playOnSpotify(track: TrackResponse, start: suspend () -> Unit) {
         leaveAppleMusic()
@@ -497,79 +522,25 @@ class PlayerController(
     }
 
     private fun startAppleMusic(track: TrackResponse) {
-        if (!apple.available) {
-            error = UiText.of(Res.string.apple_music_playback_pending)
-            return
-        }
-        if (!apple.connected) {
-            error = UiText.of(Res.string.apple_music_not_connected)
-            return
-        }
         if (!playingHosted && !playingAppleMusic && isPlaying) command { spotify.pause() }
         leaveHosted()
         leaveAppleMusic()
         playingAppleMusic = true
-        appleReady = false
-        val generation = appleGeneration
         stopWaiting()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
-        appleJob = scope.launch {
-            try {
-                apple.play(track.uri, onEnded = { scope.launch { if (isCurrentApplePlayback(generation)) advance() } }, onError = { failure ->
-                    scope.launch {
-                        if (isCurrentApplePlayback(generation)) {
-                            appleReady = false
-                            error = UiText.of(failure)
-                            state?.let { update(it.copy(isPlaying = false)) }
-                        }
-                    }
-                })
-                if (isCurrentApplePlayback(generation)) appleReady = true
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                if (isCurrentApplePlayback(generation)) {
-                    appleReady = false
-                    error = UiText.of(e)
-                    state?.let { update(it.copy(isPlaying = false)) }
-                }
-            }
-        }
+        appleSession.start(track)
     }
-
-    /** Whether the Apple Music playback started for [generation] is still the one shown. */
-    private fun isCurrentApplePlayback(generation: Long) = playingAppleMusic && appleGeneration == generation
 
     private fun leaveAppleMusic() {
-        appleGeneration++
-        appleJob?.cancel()
-        appleJob = null
-        appleReady = false
         if (playingAppleMusic) {
             playingAppleMusic = false
-            apple.stop()
+            appleSession.stop()
         }
-    }
-
-    private fun cancelAppleLoad() {
-        appleGeneration++
-        appleJob?.cancel()
-        appleJob = null
-        appleReady = false
-        apple.stop()
     }
 
     /** The list is over: its last song stays shown, paused at its start. */
     private fun stopAtEnd() {
-        if (playingHosted) {
-            hosted.pause()
-            hosted.seek(0)
-        }
-        if (playingAppleMusic) {
-            apple.pause()
-            apple.seek(0)
-            appleReady = false
-        }
+        deviceSession?.pauseAtEnd()
         state?.let { update(it.copy(isPlaying = false, progressMs = 0)) }
     }
 

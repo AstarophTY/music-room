@@ -284,21 +284,8 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
         }
     }
 
-    private suspend fun resolveTrack(track: TrackResponse): TrackResponse? {
-        if (track.source == TrackSource.MUSIC_ROOM) return track
-        if (track.source == TrackSource.SPOTIFY && spotifyPremium) return track
-        if (track.source == TrackSource.APPLE_MUSIC && apple.connected) return track
-        val isrc = track.isrc?.takeIf { it.matches(Regex("[A-Za-z0-9]{12}")) } ?: return null
-        return when {
-            track.source == TrackSource.SPOTIFY && apple.connected -> {
-                val storefront = apple.storefront ?: return null
-                api.matchAppleMusic(isrc, storefront).items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
-            }
-            track.source == TrackSource.APPLE_MUSIC && spotifyPremium ->
-                api.searchTracks("isrc:$isrc").items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
-            else -> null
-        }
-    }
+    private suspend fun resolveTrack(track: TrackResponse): TrackResponse? =
+        EventTrackResolver.connected(api, spotifyPremium, apple.connected, apple.storefront).resolve(track)
 
     /** The position to send for [target], when its votes need one; throws [LocationUnavailable] when unknown. */
     private suspend fun location(target: EventResponse): GeoPoint? =

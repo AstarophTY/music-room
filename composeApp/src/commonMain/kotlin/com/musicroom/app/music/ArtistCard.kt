@@ -58,6 +58,6 @@ fun ArtistCard(api: MusicRoomApi, artist: ArtistResponse, onClick: () -> Unit, m
             textAlign = TextAlign.Center,
         )
         Text(stringResource(Res.string.artist_label), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-        ProviderIcon(if (artist.id.startsWith("apple:")) TrackSource.APPLE_MUSIC else TrackSource.SPOTIFY)
+        ProviderIcon(TrackSource.fromId(artist.id))
     }
 }

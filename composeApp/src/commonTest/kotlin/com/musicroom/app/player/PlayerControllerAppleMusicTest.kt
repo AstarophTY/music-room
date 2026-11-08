@@ -29,6 +29,21 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerControllerAppleMusicTest {
     @Test
+    fun appleMusicAlbumPlaysThroughLocalProvider() = runTest {
+        val fixture = fixture(this)
+        try {
+            val song = track("apple-1", TrackSource.APPLE_MUSIC)
+            fixture.controller.playAlbum(AlbumResponse(id = "apple:us:1", name = "Album", uri = "1"), listOf(song), 0)
+            runCurrent()
+            assertTrue(fixture.controller.playingAppleMusic)
+            assertEquals(song, fixture.controller.track)
+        } finally {
+            fixture.controller.release()
+            fixture.api.close()
+        }
+    }
+
+    @Test
     fun localEventPlaybackStopsBeforeSpotifyTakesOver() = runTest {
         val fixture = fixture(this)
         try {
