@@ -141,16 +141,11 @@ fun SearchScreen(
     // Music Room users whose name matches; null while not searched.
     var people by remember { mutableStateOf<List<PublicUserResponse>?>(null) }
     var peopleError by remember { mutableStateOf<UiText?>(null) }
-    // Artist and album pages opened from the results, the last one on top: "artist|<id>|<name>".
-    var pages by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var pages by rememberSaveable(stateSaver = SearchRoute.stackSaver) { mutableStateOf(emptyList<SearchRoute>()) }
     var opening by remember { mutableStateOf(true) }
-    val artistPage = "artist"
-    val albumPage = "album"
-    val moodPage = "mood"
-    val resultsPage = "results"
     SideEffect {
         val current = pages.lastOrNull()
-        onDetailOpenChange(current?.startsWith("$artistPage|") == true || current?.startsWith("$albumPage|") == true)
+        onDetailOpenChange(current is SearchRoute.Artist || current is SearchRoute.Album)
     }
     // Songs shown under "All" before "See all".
     val topTrackCount = 5
@@ -243,14 +238,14 @@ fun SearchScreen(
         }
     }
 
-    fun open(kind: String, id: String, name: String) {
+    fun open(route: SearchRoute) {
         opening = true
-        pages = pages + "$kind|$id|$name"
+        pages = pages + route
     }
 
     fun back() {
         opening = false
-        if (pages.lastOrNull()?.startsWith("$moodPage|") == true) mood = null
+        if (pages.lastOrNull() is SearchRoute.Mood) mood = null
         pages = pages.dropLast(1)
     }
     BackHandler(enabled = pages.isNotEmpty()) { back() }
@@ -395,7 +390,7 @@ fun SearchScreen(
                                                 sectionHeader(stringResource(SearchFilter.Artists.label), SearchFilter.Artists)
                                                 LazyRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
                                                     items(result.artists, key = { it.id }) { artist ->
-                                                        ArtistCard(api, artist, { open(artistPage, artist.id, artist.name) }, Modifier.width(if (compact) 116.dp else 140.dp))
+                                                        ArtistCard(api, artist, { open(SearchRoute.Artist(artist.id, artist.name)) }, Modifier.width(if (compact) 116.dp else 140.dp))
                                                     }
                                                 }
                                             }
@@ -405,7 +400,7 @@ fun SearchScreen(
                                                 sectionHeader(stringResource(SearchFilter.Albums.label), SearchFilter.Albums)
                                                 LazyRow(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
                                                     items(result.albums, key = { it.id }) { album ->
-                                                        AlbumCard(api, album, { open(albumPage, album.id, album.name) }, Modifier.width(if (compact) 140.dp else 168.dp))
+                                                        AlbumCard(api, album, { open(SearchRoute.Album(album.id, album.name)) }, Modifier.width(if (compact) 140.dp else 168.dp))
                                                     }
                                                 }
                                             }
@@ -427,13 +422,13 @@ fun SearchScreen(
                                     }
                                     SearchFilter.Artists -> grid(result.artists.size, if (compact) 3 else 5) { index, modifier ->
                                         val artist = result.artists[index]
-                                        ArtistCard(api, artist, { open(artistPage, artist.id, artist.name) }, modifier)
+                                        ArtistCard(api, artist, { open(SearchRoute.Artist(artist.id, artist.name)) }, modifier)
                                     }
                                     // Shown above, outside the Spotify results.
                                     SearchFilter.People -> Unit
                                     SearchFilter.Albums -> grid(result.albums.size, if (compact) 2 else 4) { index, modifier ->
                                         val album = result.albums[index]
-                                        AlbumCard(api, album, { open(albumPage, album.id, album.name) }, modifier)
+                                        AlbumCard(api, album, { open(SearchRoute.Album(album.id, album.name)) }, modifier)
                                     }
                                 }
                             }
@@ -453,7 +448,7 @@ fun SearchScreen(
                                     Modifier.weight(1f).height(96.dp)
                                         .pressable(onClick = {
                                             mood = index
-                                            open(moodPage, index.toString(), "")
+                                            open(SearchRoute.Mood(index))
                                         })
                                         .background(tileColors[index % tileColors.size], AppShapes.large)
                                         .padding(AppTheme.spacing.md),
@@ -478,17 +473,16 @@ fun SearchScreen(
 
     // The results, or the artist or album opened from them (a new page slides in from the right).
     AnimatedContent(
-        pages.lastOrNull() ?: resultsPage,
+        pages.lastOrNull() ?: SearchRoute.Results,
         transitionSpec = {
             (slideInHorizontally(tween(280)) { if (opening) it / 2 else -it / 4 } + fadeIn(tween(280)))
                 .togetherWith(slideOutHorizontally(tween(220)) { if (opening) -it / 4 else it / 2 } + fadeOut(tween(180)))
         },
     ) { page ->
-        val (kind, id, name) = page.split("|", limit = 3).let { Triple(it[0], it.getOrElse(1) { "" }, it.getOrElse(2) { "" }) }
-        when (kind) {
-            artistPage -> ArtistScreen(api, id, name, player, onBack = ::back, onOpenAlbum = { albumId, albumName -> open(albumPage, albumId, albumName) })
-            albumPage -> AlbumScreen(api, id, name, player, onBack = ::back, onOpenArtist = { artistId, artistName -> open(artistPage, artistId, artistName) })
-            else -> results()
+        when (page) {
+            is SearchRoute.Artist -> ArtistScreen(api, page.id, page.name, player, onBack = ::back, onOpenAlbum = { id, name -> open(SearchRoute.Album(id, name)) })
+            is SearchRoute.Album -> AlbumScreen(api, page.id, page.name, player, onBack = ::back, onOpenArtist = { id, name -> open(SearchRoute.Artist(id, name)) })
+            SearchRoute.Results, is SearchRoute.Mood -> results()
         }
     }
 }
