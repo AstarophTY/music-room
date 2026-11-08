@@ -7,12 +7,12 @@ class MixedTrackSearch(private val api: MusicRoomApi) {
     data class Result(val tracks: List<TrackResponse>, val failures: List<Exception>)
 
     suspend fun search(query: String, spotify: Boolean, appleStorefront: String?): Result {
-        val result = MusicCatalogSearch.connected(api, spotify, appleStorefront).tracks(query)
+        val result = MusicProviderRegistry.connected(api, spotify, appleStorefront != null, appleStorefront).catalogSearch().tracks(query)
         return Result(result.response?.tracks.orEmpty(), result.failures)
     }
 
     suspend fun suggestions(spotify: Boolean, appleStorefront: String?): Result {
-        val result = MusicCatalogSearch.connected(api, spotify, appleStorefront).suggestions()
+        val result = MusicProviderRegistry.connected(api, spotify, appleStorefront != null, appleStorefront).catalogSearch().suggestions()
         return Result(result.response?.tracks.orEmpty(), result.failures)
     }
 }

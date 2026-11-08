@@ -1,6 +1,5 @@
 package com.musicroom.app.events
 
-import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.TrackSource
 
@@ -21,23 +20,4 @@ class EventTrackResolver(private val providers: List<Provider>) {
         return null
     }
 
-    companion object {
-        fun connected(api: MusicRoomApi, spotify: Boolean, appleConnected: Boolean, appleStorefront: String?): EventTrackResolver =
-            EventTrackResolver(buildList {
-                if (spotify) add(Spotify(api))
-                if (appleConnected) add(AppleMusic(api, appleStorefront))
-            })
-    }
-
-    private class Spotify(private val api: MusicRoomApi) : Provider {
-        override val source = TrackSource.SPOTIFY
-        override suspend fun find(isrc: String) =
-            api.searchTracks("isrc:$isrc").items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
-    }
-
-    private class AppleMusic(private val api: MusicRoomApi, private val storefront: String?) : Provider {
-        override val source = TrackSource.APPLE_MUSIC
-        override suspend fun find(isrc: String) =
-            storefront?.let { api.matchAppleMusic(isrc, it).items.firstOrNull { track -> track.isrc.equals(isrc, ignoreCase = true) } }
-    }
 }

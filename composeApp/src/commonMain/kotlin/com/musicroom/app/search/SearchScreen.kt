@@ -89,7 +89,7 @@ import com.musicroom.app.music.AlbumCard
 import com.musicroom.app.music.ArtistCard
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
-import com.musicroom.app.music.MusicCatalogSearch
+import com.musicroom.app.music.MusicProviderRegistry
 import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.social.FriendButton
@@ -196,9 +196,9 @@ fun SearchScreen(
             if (appleMusic.connected && appleMusic.storefront.isNullOrBlank()) {
                 error = UiText.of(Res.string.apple_music_storefront_missing)
             }
-            val catalog = MusicCatalogSearch.connected(
-                api, user.spotifyConnected, appleMusic.storefront.takeIf { appleMusic.connected },
-            )
+            val catalog = MusicProviderRegistry.connected(
+                api, user.spotifyConnected, appleMusic.connected, appleMusic.storefront,
+            ).catalogSearch()
             val result = catalog.search(searchQuery, selectedMood?.third)
             result.failures.firstOrNull()?.let { error = UiText.of(it) }
             found = result.response

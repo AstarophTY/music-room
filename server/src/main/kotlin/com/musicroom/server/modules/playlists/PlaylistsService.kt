@@ -7,9 +7,7 @@ import com.musicroom.server.common.exceptions.NotFoundException
 import com.musicroom.server.common.exceptions.ValidationException
 import com.musicroom.server.modules.playlists.entities.Playlist
 import com.musicroom.server.modules.premium.HostedTracksService
-import com.musicroom.server.modules.spotify.SpotifyService
 import com.musicroom.server.modules.catalog.TrackCatalog
-import com.musicroom.server.modules.applemusic.AppleMusicCatalog
 import com.musicroom.server.modules.users.AvatarImages
 import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.server.modules.users.UsersService
@@ -39,12 +37,10 @@ class PlaylistsService(
     private val members: PlaylistMembersRepository,
     private val tracks: PlaylistTracksRepository,
     private val users: UsersRepository,
-    private val spotify: SpotifyService,
+    private val catalog: TrackCatalog,
     private val hosted: HostedTracksService,
     private val friends: PlaylistFriends,
-    private val appleMusic: AppleMusicCatalog,
 ) {
-    private val catalog = TrackCatalog.create(spotify, appleMusic)
 
     suspend fun list(userId: UUID): PlaylistListResponse =
         PlaylistListResponse(playlists.forUser(userId).mapNotNull { playlist -> role(playlist, userId)?.let { summary(playlist, it) } })

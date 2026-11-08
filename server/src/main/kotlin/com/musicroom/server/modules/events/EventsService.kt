@@ -9,9 +9,7 @@ import com.musicroom.server.modules.events.entities.Event
 import com.musicroom.server.modules.events.entities.EventTrack
 import com.musicroom.server.modules.events.entities.EventTracksTable
 import com.musicroom.server.modules.social.PeopleRepository
-import com.musicroom.server.modules.spotify.SpotifyService
 import com.musicroom.server.modules.catalog.TrackCatalog
-import com.musicroom.server.modules.applemusic.AppleMusicCatalog
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.EventValidation
 import com.musicroom.shared.GeoDistance
@@ -42,13 +40,12 @@ class EventsService(
     private val events: EventsRepository,
     private val tracks: EventTracksRepository,
     private val people: PeopleRepository,
-    private val spotify: SpotifyService,
+    private val catalog: TrackCatalog,
+    playback: EventPlaybackProviders,
     private val friends: EventFriends,
-    private val appleMusic: AppleMusicCatalog,
 ) {
-    private val catalog = TrackCatalog.create(spotify, appleMusic)
     val hub = EventsHub { eventId, userIds -> render(eventId, userIds) }
-    val player = EventPlayer(events, tracks, spotify, onChange = hub::changed)
+    val player = EventPlayer(events, tracks, playback, onChange = hub::changed)
 
     suspend fun create(userId: UUID, request: CreateEventRequest): EventDetailResponse {
         validate(request)

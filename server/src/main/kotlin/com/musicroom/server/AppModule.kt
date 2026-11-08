@@ -21,6 +21,7 @@ import com.musicroom.server.config.AppConfig
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
 import com.musicroom.server.modules.applemusic.AppleMusicModule
+import com.musicroom.server.modules.catalog.MusicProviderRegistry
 import com.musicroom.server.modules.events.EventsModule
 import com.musicroom.server.modules.playlists.PlaylistsModule
 import com.musicroom.server.modules.premium.PremiumModule
@@ -62,11 +63,13 @@ class AppModule(
     val spotify = SpotifyModule(database, users.repository, config.spotify, spotifyApi, jwtService, secretBox)
     val appleMusic = AppleMusicModule(config.appleMusic)
 
+    private val providers = MusicProviderRegistry(spotify.service, appleMusic.catalog)
+
     val social = SocialModule(database, users.repository, jwtService)
 
     val premium = PremiumModule(database, users.repository, config.stripe, stripeApi)
 
-    val events = EventsModule(database, spotify.service, social.service, jwtService, appleMusic.catalog)
+    val events = EventsModule(database, providers, social.service, jwtService)
 
     val modules: List<Module> = listOf(
         SystemModule(config, database),
@@ -74,7 +77,7 @@ class AppModule(
         auth,
         spotify,
         appleMusic,
-        PlaylistsModule(database, users.repository, spotify.service, premium.tracks, social.service, appleMusic.catalog),
+        PlaylistsModule(database, users.repository, providers, premium.tracks, social.service),
         social,
         events,
         premium,

@@ -11,6 +11,7 @@ import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_location_failed
 import com.musicroom.app.generated.resources.event_track_unavailable
+import com.musicroom.app.music.MusicProviderRegistry
 import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.EventRemote
 import com.musicroom.app.player.PlayerController
@@ -285,7 +286,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     }
 
     private suspend fun resolveTrack(track: TrackResponse): TrackResponse? =
-        EventTrackResolver.connected(api, spotifyPremium, apple.connected, apple.storefront).resolve(track)
+        MusicProviderRegistry.connected(api, spotifyPremium, apple.connected, apple.storefront).eventTrackResolver().resolve(track)
 
     /** The position to send for [target], when its votes need one; throws [LocationUnavailable] when unknown. */
     private suspend fun location(target: EventResponse): GeoPoint? =

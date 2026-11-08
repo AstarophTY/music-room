@@ -4,7 +4,6 @@ import com.musicroom.server.common.exceptions.HttpException
 import com.musicroom.server.modules.events.entities.Event
 import com.musicroom.server.modules.events.entities.EventTrack
 import com.musicroom.server.modules.events.entities.EventTracksTable
-import com.musicroom.server.modules.spotify.SpotifyService
 import com.musicroom.shared.dto.EventStatus
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -34,10 +33,9 @@ import org.slf4j.LoggerFactory
 class EventPlayer(
     private val events: EventsRepository,
     private val tracks: EventTracksRepository,
-    private val spotify: SpotifyService,
+    private val providers: EventPlaybackProviders,
     private val onChange: (UUID) -> Unit,
 ) {
-    private val providers = EventPlaybackProviders.create(spotify)
     private val log = LoggerFactory.getLogger(EventPlayer::class.java)
     private val locks = ConcurrentHashMap<UUID, Mutex>()
 

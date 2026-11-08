@@ -1,6 +1,5 @@
 package com.musicroom.app.music
 
-import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.TrackResponse
 import kotlinx.coroutines.CancellationException
@@ -60,22 +59,4 @@ class MusicCatalogSearch(private val providers: List<Provider>) {
         }
     }
 
-    companion object {
-        fun connected(api: MusicRoomApi, spotify: Boolean, appleStorefront: String?): MusicCatalogSearch =
-            MusicCatalogSearch(buildList {
-                if (spotify) add(Spotify(api))
-                if (appleStorefront != null) add(AppleMusic(api, appleStorefront))
-            })
-    }
-
-    private class Spotify(private val api: MusicRoomApi) : Provider {
-        override suspend fun search(query: String, mood: String?) = api.search(query)
-        override suspend fun tracks(query: String) = api.searchTracks(query).items
-        override suspend fun suggestions() = api.myTopTracks().items
-    }
-
-    private class AppleMusic(private val api: MusicRoomApi, private val storefront: String) : Provider {
-        override suspend fun search(query: String, mood: String?) = api.searchAppleMusic(mood ?: query, storefront)
-        override suspend fun suggestions() = api.appleMusicCharts(storefront).items
-    }
 }
