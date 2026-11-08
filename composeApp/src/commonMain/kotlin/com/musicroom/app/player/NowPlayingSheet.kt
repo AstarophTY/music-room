@@ -253,7 +253,7 @@ private fun TrackSection(api: MusicRoomApi, player: PlayerController, onAddToPla
                 SkipButton(player, forward = true)
                 // A song the app plays itself (uploaded or Apple Music) does not use a Spotify device.
                 // The spacer keeps the row symmetric when the device button is hidden.
-                if (!player.playingHosted && !player.playingAppleMusic) DeviceButton(player) else Spacer(Modifier.size(48.dp))
+                if (player.canTransferPlayback) DeviceButton(player) else Spacer(Modifier.size(48.dp))
             }
         }
 

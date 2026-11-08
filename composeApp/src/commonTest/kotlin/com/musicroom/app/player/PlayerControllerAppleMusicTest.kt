@@ -29,6 +29,38 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerControllerAppleMusicTest {
     @Test
+    fun connectedDeviceProviderQueuesWithoutRemoteAccount() = runTest {
+        val fixture = fixture(this)
+        try {
+            fixture.controller.remoteConnected = false
+            val song = track("apple-1", TrackSource.APPLE_MUSIC)
+            assertTrue(fixture.controller.addToQueue(listOf(song)))
+            runCurrent()
+            assertEquals(song, fixture.controller.track)
+            assertTrue(fixture.controller.playingAppleMusic)
+        } finally {
+            fixture.controller.release()
+            fixture.api.close()
+        }
+    }
+
+    @Test
+    fun disconnectedDeviceProviderDoesNotConfirmQueueAddition() = runTest {
+        val fixture = fixture(this)
+        try {
+            fixture.apple.connected = false
+            val song = track("apple-1", TrackSource.APPLE_MUSIC)
+            assertFalse(fixture.controller.addToQueue(listOf(song)))
+            assertNull(fixture.controller.track)
+            assertTrue(fixture.controller.upNext.isEmpty())
+            assertNotNull(fixture.controller.error)
+        } finally {
+            fixture.controller.release()
+            fixture.api.close()
+        }
+    }
+
+    @Test
     fun appleMusicAlbumPlaysThroughLocalProvider() = runTest {
         val fixture = fixture(this)
         try {
@@ -195,7 +227,7 @@ class PlayerControllerAppleMusicTest {
         )
         val apple = FakeAppleMusicPlayback()
         val spotify = FakeSpotifyPlayback()
-        return Fixture(api, apple, spotify, PlayerController(api, scope, apple, spotify))
+        return Fixture(api, apple, spotify, PlayerController(api, scope, PlaybackEnvironment.create(api, scope, apple, spotify)))
     }
 
     private fun track(id: String, source: TrackSource) = TrackResponse(

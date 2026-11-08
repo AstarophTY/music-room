@@ -10,10 +10,12 @@ class TrackPlaybackRouter(private val providers: List<Provider>) {
         val source: TrackSource
         val managesOwnQueue: Boolean
         fun availabilityError(): UiText? = null
+        fun connectionError(): UiText? = null
         fun play(track: TrackResponse)
     }
 
     fun availabilityError(track: TrackResponse): UiText? = provider(track).availabilityError()
+    fun playbackError(track: TrackResponse): UiText? = provider(track).let { it.availabilityError() ?: it.connectionError() }
     fun appManaged(track: TrackResponse): Boolean = provider(track).managesOwnQueue.not()
     fun play(track: TrackResponse) = provider(track).play(track)
 

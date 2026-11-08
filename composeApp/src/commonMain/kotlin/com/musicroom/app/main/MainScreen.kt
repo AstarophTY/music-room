@@ -46,8 +46,10 @@ import com.musicroom.app.events.EventsScreen
 import com.musicroom.app.home.HomeScreen
 import com.musicroom.app.player.NowPlayingSheet
 import com.musicroom.app.player.PlayerBar
+import com.musicroom.app.player.PlaybackEnvironment
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.music.AppleMusicPlayback
+import com.musicroom.app.music.MusicProviderRegistry
 import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.Proposer
 import com.musicroom.app.player.QueueToast
@@ -114,28 +116,20 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val appleMusicPlayback = AppleMusicPlayback.Local.current
     val appleMusicConnection = AppleMusicConnection.Local.current
-    val player = remember(api, appleMusicPlayback) { PlayerController(api, scope, appleMusicPlayback) }
+    val player = remember(api, appleMusicPlayback) { PlayerController(api, scope, PlaybackEnvironment.create(api, scope, appleMusicPlayback)) }
     val social = remember(api, user.id) { SocialController(api, user.id, scope) }
     // The event the user listens to: its music plays on their Spotify too, and swiped songs are proposed to it.
-    val eventFocus = remember(api, player, appleMusicConnection) { EventFocus(api, player, scope, appleMusicConnection) }
+    val eventFocus = remember(api, player) { EventFocus(api, player, scope) }
     val locate = rememberLocationProvider()
     LaunchedEffect(eventFocus) { eventFocus.run() }
     // An uploaded song plays in the app: it stops with the signed-in screens (logout).
     DisposableEffect(player) { onDispose { player.release() } }
-    // Listening to an event plays on the user's Spotify: only with Premium.
-    LaunchedEffect(eventFocus, user.spotifyConnected, appleMusicPlayback.connected) {
-        val status = if (!user.spotifyConnected) {
-            null
-        } else {
-            try {
-                api.spotifyStatus()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                null
-            }
-        }
-        eventFocus.updateCanFocus(status?.connected == true && status.product == "premium", appleMusicPlayback.available && appleMusicPlayback.connected)
+    LaunchedEffect(eventFocus, user.spotifyConnected, appleMusicConnection.connected, appleMusicConnection.storefront, appleMusicPlayback.available, appleMusicPlayback.connected) {
+        val availability = MusicProviderRegistry.playbackAvailability(
+            api, user.spotifyConnected, appleMusicConnection.connected && appleMusicPlayback.connected,
+            appleMusicPlayback.available, appleMusicConnection.storefront,
+        )
+        eventFocus.updateProviders(availability)
     }
     // Live friends, messages and notifications while logged in.
     LaunchedEffect(social) { social.run() }
@@ -143,7 +137,7 @@ fun MainScreen(
     SideEffect {
         player.me = Proposer.of(user)
         // Without Spotify, playing a song asks to link it.
-        player.spotifyConnected = user.spotifyConnected
+        player.remoteConnected = user.spotifyConnected
         eventFocus.locate = locate
     }
     // Follows what Spotify plays while an account is linked.
@@ -162,7 +156,7 @@ fun MainScreen(
             EventFocusBar(eventFocus, onOpen = { id -> openEvents(id) })
             AnimatedVisibility(
                 // Uploaded songs play without Spotify.
-                visible = ((user.spotifyConnected || player.playingHosted || player.playingAppleMusic) && player.track != null) || player.error != null || eventFocus.event != null,
+                visible = player.track != null || player.error != null || eventFocus.event != null,
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut(),
             ) {

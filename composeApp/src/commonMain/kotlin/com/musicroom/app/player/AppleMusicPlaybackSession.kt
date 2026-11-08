@@ -1,6 +1,11 @@
 package com.musicroom.app.player
 
 import com.musicroom.app.music.AppleMusicPlayback
+import com.musicroom.app.common.UiText
+import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.apple_music_not_connected
+import com.musicroom.app.generated.resources.apple_music_playback_pending
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.TrackResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -14,8 +19,9 @@ class AppleMusicPlaybackSession(
     private val onEnded: () -> Unit,
     private val onError: (Exception) -> Unit,
 ) : DevicePlaybackSession {
-    val available get() = playback.available
-    val connected get() = playback.connected
+    override val source = TrackSource.APPLE_MUSIC
+    override fun availabilityError() = if (playback.available) null else UiText.of(Res.string.apple_music_playback_pending)
+    override fun connectionError() = if (playback.connected) null else UiText.of(Res.string.apple_music_not_connected)
     override val canResume get() = ready
     private var ready = false
         private set
@@ -23,7 +29,7 @@ class AppleMusicPlaybackSession(
     private var job: Job? = null
     private var active = false
 
-    fun start(track: TrackResponse) {
+    override fun start(track: TrackResponse) {
         stop()
         active = true
         val current = generation

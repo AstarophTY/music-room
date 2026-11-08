@@ -236,7 +236,7 @@
     <string name="provider_choice_later">Not now</string>
     <string name="song_suggestions">Suggested and popular songs</string>
     <string name="provider_apple_unavailable">Apple Music connection is not available on this platform yet.</string>
-    <string name="provider_apple_catalog_pending">Apple Music song search is available. Playback is not available yet.</string>
+    <string name="provider_apple_catalog_pending">Connect your Apple Music account to access its music catalog.</string>
     <string name="apple_music_storefront_missing">Your Apple Music storefront is unavailable. Reconnect Apple Music and try again.</string>
     <string name="apple_music_playback_pending">Apple Music playback is not available yet.</string>
     <string name="apple_music_search_hint">Search Apple Music</string>

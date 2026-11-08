@@ -11,8 +11,7 @@ import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_location_failed
 import com.musicroom.app.generated.resources.event_track_unavailable
-import com.musicroom.app.music.MusicProviderRegistry
-import com.musicroom.app.music.AppleMusicConnection
+import com.musicroom.app.music.MusicPlaybackAvailability
 import com.musicroom.app.player.EventRemote
 import com.musicroom.app.player.PlayerController
 import com.musicroom.shared.ApiException
@@ -25,7 +24,6 @@ import com.musicroom.shared.dto.EventTrackResponse
 import com.musicroom.shared.dto.EventVoteLicense
 import com.musicroom.shared.dto.GeoPoint
 import com.musicroom.shared.dto.TrackResponse
-import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -43,7 +41,7 @@ import kotlin.time.Clock
  * Focusing needs a linked Spotify Premium account ([canFocus]), since it plays on the user's Spotify.
  */
 @Stable
-class EventFocus(private val api: MusicRoomApi, private val player: PlayerController, private val scope: CoroutineScope, private val apple: AppleMusicConnection) : EventRemote {
+class EventFocus(private val api: MusicRoomApi, private val player: PlayerController, private val scope: CoroutineScope) : EventRemote {
     /** The focused event, kept up to date while [run] follows it. */
     var event by mutableStateOf<EventResponse?>(null)
         private set
@@ -66,7 +64,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     /** What was last played on the user's Spotify for the event: the song and whether it was playing. */
     private var synced: Pair<String?, Boolean>? = null
     private var listenJob: Job? = null
-    private var spotifyPremium = false
+    private var providers: MusicPlaybackAvailability? = null
     private var nextNoticeId = 0L
     private var noticeJob: Job? = null
 
@@ -117,9 +115,9 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     }
 
     /** Whether the user can focus an event (Spotify Premium linked); false drops the current focus. */
-    fun updateCanFocus(premium: Boolean, appleAvailable: Boolean = false) {
-        spotifyPremium = premium
-        canFocus = premium || appleAvailable
+    fun updateProviders(availability: MusicPlaybackAvailability) {
+        providers = availability
+        canFocus = availability.canListen
         if (!canFocus) unfocus()
     }
 
@@ -244,7 +242,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
      */
     private fun listenAlong(detail: EventDetailResponse) {
         val track = detail.nowPlaying?.track
-        if (detail.event.isOwner && track?.source == TrackSource.SPOTIFY && spotifyPremium) {
+        if (detail.event.isOwner && track != null && providers?.hostControlsPlayback(track) == true) {
             listenJob?.cancel()
             synced = track.id to (detail.event.status == EventStatus.PLAYING)
             player.stopEventLocalPlayback()
@@ -286,7 +284,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
     }
 
     private suspend fun resolveTrack(track: TrackResponse): TrackResponse? =
-        MusicProviderRegistry.connected(api, spotifyPremium, apple.connected, apple.storefront).eventTrackResolver().resolve(track)
+        providers?.resolve(track)
 
     /** The position to send for [target], when its votes need one; throws [LocationUnavailable] when unknown. */
     private suspend fun location(target: EventResponse): GeoPoint? =

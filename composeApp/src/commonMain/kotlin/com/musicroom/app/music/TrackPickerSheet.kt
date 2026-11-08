@@ -19,10 +19,9 @@ fun TrackPickerSheet(
     onAdd: suspend (TrackResponse) -> Unit,
     onDismiss: () -> Unit,
     showTopTracks: Boolean = true,
-    allowAppleMusic: Boolean = false,
 ) {
     AppBottomSheet(onDismiss) {
         Text(title, style = AppTheme.typography.title, color = AppTheme.colors.textPrimary)
-        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd, showTopTracks, allowAppleMusic)
+        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd, showTopTracks)
     }
 }

@@ -20,10 +20,9 @@ fun TrackPickerPage(
     onAdd: suspend (TrackResponse) -> Unit,
     onBack: () -> Unit,
     showTopTracks: Boolean = true,
-    allowAppleMusic: Boolean = false,
 ) {
     BackHandler(onBack = onBack)
     SubScreenScaffold(title = title, onBack = onBack) {
-        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd, showTopTracks, allowAppleMusic)
+        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd, showTopTracks)
     }
 }

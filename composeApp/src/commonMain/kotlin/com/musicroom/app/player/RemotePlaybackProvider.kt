@@ -1,0 +1,18 @@
+package com.musicroom.app.player
+
+import com.musicroom.app.common.UiText
+import com.musicroom.shared.dto.DevicesResponse
+import com.musicroom.shared.dto.QueueResponse
+import com.musicroom.shared.dto.TrackSource
+
+/** Playback capabilities provided by a remote music service. */
+interface RemotePlaybackProvider : PlaybackProvider {
+    val source: TrackSource
+    fun notConnectedError(): UiText
+    fun isDisconnected(error: Exception): Boolean = false
+    fun isMissingDevice(error: Exception): Boolean = false
+    suspend fun devices(): DevicesResponse
+    suspend fun transferPlayback(deviceId: String, play: Boolean)
+    suspend fun queue(): QueueResponse
+    suspend fun addToQueue(uris: List<String>)
+}

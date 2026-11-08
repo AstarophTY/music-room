@@ -30,7 +30,6 @@ import com.musicroom.app.generated.resources.search_placeholder
 import com.musicroom.app.generated.resources.song_suggestions
 import com.musicroom.app.generated.resources.search_no_results
 import com.musicroom.app.generated.resources.apple_music_storefront_missing
-import com.musicroom.app.generated.resources.apple_music_playback_pending
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppTextField
 import com.musicroom.app.theme.tokens.AppTheme
@@ -55,7 +54,6 @@ fun TrackPickerContent(
     isAdded: (TrackResponse) -> Boolean,
     onAdd: suspend (TrackResponse) -> Unit,
     showTopTracks: Boolean = true,
-    allowAppleMusic: Boolean = false,
 ) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
@@ -64,20 +62,15 @@ fun TrackPickerContent(
     var adding by remember { mutableStateOf<Set<String>>(emptySet()) }
     var error by remember { mutableStateOf<UiText?>(null) }
     val appleMusic = AppleMusicConnection.Local.current
-    var choosingProvider by remember { mutableStateOf(!player.spotifyConnected && !appleMusic.connected) }
-    var spotifyReady by remember { mutableStateOf(player.spotifyConnected) }
+    var choosingProvider by remember { mutableStateOf(!player.remoteConnected && !appleMusic.connected) }
+    var spotifyReady by remember { mutableStateOf(player.remoteConnected) }
     val onSpotifyConnected = ProviderSession.onSpotifyConnected.current
 
     LaunchedEffect(query, choosingProvider, spotifyReady, appleMusic.connected, appleMusic.storefront) {
         results = null
         error = null
         if (choosingProvider) return@LaunchedEffect
-        val appleSelected = appleMusic.connected && allowAppleMusic
-        if (appleMusic.connected && !spotifyReady && !allowAppleMusic) {
-            error = UiText.of(Res.string.apple_music_playback_pending)
-            results = emptyList()
-            return@LaunchedEffect
-        }
+        val appleSelected = appleMusic.connected
         if (appleSelected && appleMusic.storefront.isNullOrBlank()) {
             error = UiText.of(Res.string.apple_music_storefront_missing)
             if (!spotifyReady) {
@@ -97,7 +90,7 @@ fun TrackPickerContent(
                 result.failures.firstOrNull()?.let { error = UiText.of(it) }
                 result.tracks
             } else {
-                val result = MixedTrackSearch(api).search(text, spotifyReady || !appleSelected, appleMusic.storefront.takeIf { appleSelected })
+                val result = MixedTrackSearch(api).search(text, spotifyReady, appleMusic.storefront.takeIf { appleSelected })
                 result.failures.firstOrNull()?.let { error = UiText.of(it) }
                 result.tracks
             }
@@ -129,13 +122,13 @@ fun TrackPickerContent(
         if (choosingProvider) {
             ProviderChoice(
                 api,
-                onSpotifyConnected = { player.spotifyConnected = true; spotifyReady = true; choosingProvider = false; onSpotifyConnected() },
+                onSpotifyConnected = { player.remoteConnected = true; spotifyReady = true; choosingProvider = false; onSpotifyConnected() },
                 onContinue = { choosingProvider = false },
                 listenerOption = false,
             )
         } else {
         AppTextField(query, { query = it }, stringResource(Res.string.search_placeholder), Modifier.fillMaxWidth(), leadingIcon = Lucide.Search)
-        if (query.isBlank() && ((showTopTracks && spotifyReady) || (allowAppleMusic && appleMusic.connected))) SectionTitle(stringResource(Res.string.song_suggestions))
+        if (query.isBlank() && ((showTopTracks && spotifyReady) || appleMusic.connected)) SectionTitle(stringResource(Res.string.song_suggestions))
         error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
         val loaded = results
         when {

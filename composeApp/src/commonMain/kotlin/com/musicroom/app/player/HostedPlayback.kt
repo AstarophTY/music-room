@@ -1,6 +1,7 @@
 package com.musicroom.app.player
 
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.TrackResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,8 @@ class HostedPlayback(
     private val onEnded: () -> Unit,
     private val onError: (Exception) -> Unit,
 ) : DevicePlaybackSession {
+    override val source = TrackSource.MUSIC_ROOM
+    override fun start(track: TrackResponse) = play(track)
     private val audio = LocalAudioPlayer()
     private val cache = LinkedHashMap<String, ByteArray>()
     private var job: Job? = null

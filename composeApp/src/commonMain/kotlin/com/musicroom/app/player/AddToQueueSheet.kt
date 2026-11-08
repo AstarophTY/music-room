@@ -25,8 +25,7 @@ fun AddToQueueSheet(api: MusicRoomApi, player: PlayerController, onDismiss: () -
         addedLabel = stringResource(Res.string.queue_in_queue),
         isAdded = { it.id in queued },
         onAdd = { track ->
-            player.addToQueue(listOf(track))
-            queued = queued + track.id
+            if (player.addToQueue(listOf(track))) queued = queued + track.id
         },
         onDismiss = onDismiss,
     )

@@ -33,6 +33,5 @@ fun AddSongsPage(
         isAdded = { it.id in inPlaylist },
         onAdd = { onChange(api.addPlaylistTrack(detail.playlist.id, it)) },
         onBack = onBack,
-        allowAppleMusic = true,
     )
 }

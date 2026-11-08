@@ -6,14 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import com.musicroom.app.common.UiText
-import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.error_spotify_not_connected
-import com.musicroom.app.generated.resources.apple_music_not_connected
-import com.musicroom.app.generated.resources.apple_music_playback_pending
 import com.musicroom.app.generated.resources.player_locked_by_event
-import com.musicroom.shared.ApiErrors
-import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.AlbumResponse
 import com.musicroom.shared.dto.DeviceResponse
@@ -43,15 +37,16 @@ import kotlin.time.TimeSource
  * ([playingHosted]). Apple Music songs play through the Apple Music SDK on Android ([playingAppleMusic]), Spotify
  * waiting paused too. A list holding some of them is played by the app song after song ([appList]): each Spotify
  * song is started on its own, and the next one starts when it ends. An app-local song queued during a Spotify album
- * or playlist pauses it, which goes on afterwards ([resumeSpotify]).
+ * or playlist pauses it, which goes on afterwards ([resumeRemote]).
  */
 @Stable
 class PlayerController(
     private val api: MusicRoomApi,
     private val scope: CoroutineScope,
-    apple: AppleMusicPlayback,
-    private val spotify: SpotifyRemotePlaybackProvider = SpotifyPlaybackProvider(api),
+    environment: PlaybackEnvironment,
 ) {
+    private val remote = environment.remote
+
     var state by mutableStateOf<PlaybackStateResponse?>(null)
         private set
 
@@ -67,7 +62,7 @@ class PlayerController(
     val sentKey: Long? get() = queue.sentKey
 
     /** Spotify's own queue (songs added elsewhere, then the rest of the album or playlist), from [followQueue]. */
-    private var spotifyQueue by mutableStateOf<List<TrackResponse>>(emptyList())
+    private var remoteQueue by mutableStateOf<List<TrackResponse>>(emptyList())
 
     /** The user's devices with Spotify open, from [loadDevices]; null until loaded. */
     var devices by mutableStateOf<List<DeviceResponse>?>(null)
@@ -77,7 +72,7 @@ class PlayerController(
     var me: Proposer? = null
 
     /** Whether the user linked Spotify; set by the screen. */
-    var spotifyConnected = true
+    var remoteConnected = true
 
     val queueNotice: QueueNotice? get() = queue.notice
 
@@ -104,32 +99,18 @@ class PlayerController(
     /** A command sent by the focused event, allowed while [lockedByEvent]. */
     private var eventCommand = false
 
-    /** The song playing was uploaded to Music Room: the app plays it, Spotify waits paused. */
-    var playingHosted by mutableStateOf(false)
-        private set
-
-    var playingAppleMusic by mutableStateOf(false)
-        private set
+    private var activeDeviceSource by mutableStateOf<TrackSource?>(null)
+    val playingHosted: Boolean get() = activeDeviceSource == TrackSource.MUSIC_ROOM
+    val playingAppleMusic: Boolean get() = activeDeviceSource == TrackSource.APPLE_MUSIC
 
     /** A list the app plays song after song, as it holds uploaded songs; null while Spotify plays on its own. */
     private var appList by mutableStateOf<List<TrackResponse>?>(null)
     private var appIndex by mutableStateOf(0)
 
     /** Spotify was paused in an album or playlist for uploaded songs: it goes on after them. */
-    private var resumeSpotify = false
+    private var resumeRemote = false
 
-    private val hosted = HostedPlayback(
-        api,
-        scope,
-        onEnded = { advance() },
-        onError = { e ->
-            error = UiText.of(e)
-            state?.let { update(it.copy(isPlaying = false)) }
-        },
-    )
-
-    private val appleSession = AppleMusicPlaybackSession(
-        apple, scope,
+    private val deviceProviders = environment.devices(
         onEnded = { advance() },
         onError = { failure ->
             error = UiText.of(failure)
@@ -137,30 +118,28 @@ class PlayerController(
         },
     )
 
-    private val playbackRouter = TrackPlaybackRouter(listOf(
-        object : TrackPlaybackRouter.Provider {
-            override val source = TrackSource.MUSIC_ROOM
-            override val managesOwnQueue = false
-            override fun play(track: TrackResponse) = startHosted(track)
-        },
-        object : TrackPlaybackRouter.Provider {
-            override val source = TrackSource.APPLE_MUSIC
-            override val managesOwnQueue = false
-            override fun availabilityError() = if (appleSession.available) null else UiText.of(Res.string.apple_music_playback_pending)
-            override fun play(track: TrackResponse) {
-                val problem = availabilityError() ?: if (!appleSession.connected) UiText.of(Res.string.apple_music_not_connected) else null
-                if (problem != null) error = problem else startAppleMusic(track)
-            }
-        },
-        object : TrackPlaybackRouter.Provider {
-            override val source = TrackSource.SPOTIFY
+    private val playbackRouter = TrackPlaybackRouter(buildList {
+        deviceProviders.all.forEach { session ->
+            add(object : TrackPlaybackRouter.Provider {
+                override val source = session.source
+                override val managesOwnQueue = false
+                override fun availabilityError() = session.availabilityError()
+                override fun connectionError() = session.connectionError()
+                override fun play(track: TrackResponse) {
+                    val problem = session.availabilityError() ?: session.connectionError()
+                    if (problem != null) error = problem else startDevicePlayback(session, track)
+                }
+            })
+        }
+        add(object : TrackPlaybackRouter.Provider {
+            override val source = remote.source
             override val managesOwnQueue = true
             override fun play(track: TrackResponse) {
-                if (requireSpotify()) playOnSpotify(track) { spotify.play(listOf(track.uri), 0) }
+                if (requireRemote()) playOnRemote(track) { remote.play(listOf(track.uri), 0) }
                 else stopAtEnd()
             }
-        },
-    ))
+        })
+    })
 
     private var queueChanges by mutableStateOf(0)
 
@@ -169,6 +148,7 @@ class PlayerController(
 
     val track: TrackResponse? get() = state?.track
     val isPlaying: Boolean get() = state?.isPlaying == true
+    val canTransferPlayback: Boolean get() = deviceSession == null
 
     /** What the play / pause button shows: the focused event's status, else what the player does. */
     val showsPlaying: Boolean get() = eventRemote?.playing ?: isPlaying
@@ -183,18 +163,14 @@ class PlayerController(
     val following: List<TrackResponse>
         get() {
             appList?.let { return it.drop(appIndex + 1) }
-            if ((playingHosted || playingAppleMusic) && !resumeSpotify) return emptyList()
-            val sentId = upNext.firstOrNull { it.key == sentKey }?.track?.id ?: return spotifyQueue
-            val index = spotifyQueue.indexOfFirst { it.id == sentId }
-            return if (index < 0) spotifyQueue else spotifyQueue.toMutableList().apply { removeAt(index) }
+            if ((deviceSession != null) && !resumeRemote) return emptyList()
+            val sentId = upNext.firstOrNull { it.key == sentKey }?.track?.id ?: return remoteQueue
+            val index = remoteQueue.indexOfFirst { it.id == sentId }
+            return if (index < 0) remoteQueue else remoteQueue.toMutableList().apply { removeAt(index) }
         }
 
     private val deviceSession: DevicePlaybackSession?
-        get() = when {
-            playingHosted -> hosted
-            playingAppleMusic -> appleSession
-            else -> null
-        }
+        get() = activeDeviceSource?.let(deviceProviders::find)
 
     /** Position in the track, moving forward between two syncs while it plays. */
     fun positionMs(): Long {
@@ -216,16 +192,16 @@ class PlayerController(
             return
         }
         if (tracks.none(::isAppTrack)) {
-            if (!requireSpotify()) return
+            if (!requireRemote()) return
             appList = null
-            resumeSpotify = false
-            playOnSpotify(track) { spotify.play(tracks.map { it.uri }, index) }
+            resumeRemote = false
+            playOnRemote(track) { remote.play(tracks.map { it.uri }, index) }
             return
         }
         if (!allowed()) return
         appList = tracks
         appIndex = index
-        resumeSpotify = false
+        resumeRemote = false
         playSingle(track)
     }
 
@@ -243,18 +219,17 @@ class PlayerController(
 
     /** Plays a Spotify playlist or album ([uri]) from [index]. */
     private fun playContext(uri: String, tracks: List<TrackResponse>, index: Int) {
-        if (!requireSpotify()) return
+        if (!requireRemote()) return
         val track = tracks.getOrNull(index)
-        val device = spotifyDevice()
+        val device = remoteDevice()
         appList = null
-        resumeSpotify = false
-        leaveHosted()
-        leaveAppleMusic()
+        resumeRemote = false
+        leaveDevicePlayback()
         track?.let {
             update(PlaybackStateResponse(active = true, isPlaying = true, track = it, deviceName = device))
         }
         synchronizer.waitFor(track?.id)
-        command { spotify.play(index = index, contextUri = uri) }
+        command { remote.play(index = index, contextUri = uri) }
     }
 
     /** Plays [following] from its track at [index]; the tracks after it follow. */
@@ -273,20 +248,23 @@ class PlayerController(
      * Adds songs at the end of [upNext], each with who proposed it, and confirms it in [queueNotice]. While an event
      * is focused, the event's queue is the queue: the songs are proposed to it instead.
      */
-    fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>) {
+    fun addProposed(songs: List<Pair<TrackResponse, Proposer?>>): Boolean {
         // Proposing to a focused event plays nothing here: no need for the local Apple Music playback.
         val toEvent = proposeToEvent
-        if (lockedByEvent && toEvent != null) return toEvent(songs.map { it.first })
-        songs.firstNotNullOfOrNull { playbackRouter.availabilityError(it.first) }?.let {
-            error = it
-            return
+        if (lockedByEvent && toEvent != null) {
+            toEvent(songs.map { it.first })
+            return true
         }
-        if (songs.isEmpty()) return
+        songs.firstNotNullOfOrNull { playbackRouter.playbackError(it.first) }?.let {
+            error = it
+            return false
+        }
+        if (songs.isEmpty()) return false
         // Uploaded songs play without Spotify.
         if (songs.all { isAppTrack(it.first) }) {
-            if (!allowed()) return
-        } else if (!requireSpotify()) {
-            return
+            if (!allowed()) return false
+        } else if (!requireRemote()) {
+            return false
         }
         var added = queue.append(songs)
         if (track == null) {
@@ -298,6 +276,7 @@ class PlayerController(
             sendIfEnding()
         }
         queue.announce(added)
+        return true
     }
 
     fun canUndo(notice: QueueNotice): Boolean = queue.canUndo(notice)
@@ -328,7 +307,7 @@ class PlayerController(
             // Spotify takes a moment to show a skip or an added song in its queue.
             delay(800.milliseconds)
             try {
-                spotifyQueue = spotify.queue().tracks
+                remoteQueue = remote.queue().tracks
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -339,19 +318,19 @@ class PlayerController(
 
     /** Reloads [devices]; throws when Spotify cannot be reached. */
     suspend fun loadDevices() {
-        devices = spotify.devices().devices
+        devices = remote.devices().devices
     }
 
     /** Moves playback to [device], playing there unless it was paused. */
     fun transferTo(device: DeviceResponse) {
         // App-local tracks do not play on Spotify devices.
-        if (device.isActive || playingHosted || playingAppleMusic) return
+        if (device.isActive || deviceSession != null) return
         val play = state?.track == null || isPlaying
         devices = devices?.map { it.copy(isActive = it.id == device.id) }
         state?.let { update(it.copy(deviceName = device.name, progressMs = positionMs())) }
         // While Spotify moves the music it can briefly report it paused or playing nowhere: keep what is shown.
         synchronizer.waitFor(track?.id, device = device.name, playing = play)
-        command { spotify.transferPlayback(device.id, play) }
+        command { remote.transferPlayback(device.id, play) }
     }
 
     fun togglePlay() {
@@ -372,7 +351,7 @@ class PlayerController(
             return
         }
         update(current.copy(isPlaying = !current.isPlaying, progressMs = positionMs()))
-        command { if (current.isPlaying) spotify.pause() else spotify.play() }
+        command { if (current.isPlaying) remote.pause() else remote.play() }
     }
 
     /** Skips to the first [upNext] song, or to the next song of the list. */
@@ -391,8 +370,8 @@ class PlayerController(
                 appIndex--
                 playSingle(list[appIndex])
             }
-            playingHosted || playingAppleMusic || list != null -> seek(0)
-            else -> command { spotify.skipPrevious() }
+            deviceSession != null || list != null -> seek(0)
+            else -> command { remote.skipPrevious() }
         }
     }
 
@@ -401,7 +380,7 @@ class PlayerController(
         if (!allowed()) return
         state?.let { update(it.copy(progressMs = positionMs)) }
         val local = deviceSession
-        if (local != null) local.seek(positionMs) else command { spotify.seek(positionMs) }
+        if (local != null) local.seek(positionMs) else command { remote.seek(positionMs) }
     }
 
     /**
@@ -413,81 +392,60 @@ class PlayerController(
         val list = appList
         when {
             // Back to the paused Spotify album or playlist: the Spotify song goes before what it plays next.
-            first != null && (playingHosted || playingAppleMusic) && resumeSpotify && !isAppTrack(first.track) -> {
-                leaveHosted()
-                leaveAppleMusic()
-                resumeSpotify = false
-                send(first) { spotify.skipNext() }
+            first != null && (deviceSession != null) && resumeRemote && !isAppTrack(first.track) -> {
+                leaveDevicePlayback()
+                resumeRemote = false
+                send(first) { remote.skipNext() }
             }
             first != null && appDriven() -> {
-                if (list == null && !playingHosted && !playingAppleMusic && isAppTrack(first.track)) resumeSpotify = true
+                if (list == null && deviceSession == null && isAppTrack(first.track)) resumeRemote = true
                 queue.remove(first)
                 playSingle(first.track)
             }
-            first != null -> send(first) { spotify.skipNext() }
+            first != null -> send(first) { remote.skipNext() }
             list != null && appIndex < list.lastIndex -> {
                 appIndex++
                 playSingle(list[appIndex])
             }
-            (playingHosted || playingAppleMusic) && resumeSpotify -> {
-                leaveHosted()
-                leaveAppleMusic()
-                resumeSpotify = false
-                command { spotify.skipNext() }
+            (deviceSession != null) && resumeRemote -> {
+                leaveDevicePlayback()
+                resumeRemote = false
+                command { remote.skipNext() }
             }
-            playingHosted || playingAppleMusic || list != null -> stopAtEnd()
-            else -> command { spotify.skipNext() }
+            deviceSession != null || list != null -> stopAtEnd()
+            else -> command { remote.skipNext() }
         }
     }
 
     /** The app chooses each song (a list with app-local songs, or an app-local song playing or next). */
-    private fun appDriven() = appList != null || playingHosted || playingAppleMusic || upNext.firstOrNull()?.track?.let(::isAppTrack) == true
+    private fun appDriven() = appList != null || deviceSession != null || upNext.firstOrNull()?.track?.let(::isAppTrack) == true
 
     private fun isAppTrack(track: TrackResponse) = playbackRouter.appManaged(track)
 
     private fun playSingle(track: TrackResponse) = playbackRouter.play(track)
 
-    private fun playOnSpotify(track: TrackResponse, start: suspend () -> Unit) {
-        leaveAppleMusic()
-        val device = spotifyDevice()
-        leaveHosted()
+    private fun playOnRemote(track: TrackResponse, start: suspend () -> Unit) {
+        val device = remoteDevice()
+        leaveDevicePlayback()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = device))
         synchronizer.waitFor(track.id)
         command(action = start)
     }
 
-    private fun startHosted(track: TrackResponse) {
-        val wasAppPlayback = playingHosted || playingAppleMusic
-        leaveAppleMusic()
-        // Spotify goes quiet while the app plays.
-        if (!wasAppPlayback && isPlaying) command { spotify.pause() }
-        playingHosted = true
+    private fun startDevicePlayback(session: DevicePlaybackSession, track: TrackResponse) {
+        val wasLocal = deviceSession != null
+        if (!wasLocal && isPlaying) command { remote.pause() }
+        leaveDevicePlayback()
+        activeDeviceSource = session.source
         synchronizer.stopWaiting()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
-        hosted.play(track)
+        session.start(track)
     }
 
-    private fun leaveHosted() {
-        if (!playingHosted) return
-        hosted.stop()
-        playingHosted = false
-    }
-
-    private fun startAppleMusic(track: TrackResponse) {
-        if (!playingHosted && !playingAppleMusic && isPlaying) command { spotify.pause() }
-        leaveHosted()
-        leaveAppleMusic()
-        playingAppleMusic = true
-        synchronizer.stopWaiting()
-        update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
-        appleSession.start(track)
-    }
-
-    private fun leaveAppleMusic() {
-        if (playingAppleMusic) {
-            playingAppleMusic = false
-            appleSession.stop()
-        }
+    private fun leaveDevicePlayback() {
+        val session = deviceSession ?: return
+        activeDeviceSource = null
+        session.stop()
     }
 
     /** The list is over: its last song stays shown, paused at its start. */
@@ -497,16 +455,16 @@ class PlayerController(
     }
 
     /** The Spotify device last known (not the app, while it plays an app-local song). */
-    private fun spotifyDevice(): String? = if (playingHosted || playingAppleMusic) null else state?.deviceName
+    private fun remoteDevice(): String? = if (deviceSession != null) null else state?.deviceName
 
     /** The app plays the list, or an uploaded song comes next: near the end of a Spotify song, it starts the next one. */
-    private fun advanceIfSpotifyEnding() {
-        if (!spotifyEndsSoon(END_MARGIN.inWholeMilliseconds)) return
+    private fun advanceIfRemoteEnding() {
+        if (!remoteEndsSoon(END_MARGIN.inWholeMilliseconds)) return
         advance()
     }
 
-    private fun spotifyEndsSoon(withinMs: Long): Boolean {
-        if (lockedByEvent || playingHosted || playingAppleMusic || !isPlaying || sentKey != null) return false
+    private fun remoteEndsSoon(withinMs: Long): Boolean {
+        if (lockedByEvent || deviceSession != null || !isPlaying || sentKey != null) return false
         if (appList == null && upNext.firstOrNull()?.track?.let(::isAppTrack) != true) return false
         val duration = track?.durationMs ?: return false
         return duration - positionMs() <= withinMs
@@ -514,24 +472,22 @@ class PlayerController(
 
     /** Stops an uploaded song playing in the app (leaving the signed-in screens). Spotify plays on its own. */
     fun release() {
-        leaveHosted()
-        leaveAppleMusic()
+        leaveDevicePlayback()
     }
 
     /** Stops device-local event audio before the host's Spotify takes over. */
     fun stopEventLocalPlayback() {
-        if (!playingHosted && !playingAppleMusic) return
-        leaveHosted()
-        leaveAppleMusic()
+        if (deviceSession == null) return
+        leaveDevicePlayback()
         state = null
         synchronizer.requestRefresh()
     }
 
     /** Returns false when Spotify playback is unavailable. */
-    private fun requireSpotify(): Boolean {
+    private fun requireRemote(): Boolean {
         if (!allowed()) return false
-        if (!spotifyConnected) error = UiText.of(Res.string.error_spotify_not_connected)
-        return spotifyConnected
+        if (!remoteConnected) error = remote.notConnectedError()
+        return remoteConnected
     }
 
     /** Locks the player for a focused event ([lockedByEvent]), or gives it back to the user. */
@@ -589,20 +545,20 @@ class PlayerController(
 
     /** Keeps the state in sync with Spotify until cancelled: often while playing, rarely otherwise. */
     suspend fun sync() = synchronizer.run(
-        fetch = { spotify.playbackState() },
+        fetch = { remote.playbackState() },
         onState = { remote ->
             val shown = state?.track
             val fetched = if (remote.active && remote.isPlaying && remote.track == null && shown != null) remote.copy(track = shown) else remote
             if (deviceSession == null) {
                 if (!synchronizer.isStillStarting(fetched)) update(fetched)
                 sendIfEnding()
-                advanceIfSpotifyEnding()
+                advanceIfRemoteEnding()
             }
         },
         interval = {
             when {
                 synchronizer.waiting -> 1.seconds
-                spotifyEndsSoon(WATCH_END.inWholeMilliseconds) -> 500.milliseconds
+                remoteEndsSoon(WATCH_END.inWholeMilliseconds) -> 500.milliseconds
                 isPlaying -> 5.seconds
                 else -> 15.seconds
             }
@@ -618,7 +574,7 @@ class PlayerController(
     /** Hands the first [upNext] song to Spotify when the current track is about to end. */
     private fun sendIfEnding() {
         // The event chooses what plays next; the app starts the songs of its own lists and the uploaded ones.
-        if (lockedByEvent || playingHosted || playingAppleMusic || appList != null) return
+        if (lockedByEvent || deviceSession != null || appList != null) return
         val first = upNext.firstOrNull()?.takeUnless { isAppTrack(it.track) } ?: return
         val duration = track?.durationMs ?: return
         if (sentKey != null || duration - positionMs() > SEND_BEFORE_END.inWholeMilliseconds) return
@@ -629,7 +585,7 @@ class PlayerController(
     private fun send(entry: QueueEntry, then: suspend () -> Unit = {}) {
         queue.markSent(entry)
         command(onError = { queue.cancelSent(entry.key) }) {
-            spotify.addToQueue(listOf(entry.track.uri))
+            remote.addToQueue(listOf(entry.track.uri))
             queueChanges++
             then()
         }
@@ -648,14 +604,14 @@ class PlayerController(
                 synchronizer.stopWaiting()
                 onError()
                 // Unlinked meanwhile (from another device): ask to link it again rather than show an error.
-                if ((e as? ApiException)?.error == ApiErrors.SPOTIFY_NOT_CONNECTED) {
+                if (remote.isDisconnected(e)) {
                     state = null
                     error = UiText.of(e)
                     synchronizer.requestRefresh()
                     return@launch
                 }
                 error = UiText.of(e)
-                needsDevice = (e as? ApiException)?.error == ApiErrors.SPOTIFY_NO_DEVICE
+                needsDevice = remote.isMissingDevice(e)
             }
             synchronizer.requestRefresh()
         }
@@ -681,6 +637,6 @@ class PlayerController(
         private val RESTART_THRESHOLD = 3.seconds
 
         /** Opens the Spotify app on phones; on computers the web player, which also counts as a device. */
-        const val SPOTIFY_WEB_URL = "https://open.spotify.com"
+        const val SPOTIFY_WEB_URL = "https://open.remote.com"
     }
 }

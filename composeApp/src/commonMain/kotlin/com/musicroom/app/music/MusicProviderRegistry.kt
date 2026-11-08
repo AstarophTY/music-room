@@ -3,6 +3,7 @@ package com.musicroom.app.music
 import com.musicroom.app.events.EventTrackResolver
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TrackSource
+import kotlinx.coroutines.CancellationException
 
 /** Builds the capabilities offered by the user's connected music providers. */
 class MusicProviderRegistry private constructor(private val providers: List<Provider>) {
@@ -14,6 +15,31 @@ class MusicProviderRegistry private constructor(private val providers: List<Prov
     fun eventTrackResolver() = EventTrackResolver(providers)
 
     companion object {
+        suspend fun playbackAvailability(
+            api: MusicRoomApi,
+            spotifyConnected: Boolean,
+            appleConnected: Boolean,
+            applePlaybackAvailable: Boolean,
+            appleStorefront: String?,
+        ): MusicPlaybackAvailability {
+            val spotifyPlayable = if (!spotifyConnected) false else try {
+                val status = api.spotifyStatus()
+                status.connected && status.product == "premium"
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+            val applePlayable = appleConnected && applePlaybackAvailable
+            val registry = connected(api, spotifyPlayable, applePlayable, appleStorefront)
+            val playable = buildSet {
+                if (spotifyPlayable) add(TrackSource.SPOTIFY)
+                if (applePlayable) add(TrackSource.APPLE_MUSIC)
+            }
+            val remote = if (spotifyPlayable) setOf(TrackSource.SPOTIFY) else emptySet()
+            return MusicPlaybackAvailability(registry.eventTrackResolver(), playable, remote)
+        }
+
         fun connected(api: MusicRoomApi, spotify: Boolean, appleConnected: Boolean, appleStorefront: String?): MusicProviderRegistry =
             MusicProviderRegistry(buildList {
                 if (spotify) add(Spotify(api))
