@@ -3,6 +3,7 @@ package com.musicroom.server.modules.catalog
 import com.musicroom.server.modules.applemusic.AppleMusicCatalog
 import com.musicroom.server.modules.events.EventPlaybackProviders
 import com.musicroom.server.modules.spotify.SpotifyService
+import com.musicroom.shared.dto.CatalogId
 import com.musicroom.shared.dto.PlayRequest
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.TrackSource
@@ -15,14 +16,13 @@ class MusicProviderRegistry(spotify: SpotifyService, appleMusic: AppleMusicCatal
     val eventPlayback = EventPlaybackProviders(listOf(spotifyProvider))
 
     private class AppleMusic(private val catalog: AppleMusicCatalog) : TrackCatalog.Provider {
-        override fun accepts(id: String) = TrackSource.fromId(id) == TrackSource.APPLE_MUSIC
-        override suspend fun track(userId: UUID, id: String) = catalog.track(id)
+        override val source = TrackSource.APPLE_MUSIC
+        override suspend fun track(userId: UUID, id: CatalogId) = catalog.track(id.toLegacy())
     }
 
     private class Spotify(private val service: SpotifyService) : TrackCatalog.Provider, EventPlaybackProviders.Provider {
         override val source = TrackSource.SPOTIFY
-        override fun accepts(id: String) = true
-        override suspend fun track(userId: UUID, id: String) = service.track(userId, id)
+        override suspend fun track(userId: UUID, id: CatalogId) = service.track(userId, id.externalId)
         override suspend fun available(userId: UUID): Boolean {
             val status = service.status(userId)
             return status.configured && status.connected && status.product == "premium"

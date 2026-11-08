@@ -9,4 +9,6 @@ data class ArtistResponse(
     val name: String,
     val imageUrl: String? = null,
     val uri: String,
-)
+) {
+    val catalogId: CatalogId? get() = CatalogId.fromLegacy(id)
+}

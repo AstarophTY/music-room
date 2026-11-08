@@ -31,7 +31,7 @@ fun AddSongsPage(
         addLabel = stringResource(Res.string.playlist_add_song),
         addedLabel = stringResource(Res.string.playlist_song_added),
         isAdded = { it.id in inPlaylist },
-        onAdd = { onChange(api.addPlaylistTrack(detail.playlist.id, it.id)) },
+        onAdd = { onChange(api.addPlaylistTrack(detail.playlist.id, it)) },
         onBack = onBack,
         allowAppleMusic = true,
     )

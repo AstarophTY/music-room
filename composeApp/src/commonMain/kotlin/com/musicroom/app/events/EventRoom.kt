@@ -98,7 +98,7 @@ class EventRoom(private val api: MusicRoomApi, val eventId: String, private val 
     suspend fun propose(track: TrackResponse) {
         val (ok, location) = position()
         if (!ok) throw ApiException(400, ApiErrors.EVENT_LOCATION_REQUIRED, null)
-        detail = api.proposeEventTrack(eventId, track.id, location)
+        detail = api.proposeEventTrack(eventId, track, location)
     }
 
     fun remove(trackId: String) = send { api.removeEventTrack(eventId, trackId) }

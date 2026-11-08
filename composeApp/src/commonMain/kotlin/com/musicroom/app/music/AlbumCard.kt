@@ -15,7 +15,6 @@ import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.AlbumResponse
-import com.musicroom.shared.dto.TrackSource
 
 /**
  * Square cover with the album name and "Album · 2001" under it. Its width comes from [modifier]
@@ -26,7 +25,7 @@ fun AlbumCard(api: MusicRoomApi, album: AlbumResponse, onClick: () -> Unit, modi
     val colors = AppTheme.colors
     Column(modifier.pressable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
         RemoteImage(api, album.imageUrl, Modifier.fillMaxWidth().aspectRatio(1f).clip(AppShapes.medium))
-        ProviderIcon(TrackSource.fromId(album.id))
+        album.catalogId?.source?.let { ProviderIcon(it) }
         Text(album.name, style = AppTheme.typography.label, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
             listOfNotNull(albumLabel(album), album.artists.joinToString(", ") { it.name }.takeIf { showArtists && it.isNotEmpty() })

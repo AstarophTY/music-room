@@ -20,6 +20,8 @@ data class TrackResponse(
     val source: TrackSource = TrackSource.SPOTIFY,
     val isrc: String? = null,
 ) {
+    val catalogId: CatalogId? get() = CatalogId.fromLegacy(id)?.takeIf { it.source == source }
+
     /** Uploaded to Music Room: the app plays it, Spotify cannot. */
     val hosted: Boolean get() = source == TrackSource.MUSIC_ROOM
 

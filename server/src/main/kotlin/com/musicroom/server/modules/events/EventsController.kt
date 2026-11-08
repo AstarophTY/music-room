@@ -56,7 +56,7 @@ class EventsController(private val service: EventsService, private val jwt: JwtS
 
             post(ApiRoutes.EVENT_TRACKS) {
                 val request = call.receive<ProposeTrackRequest>()
-                call.respond(service.propose(call.currentUserId(), call.uuid("id"), request.trackId, request.location))
+                call.respond(service.propose(call.currentUserId(), call.uuid("id"), request.trackId, request.location, request.catalogId))
             }
             delete(ApiRoutes.EVENT_TRACK) {
                 call.respond(service.removeTrack(call.currentUserId(), call.uuid("id"), call.uuid("trackId")))

@@ -16,6 +16,8 @@ import com.musicroom.shared.ValidationError
 import com.musicroom.shared.dto.AddPlaylistMemberRequest
 import com.musicroom.shared.dto.AddPlaylistTrackRequest
 import com.musicroom.shared.dto.AuthResponse
+import com.musicroom.shared.dto.CatalogId
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.CreatePlaylistRequest
 import com.musicroom.shared.dto.ErrorResponse
 import com.musicroom.shared.dto.PlaylistAccess
@@ -118,6 +120,18 @@ class PlaylistsTest {
 
     private suspend fun HttpClient.addMember(owner: TestUser, playlistId: String, member: TestUser, access: PlaylistAccess) =
         send(HttpClient::post, ApiRoutes.playlistMembers(playlistId), owner.token, AddPlaylistMemberRequest(member.email, access))
+
+    @Test
+    fun `playlist track identity must match its legacy identifier`() = testApplication {
+        val client = client()
+        val owner = client.user()
+        val playlist = client.create(owner)
+        val path = ApiRoutes.roomPlaylistTracks(playlist.id)
+        val mismatch = AddPlaylistTrackRequest("t1", CatalogId(TrackSource.APPLE_MUSIC, "1", "us"))
+        assertEquals(HttpStatusCode.BadRequest, client.send(HttpClient::post, path, owner.token, mismatch).status)
+        val valid = AddPlaylistTrackRequest("t1", CatalogId(TrackSource.SPOTIFY, "t1"))
+        assertEquals(HttpStatusCode.OK, client.send(HttpClient::post, path, owner.token, valid).status)
+    }
 
     @Test
     fun `the owner creates a playlist, adds songs in order and removes one`() = testApplication {

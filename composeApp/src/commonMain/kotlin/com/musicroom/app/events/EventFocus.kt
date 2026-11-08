@@ -160,7 +160,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
         scope.launch {
             val problem = try {
                 val location = location(target)
-                tracks.forEach { track -> detail = api.proposeEventTrack(target.id, track.id, location) }
+                tracks.forEach { track -> detail = api.proposeEventTrack(target.id, track, location) }
                 null
             } catch (e: CancellationException) {
                 throw e

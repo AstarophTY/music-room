@@ -15,6 +15,7 @@ import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiRoutes
 import com.musicroom.shared.MusicRoomJson
 import com.musicroom.shared.dto.AuthResponse
+import com.musicroom.shared.dto.CatalogId
 import com.musicroom.shared.dto.CreateEventRequest
 import com.musicroom.shared.dto.ErrorResponse
 import com.musicroom.shared.dto.EventDetailResponse
@@ -69,6 +70,20 @@ import org.testcontainers.junit.jupiter.Testcontainers
 
 @Testcontainers(disabledWithoutDocker = true)
 class EventsTest {
+    @Test
+    fun `typed catalog identity must match the legacy track identifier`() = testApplication {
+        val client = client()
+        val owner = client.user(spotify = true)
+        val event = client.create(owner).event
+        val mismatch = ProposeTrackRequest("t1", catalogId = CatalogId(TrackSource.APPLE_MUSIC, "123", "us"))
+        val rejected = client.json(HttpMethodCall.POST, ApiRoutes.eventTracks(event.id), owner, mismatch)
+        assertEquals(HttpStatusCode.BadRequest, rejected.status)
+        val valid = ProposeTrackRequest("t1", catalogId = CatalogId(TrackSource.SPOTIFY, "t1"))
+        val accepted = client.json(HttpMethodCall.POST, ApiRoutes.eventTracks(event.id), owner, valid)
+        assertEquals(HttpStatusCode.OK, accepted.status)
+        assertEquals("t1", accepted.body<EventDetailResponse>().queue.single().track.id)
+    }
+
     @Test
     fun `apple track uses the clock even when the owner has spotify premium`() = testApplication {
         val client = client()
