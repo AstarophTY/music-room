@@ -51,6 +51,9 @@ import com.musicroom.app.music.AppleMusicProviderConnection
 import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.music.MusicProviderRegistry
 import com.musicroom.app.music.SpotifyMusicProviderConnection
+import com.musicroom.app.player.AppleMusicPlaybackSession
+import com.musicroom.app.player.DevicePlaybackProviders
+import com.musicroom.app.player.HostedPlayback
 import com.musicroom.app.player.NowPlayingSheet
 import com.musicroom.app.player.PlayerBar
 import com.musicroom.app.player.PlaybackEnvironment
@@ -127,7 +130,23 @@ fun MainScreen(
     val connections = remember(spotifyConnection, appleConnection) { listOf(spotifyConnection, appleConnection) }
     LaunchedEffect(user.spotifyConnected, spotifyConnection) { spotifyConnection.updateConnected(user.spotifyConnected) }
     val connectionState = connections.map { Triple(it.source, it.connected, it.searchable) }
-    val player = remember(api, appleMusicPlayback) { PlayerController(api, scope, PlaybackEnvironment.create(api, scope, appleMusicPlayback, SpotifyPlaybackProvider(api))) }
+    val player = remember(api, appleMusicPlayback) {
+        PlayerController(
+            api,
+            scope,
+            PlaybackEnvironment(
+                remote = SpotifyPlaybackProvider(api),
+                createDevices = { onEnded, onError ->
+                    DevicePlaybackProviders(
+                        listOf(
+                            HostedPlayback(api, scope, onEnded, onError),
+                            AppleMusicPlaybackSession(appleMusicPlayback, scope, onEnded, onError),
+                        ),
+                    )
+                },
+            ),
+        )
+    }
     val social = remember(api, user.id) { SocialController(api, user.id, scope) }
     // The event the user listens to: its music plays on their Spotify too, and swiped songs are proposed to it.
     val eventFocus = remember(api, player) { EventFocus(api, player, scope) }

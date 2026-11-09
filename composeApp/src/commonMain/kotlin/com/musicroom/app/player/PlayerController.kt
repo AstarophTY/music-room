@@ -33,11 +33,11 @@ import kotlin.time.TimeSource
  * order the user chooses. The first one is handed to Spotify shortly before the current track ends (or on
  * "next"); from then on it can no longer move ([sentKey]).
  *
- * Songs uploaded to Music Room are played by the app itself ([HostedPlayback]), Spotify waiting paused meanwhile
- * ([playingHosted]). Apple Music songs play through the Apple Music SDK on Android ([playingAppleMusic]), Spotify
- * waiting paused too. A list holding some of them is played by the app song after song ([appList]): each Spotify
- * song is started on its own, and the next one starts when it ends. An app-local song queued during a Spotify album
- * or playlist pauses it, which goes on afterwards ([resumeRemote]).
+ * Songs uploaded to Music Room are played by the app itself ([HostedPlayback]); Apple Music songs play through
+ * the provider's device SDK ([DevicePlaybackSession]), Spotify waiting paused meanwhile. A list holding some of
+ * them is played by the app song after song ([appList]): each Spotify song is started on its own, and the next
+ * one starts when it ends. An app-local song queued during a Spotify album or playlist pauses it, which goes on
+ * afterwards ([resumeRemote]).
  */
 @Stable
 class PlayerController(
@@ -106,8 +106,9 @@ class PlayerController(
     private var eventCommand = false
 
     private var activeDeviceSource by mutableStateOf<TrackSource?>(null)
-    val playingHosted: Boolean get() = activeDeviceSource == TrackSource.MUSIC_ROOM
-    val playingAppleMusic: Boolean get() = activeDeviceSource == TrackSource.APPLE_MUSIC
+
+    /** Whether playback currently runs in the device session of [source] (uploaded song, user's provider SDK...). */
+    fun isPlayingOn(source: TrackSource): Boolean = activeDeviceSource == source
 
     /** A list the app plays song after song, as it holds uploaded songs; null while Spotify plays on its own. */
     private var appList by mutableStateOf<List<TrackResponse>?>(null)

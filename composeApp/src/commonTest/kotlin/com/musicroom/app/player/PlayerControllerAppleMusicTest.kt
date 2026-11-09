@@ -37,7 +37,7 @@ class PlayerControllerAppleMusicTest {
             assertTrue(fixture.controller.addToQueue(listOf(song)))
             runCurrent()
             assertEquals(song, fixture.controller.track)
-            assertTrue(fixture.controller.playingAppleMusic)
+            assertTrue(fixture.controller.isPlayingOn(TrackSource.APPLE_MUSIC))
         } finally {
             fixture.controller.release()
             fixture.api.close()
@@ -67,7 +67,7 @@ class PlayerControllerAppleMusicTest {
             val song = track("apple-1", TrackSource.APPLE_MUSIC)
             fixture.controller.playAlbum(AlbumResponse(id = "apple:us:1", name = "Album", uri = "1"), listOf(song), 0)
             runCurrent()
-            assertTrue(fixture.controller.playingAppleMusic)
+            assertTrue(fixture.controller.isPlayingOn(TrackSource.APPLE_MUSIC))
             assertEquals(song, fixture.controller.track)
         } finally {
             fixture.controller.release()
@@ -82,7 +82,7 @@ class PlayerControllerAppleMusicTest {
             fixture.controller.play(listOf(track("apple-1", TrackSource.APPLE_MUSIC)), 0)
             runCurrent()
             fixture.controller.stopEventLocalPlayback()
-            assertFalse(fixture.controller.playingAppleMusic)
+            assertFalse(fixture.controller.isPlayingOn(TrackSource.APPLE_MUSIC))
             assertEquals(1, fixture.apple.stopCalls)
             assertNull(fixture.controller.track)
         } finally {
@@ -119,7 +119,7 @@ class PlayerControllerAppleMusicTest {
             fixture.controller.play(listOf(track("apple-1", TrackSource.APPLE_MUSIC)), 0)
             runCurrent()
 
-            assertFalse(fixture.controller.playingAppleMusic)
+            assertFalse(fixture.controller.isPlayingOn(TrackSource.APPLE_MUSIC))
             assertTrue(fixture.apple.requests.isEmpty())
             assertNotNull(fixture.controller.error)
         } finally {
@@ -140,7 +140,7 @@ class PlayerControllerAppleMusicTest {
             fixture.controller.playAlbum(AlbumResponse(id = "album", name = "Album", uri = "spotify:album:album"), listOf(spotifyTrack), 0)
             runCurrent()
 
-            assertFalse(fixture.controller.playingAppleMusic)
+            assertFalse(fixture.controller.isPlayingOn(TrackSource.APPLE_MUSIC))
             assertEquals(spotifyTrack.id, fixture.controller.track?.id)
             assertEquals(1, fixture.apple.stopCalls)
         } finally {
@@ -186,7 +186,7 @@ class PlayerControllerAppleMusicTest {
             fixture.controller.next()
             runCurrent()
 
-            assertTrue(fixture.controller.playingAppleMusic)
+            assertTrue(fixture.controller.isPlayingOn(TrackSource.APPLE_MUSIC))
             assertEquals(appleTrack.id, fixture.controller.track?.id)
             assertEquals(listOf(appleTrack.uri), fixture.apple.requests.map { it.songId })
             assertTrue(fixture.spotify.queuedUris.isEmpty())
@@ -227,7 +227,21 @@ class PlayerControllerAppleMusicTest {
         )
         val apple = FakeAppleMusicPlayback()
         val spotify = FakeSpotifyPlayback()
-        val player = PlayerController(api, scope, PlaybackEnvironment.create(api, scope, apple, spotify))
+        val player = PlayerController(
+            api,
+            scope,
+            PlaybackEnvironment(
+                remote = spotify,
+                createDevices = { onEnded, onError ->
+                    DevicePlaybackProviders(
+                        listOf(
+                            HostedPlayback(api, scope, onEnded, onError),
+                            AppleMusicPlaybackSession(apple, scope, onEnded, onError),
+                        ),
+                    )
+                },
+            ),
+        )
         // The fixture represents a signed-in user with Spotify linked.
         player.updateRemoteConnected(setOf(TrackSource.SPOTIFY))
         return Fixture(api, apple, spotify, player)
