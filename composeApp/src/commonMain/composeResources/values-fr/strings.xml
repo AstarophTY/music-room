@@ -300,11 +300,11 @@
     <string name="error_spotify_no_device">Ouvre l’app Spotify sur un de tes appareils, puis réessaie</string>
     <string name="error_spotify_premium_required">La lecture nécessite Spotify Premium</string>
     <string name="playlists_mine">Créées dans Music Room</string>
-    <string name="playlists_spotify">Depuis Spotify</string>
+    <string name="playlists_from_provider">Depuis %1$s</string>
     <string name="playlists_by">par %1$s</string>
     <string name="playlists_play">Lire</string>
-    <string name="playlists_open_spotify">Ouvrir dans Spotify</string>
-    <string name="playlists_spotify_empty">Pas encore de playlist sur ton compte Spotify.</string>
+    <string name="playlists_open_provider">Ouvrir dans %1$s</string>
+    <string name="playlists_provider_empty">Pas encore de playlist sur ton compte %1$s.</string>
     <string name="error_spotify_playlist_restricted">Spotify ne montre que les titres de tes propres playlists. Tu peux quand même la lancer.</string>
     <plurals name="playlists_track_count">
         <item quantity="one">%1$d titre</item>

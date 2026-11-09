@@ -11,6 +11,8 @@ interface MusicProviderConnection : MusicCatalogSearch.Provider, EventTrackResol
     val providesRemotePlayback: Boolean get() = false
     /** The provider can fill the home screen's recommendation shelves. */
     val providesRecommendations: Boolean get() = false
+    /** Playlists from the linked account, when the provider exposes them. */
+    val playlistSource: MusicPlaylistSource? get() = null
     suspend fun canPlay(): Boolean
     suspend fun connect(): Boolean
     suspend fun disconnect()

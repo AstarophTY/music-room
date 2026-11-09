@@ -8,11 +8,11 @@ import androidx.compose.runtime.snapshotFlow
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.player_locked_by_event
+import com.musicroom.app.music.MusicPlaylist
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.AlbumResponse
 import com.musicroom.shared.dto.DeviceResponse
 import com.musicroom.shared.dto.PlaybackStateResponse
-import com.musicroom.shared.dto.PlaylistSummaryResponse
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
@@ -211,9 +211,9 @@ class PlayerController(
         playSingle(track)
     }
 
-    /** Plays [playlist] as a whole from [index]; [tracks] (when Spotify listed them) shows the track right away. */
-    fun playPlaylist(playlist: PlaylistSummaryResponse, tracks: List<TrackResponse>, index: Int) {
-        val uri = playlist.uri ?: return play(tracks, index)
+    /** Plays [playlist] as a whole from [index]; [tracks] (when the provider listed them) shows the track right away. */
+    fun playPlaylist(playlist: MusicPlaylist, tracks: List<TrackResponse>, index: Int) {
+        val uri = playlist.contextUri ?: return play(tracks, index)
         playContext(uri, tracks, index)
     }
 

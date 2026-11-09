@@ -6,8 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +21,6 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.ExternalLink
-import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.Play
@@ -35,11 +32,12 @@ import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.messages_title
 import com.musicroom.app.generated.resources.notifications_title
 import com.musicroom.app.generated.resources.playlists_by
-import com.musicroom.app.generated.resources.playlists_open_spotify
+import com.musicroom.app.generated.resources.playlists_open_provider
 import com.musicroom.app.generated.resources.playlists_play
 import com.musicroom.app.generated.resources.playlists_track_count
-import com.musicroom.app.generated.resources.queue_add
 import com.musicroom.app.generated.resources.search_load_more
+import com.musicroom.app.music.MusicPlaylist
+import com.musicroom.app.music.MusicProviderConnection
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.player.PlayerController
@@ -49,7 +47,6 @@ import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
-import com.musicroom.shared.dto.PlaylistSummaryResponse
 import com.musicroom.shared.dto.SocialCountsResponse
 import com.musicroom.shared.dto.TrackResponse
 import kotlinx.coroutines.CancellationException
@@ -58,21 +55,23 @@ import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * A Spotify playlist: cover, Play and Open in Spotify, then its tracks page by page. Tapping a track plays
- * the playlist from it. Spotify hides the tracks of playlists the user doesn't own; those can still be played.
- * The listed tracks can be added to the queue together, or one by one by swiping them to the right or from
- * their "..." (also to a playlist).
+ * A playlist of a connected provider: cover, Play and Open in the provider, then its tracks page by page.
+ * Tapping a track plays the playlist from it. Some providers hide the tracks of playlists the user doesn't
+ * own; those can still be played. The listed tracks can be added to the queue together, or one by one by
+ * swiping them to the right or from their "..." (also to a playlist).
  */
 @Composable
 fun PlaylistDetail(
     api: MusicRoomApi,
-    playlist: PlaylistSummaryResponse,
+    provider: MusicProviderConnection,
+    playlist: MusicPlaylist,
     player: PlayerController,
     counts: SocialCountsResponse,
     onOpenNotifications: () -> Unit,
     onOpenMessages: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val playlistSource = requireNotNull(provider.playlistSource)
     val colors = AppTheme.colors
     val uriHandler = LocalUriHandler.current
     val scope = rememberCoroutineScope()
@@ -85,7 +84,7 @@ fun PlaylistDetail(
         loading = true
         error = null
         try {
-            val page = api.playlistTracks(playlist.id, offset)
+            val page = playlistSource.tracks(playlist, offset)
             tracks = (if (offset == 0) page.items else tracks + page.items).distinctBy { it.id }
             nextOffset = page.nextOffset
         } catch (e: CancellationException) {
@@ -128,12 +127,12 @@ fun PlaylistDetail(
             AppButton(
                 stringResource(Res.string.playlists_play),
                 { player.playPlaylist(playlist, tracks, 0) },
-                enabled = playlist.uri != null || tracks.isNotEmpty(),
+                enabled = playlist.contextUri != null || tracks.isNotEmpty(),
                 icon = Lucide.Play,
             )
-            playlist.spotifyUrl?.let { url ->
+            playlist.externalUrl?.let { url ->
                 AppButton(
-                    stringResource(Res.string.playlists_open_spotify),
+                    stringResource(Res.string.playlists_open_provider, provider.displayName),
                     { runCatching { uriHandler.openUri(url) } },
                     variant = AppButtonVariant.Secondary,
                     icon = Lucide.ExternalLink,

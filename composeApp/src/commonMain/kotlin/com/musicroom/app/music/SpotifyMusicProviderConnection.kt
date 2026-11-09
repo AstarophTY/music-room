@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.PlaylistSummaryResponse
 import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -17,7 +18,7 @@ class SpotifyMusicProviderConnection(
     private val api: MusicRoomApi,
     private val openUri: (String) -> Unit,
     initiallyConnected: Boolean = false,
-) : MusicProviderConnection {
+) : MusicProviderConnection, MusicPlaylistSource {
     override val source = TrackSource.SPOTIFY
     override val available = true
     override var connected by mutableStateOf(initiallyConnected)
@@ -27,6 +28,7 @@ class SpotifyMusicProviderConnection(
 
     override val providesRemotePlayback: Boolean get() = true
     override val providesRecommendations: Boolean get() = true
+    override val playlistSource: MusicPlaylistSource get() = this
     override val searchable: Boolean get() = connected
     fun updateConnected(value: Boolean) { connected = value }
     override suspend fun canPlay(): Boolean {
@@ -52,6 +54,21 @@ class SpotifyMusicProviderConnection(
     }
 
     override suspend fun accountLabel(): String? = api.spotifyStatus().displayName
+
+    override suspend fun playlists(): List<MusicPlaylist> = api.myPlaylists().items.map { it.toMusicPlaylist() }
+
+    override suspend fun tracks(playlist: MusicPlaylist, offset: Int) = api.playlistTracks(playlist.id, offset)
+
+    private fun PlaylistSummaryResponse.toMusicPlaylist() = MusicPlaylist(
+        source = TrackSource.SPOTIFY,
+        id = id,
+        name = name,
+        imageUrl = imageUrl,
+        trackCount = trackCount,
+        owner = owner,
+        externalUrl = spotifyUrl,
+        contextUri = uri,
+    )
 
     private suspend fun pollUntilConnected(): Boolean {
         repeat(90) {

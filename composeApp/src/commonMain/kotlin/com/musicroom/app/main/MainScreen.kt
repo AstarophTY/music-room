@@ -107,8 +107,8 @@ fun MainScreen(
     var sideNavCollapsed by rememberSaveable { mutableStateOf(false) }
     var showCreate by rememberSaveable { mutableStateOf(false) }
     var openRoomPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
-    // The Spotify playlist open in the Playlists tab.
-    var openSpotifyPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
+    // The provider playlist open in the Playlists tab.
+    var openProviderPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
     // The event open in the Events tab.
     var openEvent by rememberSaveable { mutableStateOf<String?>(null) }
     var searchDetailOpen by remember { mutableStateOf(false) }
@@ -280,12 +280,12 @@ fun MainScreen(
                 player,
                 onCreate = openCreate,
                 openRoomPlaylistId = openRoomPlaylist,
-                openSpotifyPlaylistId = openSpotifyPlaylist,
+                openProviderPlaylistKey = openProviderPlaylist,
                 counts = social.counts,
                 onOpenNotifications = { openSocial(SocialPage.Notifications) },
                 onOpenMessages = { openSocial(SocialPage.Conversations) },
                 onOpenRoomPlaylist = { openRoomPlaylist = it },
-                onOpenSpotifyPlaylist = { openSpotifyPlaylist = it },
+                onOpenProviderPlaylist = { openProviderPlaylist = it },
             )
             MainTab.Settings -> settingsScreen()
         }
@@ -463,7 +463,7 @@ fun MainScreen(
                             // A page opened from a tab (an event, a playlist) draws its own header instead of the tab bar.
                             val detailOpen = (tab == MainTab.Search && searchDetailOpen) ||
                                 (tab == MainTab.Events && openEvent != null) ||
-                                (tab == MainTab.Playlists && (openRoomPlaylist != null || openSpotifyPlaylist != null))
+                                (tab == MainTab.Playlists && (openRoomPlaylist != null || openProviderPlaylist != null))
                             Column(Modifier.fillMaxSize().background(AppTheme.colors.background)) {
                                 if (!detailOpen) {
                                     MainTopBar(
