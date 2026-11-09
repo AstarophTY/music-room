@@ -9,7 +9,12 @@ interface MusicProviderConnection : MusicCatalogSearch.Provider, EventTrackResol
     val displayName: String
     val searchable: Boolean
     val providesRemotePlayback: Boolean get() = false
+    /** The provider can fill the home screen's recommendation shelves. */
+    val providesRecommendations: Boolean get() = false
     suspend fun canPlay(): Boolean
     suspend fun connect(): Boolean
     suspend fun disconnect()
+
+    /** Name of the linked account, when the provider exposes one. */
+    suspend fun accountLabel(): String? = null
 }

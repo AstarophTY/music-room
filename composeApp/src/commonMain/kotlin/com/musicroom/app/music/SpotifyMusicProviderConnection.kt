@@ -26,6 +26,7 @@ class SpotifyMusicProviderConnection(
     override val displayName: String = "Spotify"
 
     override val providesRemotePlayback: Boolean get() = true
+    override val providesRecommendations: Boolean get() = true
     override val searchable: Boolean get() = connected
     fun updateConnected(value: Boolean) { connected = value }
     override suspend fun canPlay(): Boolean {
@@ -49,6 +50,8 @@ class SpotifyMusicProviderConnection(
         api.spotifyDisconnect()
         connected = false
     }
+
+    override suspend fun accountLabel(): String? = api.spotifyStatus().displayName
 
     private suspend fun pollUntilConnected(): Boolean {
         repeat(90) {

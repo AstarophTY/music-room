@@ -16,118 +16,87 @@ import com.composables.icons.lucide.Lucide
 import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.apple_music_connect
-import com.musicroom.app.generated.resources.apple_music_connected
-import com.musicroom.app.generated.resources.apple_music_connecting
-import com.musicroom.app.generated.resources.apple_music_not_connected
 import com.musicroom.app.generated.resources.audio_providers_title
-import com.musicroom.app.generated.resources.spotify_connected
-import com.musicroom.app.generated.resources.spotify_connected_as
-import com.musicroom.app.generated.resources.spotify_disconnect
-import com.musicroom.app.generated.resources.spotify_playback_note
-import com.musicroom.app.generated.resources.spotify_title
-import com.musicroom.app.music.SpotifyConnectCard
+import com.musicroom.app.generated.resources.provider_connected
+import com.musicroom.app.generated.resources.provider_connected_as
+import com.musicroom.app.generated.resources.provider_disconnect
+import com.musicroom.app.generated.resources.provider_playback_note
+import com.musicroom.app.music.MusicProviderConnection
+import com.musicroom.app.music.ProviderConnectCard
 import com.musicroom.app.music.ProviderSession
-import com.musicroom.shared.dto.TrackSource
 import com.musicroom.app.theme.components.AppCard
 import com.musicroom.app.theme.tokens.AppTheme
-import com.musicroom.shared.MusicRoomApi
-import com.musicroom.shared.dto.SpotifyStatusResponse
-import com.musicroom.shared.dto.UserResponse
+import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-/** Manages music provider connections. */
+/** Manages every music provider through the common connection contract. */
 @Composable
-fun AudioProvidersScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (UserResponse) -> Unit, onBack: () -> Unit) {
+fun AudioProvidersScreen(onBack: () -> Unit) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
     val providers = ProviderSession.connections.current
-    val spotify = providers.firstOrNull { it.source == TrackSource.SPOTIFY }
-    val appleMusic = providers.firstOrNull { it.source == TrackSource.APPLE_MUSIC }
-    var status by remember { mutableStateOf<SpotifyStatusResponse?>(null) }
+    val onProviderChanged = ProviderSession.onProviderChanged.current
+    var busy by remember { mutableStateOf<Set<TrackSource>>(emptySet()) }
     var error by remember { mutableStateOf<UiText?>(null) }
-    var connecting by remember { mutableStateOf(false) }
-    LaunchedEffect(user.spotifyConnected) {
-        status = if (!user.spotifyConnected) null else try {
-            api.spotifyStatus()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            null
+    var accountLabels by remember { mutableStateOf<Map<TrackSource, String>>(emptyMap()) }
+
+    LaunchedEffect(providers.map { it.source to it.connected }) {
+        accountLabels = providers.filter { it.connected }.mapNotNull { provider ->
+            val label = try {
+                provider.accountLabel()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+            label?.let { provider.source to it }
+        }.toMap()
+    }
+
+    fun disconnect(provider: MusicProviderConnection) {
+        if (provider.source in busy) return
+        error = null
+        scope.launch {
+            busy = busy + provider.source
+            try {
+                provider.disconnect()
+                onProviderChanged()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = UiText.of(e)
+            } finally {
+                busy = busy - provider.source
+            }
         }
     }
 
     SubScreenScaffold(title = stringResource(Res.string.audio_providers_title), onBack = onBack) {
-        if (!user.spotifyConnected) {
-            if (spotify != null) SpotifyConnectCard(spotify, onConnected = { onUserChange(user.copy(spotifyConnected = true)) })
-        } else {
-            AppCard(Modifier.fillMaxWidth()) {
-                SettingsRow(
-                    Lucide.AudioLines,
-                    status?.displayName?.let { stringResource(Res.string.spotify_connected_as, it) }
-                        ?: stringResource(Res.string.spotify_connected),
-                    onClick = {},
-                    showChevron = false,
-                )
-                SettingsRow(
-                    Lucide.LogOut,
-                    stringResource(Res.string.spotify_disconnect),
-                    onClick = {
-                        error = null
-                        scope.launch {
-                            try {
-                                spotify?.disconnect()
-                                onUserChange(api.me())
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                error = UiText.of(e)
-                            }
-                        }
-                    },
-                    destructive = true,
-                    showChevron = false,
-                )
-            }
-        }
-        if (appleMusic != null && appleMusic.available) {
-            AppCard(Modifier.fillMaxWidth()) {
-                SettingsRow(
-                    Lucide.AudioLines,
-                    "Apple Music",
-                    onClick = {
-                        error = null
-                        if (connecting) return@SettingsRow
-                        if (appleMusic.connected) {
-                            scope.launch {
-                                try { appleMusic.disconnect() }
-                                catch (e: CancellationException) { throw e }
-                                catch (e: Exception) { error = UiText.of(e) }
-                            }
-                        } else {
-                            scope.launch {
-                                connecting = true
-                                try {
-                                    if (!appleMusic.connect()) {
-                                        error = UiText.of(Res.string.apple_music_not_connected)
-                                    }
-                                } catch (e: CancellationException) {
-                                    throw e
-                                } catch (e: Exception) {
-                                    error = UiText.of(e)
-                                } finally {
-                                    connecting = false
-                                }
-                            }
-                        }
-                    },
-                    value = stringResource(if (connecting) Res.string.apple_music_connecting else if (appleMusic.connected) Res.string.apple_music_connected else Res.string.apple_music_connect),
-                )
+        providers.filter { it.available }.forEach { provider ->
+            if (provider.connected) {
+                AppCard(Modifier.fillMaxWidth()) {
+                    SettingsRow(
+                        Lucide.AudioLines,
+                        accountLabels[provider.source]?.let { stringResource(Res.string.provider_connected_as, it) }
+                            ?: stringResource(Res.string.provider_connected),
+                        onClick = {},
+                        showChevron = false,
+                    )
+                    SettingsRow(
+                        Lucide.LogOut,
+                        stringResource(Res.string.provider_disconnect, provider.displayName),
+                        onClick = { disconnect(provider) },
+                        destructive = true,
+                        showChevron = false,
+                    )
+                }
+            } else {
+                ProviderConnectCard(provider, onConnected = onProviderChanged)
             }
         }
         error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
-        Text(stringResource(Res.string.spotify_playback_note), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+        Text(stringResource(Res.string.provider_playback_note), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
     }
 }

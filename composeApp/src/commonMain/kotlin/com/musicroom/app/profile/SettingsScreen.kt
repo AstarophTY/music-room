@@ -142,7 +142,7 @@ fun SettingsScreen(
                     SettingsRow(
                         Lucide.AudioLines,
                         stringResource(Res.string.audio_providers_title),
-                        { onOpen(ProfileRoute.Spotify) },
+                        { onOpen(ProfileRoute.AudioProviders) },
                     )
                     SettingsRow(Lucide.Music, stringResource(Res.string.my_songs_title), { onOpen(ProfileRoute.MySongs) })
                     SettingsRow(Lucide.Sparkles, stringResource(Res.string.premium_title), { onOpen(ProfileRoute.Premium) })

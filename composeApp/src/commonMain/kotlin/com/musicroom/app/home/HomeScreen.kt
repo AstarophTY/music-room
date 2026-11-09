@@ -6,6 +6,7 @@ import com.musicroom.app.common.Reveal
 import com.musicroom.app.common.TabContent
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.home_greeting
+import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
@@ -28,6 +29,7 @@ fun HomeScreen(
     onOpenPlaylists: () -> Unit,
 ) {
     TabContent {
+        val providers = ProviderSession.connections.current
         if (com.musicroom.app.common.WindowSize.current != com.musicroom.app.common.WindowSize.Compact) {
             Text(
                 stringResource(Res.string.home_greeting, user.displayName),
@@ -36,7 +38,7 @@ fun HomeScreen(
             )
         }
         Reveal(0) { HomeRoomsSection(api, onOpenRoom = onOpenEvent, onSeeAll = onOpenEvents) }
-        if (user.spotifyConnected) {
+        if (providers.any { it.available && it.connected && it.providesRecommendations }) {
             Reveal(1) { RecommendationsSection(api, player) }
         }
         Reveal(2) { HomePlaylistsSection(api, onOpenPlaylist = onOpenRoomPlaylist, onSeeAll = onOpenPlaylists) }

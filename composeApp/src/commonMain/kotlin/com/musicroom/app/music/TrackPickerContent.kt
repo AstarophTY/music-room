@@ -65,7 +65,7 @@ fun TrackPickerContent(
     val providerState = connections.map { Triple(it.source, it.connected, it.searchable) }
     val connected = connections.any { it.available && it.connected }
     var choosingProvider by remember { mutableStateOf(!connected) }
-    val onSpotifyConnected = ProviderSession.onSpotifyConnected.current
+    val onProviderChanged = ProviderSession.onProviderChanged.current
 
     LaunchedEffect(query, choosingProvider, providerState) {
         results = null
@@ -108,7 +108,7 @@ fun TrackPickerContent(
     run {
         if (choosingProvider) {
             ProviderChoice(
-                onSpotifyConnected = { choosingProvider = false; onSpotifyConnected() },
+                onProviderChanged = { choosingProvider = false; onProviderChanged() },
                 onContinue = { choosingProvider = false },
                 listenerOption = false,
             )

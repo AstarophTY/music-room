@@ -312,7 +312,7 @@ fun MainScreen(
             ProfileRoute.ChangePassword -> ChangePasswordScreen(api, onBack = back)
             ProfileRoute.TwoFactor -> TwoFactorSettingsScreen(api, user, onUserChange, onBack = back)
             ProfileRoute.Appearance -> AppearanceScreen(themeMode, onThemeModeChange, onBack = back)
-            ProfileRoute.Spotify -> AudioProvidersScreen(api, user, onUserChange, onBack = back)
+            ProfileRoute.AudioProviders -> AudioProvidersScreen(onBack = back)
             ProfileRoute.MySongs -> MySongsScreen(api, user, player, onOpenPremium = { profileRoute = ProfileRoute.Premium }, onBack = back)
             ProfileRoute.Premium -> PremiumScreen(api, onBack = back)
         }
@@ -367,9 +367,16 @@ fun MainScreen(
     CompositionLocalProvider(
         EventFocus.Local provides eventFocus,
         ProviderSession.connections provides connections,
-        ProviderSession.onSpotifyConnected provides {
-            spotifyConnection.updateConnected(true)
-            onUserChange(user.copy(spotifyConnected = true))
+        ProviderSession.onProviderChanged provides {
+            scope.launch {
+                try {
+                    onUserChange(api.me())
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // The connection itself succeeded; the session refreshes on the next request.
+                }
+            }
         },
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -491,8 +498,8 @@ fun MainScreen(
     if (showCreate) {
         CreateSheet(
             api,
-            spotifyConnected = user.spotifyConnected,
-            onOpenProviders = { showCreate = false; profileRoute = ProfileRoute.Spotify; tab = MainTab.Settings },
+            providers = connections,
+            onOpenProviders = { showCreate = false; profileRoute = ProfileRoute.AudioProviders; tab = MainTab.Settings },
             onDismiss = { showCreate = false },
             onPlaylistCreated = { playlist ->
                 showCreate = false

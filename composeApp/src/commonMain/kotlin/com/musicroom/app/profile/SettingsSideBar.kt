@@ -95,7 +95,7 @@ fun SettingsSideBar(
         page(ProfileRoute.SocialLinks, Lucide.Link, stringResource(Res.string.social_section))
 
         section(stringResource(Res.string.profile_section_music))
-        page(ProfileRoute.Spotify, Lucide.AudioLines, stringResource(Res.string.audio_providers_title))
+        page(ProfileRoute.AudioProviders, Lucide.AudioLines, stringResource(Res.string.audio_providers_title))
         page(ProfileRoute.MySongs, Lucide.Music, stringResource(Res.string.my_songs_title))
         page(ProfileRoute.Premium, Lucide.Sparkles, stringResource(Res.string.premium_title))
 
