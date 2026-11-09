@@ -399,19 +399,20 @@ class PlayerController(
     /**
      * Goes to what comes next: the first [upNext] song (handed to Spotify when Spotify plays on its own), else the next
      * song of [appList], else Spotify's next track. At the end of the list, the last song stays, paused.
+     * Uses [isAppTrack] (from the playback router's [managesOwnQueue]) to determine per-provider whether the
+     * next track comes from the app's queue or the remote provider's queue.
      */
     private fun advance() {
         val first = upNext.firstOrNull()?.takeIf { sentKey == null }
         val list = appList
         when {
             // Back to the paused Spotify album or playlist: the Spotify song goes before what it plays next.
-            first != null && (deviceSession != null) && resumeRemote && !isAppTrack(first.track) -> {
+            first != null && (deviceSession != null) && !isAppTrack(first.track) -> {
                 leaveDevicePlayback()
-                resumeRemote = false
-                send(first) { remote.skipNext() }
+                queue.remove(first)
+                playSingle(first.track)
             }
-            first != null && appDriven() -> {
-                if (list == null && deviceSession == null && isAppTrack(first.track)) resumeRemote = true
+            first != null && isAppTrack(first.track) && appDriven() -> {
                 queue.remove(first)
                 playSingle(first.track)
             }
@@ -420,12 +421,7 @@ class PlayerController(
                 appIndex++
                 playSingle(list[appIndex])
             }
-            (deviceSession != null) && resumeRemote -> {
-                leaveDevicePlayback()
-                resumeRemote = false
-                command { remote.skipNext() }
-            }
-            deviceSession != null || list != null -> stopAtEnd()
+            deviceSession != null -> stopAtEnd()
             else -> command { remote.skipNext() }
         }
     }
@@ -478,7 +474,7 @@ class PlayerController(
 
     private fun remoteEndsSoon(withinMs: Long): Boolean {
         if (lockedByEvent || deviceSession != null || !isPlaying || sentKey != null) return false
-        if (appList == null && upNext.firstOrNull()?.track?.let(::isAppTrack) != true) return false
+        if (appList == null && upNext.firstOrNull()?.let { isAppTrack(it.track) } != true) return false
         val duration = track?.durationMs ?: return false
         return duration - positionMs() <= withinMs
     }
