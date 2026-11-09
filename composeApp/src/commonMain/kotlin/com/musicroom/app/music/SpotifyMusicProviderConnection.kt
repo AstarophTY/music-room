@@ -1,6 +1,8 @@
 package com.musicroom.app.music
 
-import com.musicroom.shared.ApiException
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
@@ -14,34 +16,37 @@ import kotlinx.coroutines.delay
 class SpotifyMusicProviderConnection(
     private val api: MusicRoomApi,
     private val openUri: (String) -> Unit,
+    initiallyConnected: Boolean = false,
 ) : MusicProviderConnection {
     override val source = TrackSource.SPOTIFY
     override val available = true
-    override var connected: Boolean = false
+    override var connected by mutableStateOf(initiallyConnected)
         private set
 
     override val displayName: String = "Spotify"
 
     override val providesRemotePlayback: Boolean get() = true
+    override val searchable: Boolean get() = connected
+    fun updateConnected(value: Boolean) { connected = value }
+    override suspend fun canPlay(): Boolean {
+        if (!connected) return false
+        val status = api.spotifyStatus()
+        return status.connected && status.product == "premium"
+    }
+    override suspend fun search(query: String, mood: String?) = api.search(query)
+    override suspend fun tracks(query: String) = api.searchTracks(query).items
+    override suspend fun nextTracks(query: String, offset: Int) = api.searchTracks(query, offset)
+    override suspend fun suggestions() = api.myTopTracks().items
+    override suspend fun find(isrc: String) = api.searchTracks("isrc:$isrc").items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
 
     override suspend fun connect(): Boolean {
-        return try {
-            val url = api.spotifyConnect().authorizeUrl
-            openUri(url)
-            pollUntilConnected()
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            false
-        }
+        val url = api.spotifyConnect().authorizeUrl
+        openUri(url)
+        return pollUntilConnected()
     }
 
     override suspend fun disconnect() {
-        try {
-            api.spotifyDisconnect()
-        } catch (_: Exception) {
-            // Ignore: the local state is cleared regardless.
-        }
+        api.spotifyDisconnect()
         connected = false
     }
 
@@ -55,7 +60,7 @@ class SpotifyMusicProviderConnection(
             } catch (_: Exception) {
                 null
             }
-            if (status != null && status.connected && status.product == "premium") {
+            if (status != null && status.connected) {
                 this.connected = true
                 return true
             }

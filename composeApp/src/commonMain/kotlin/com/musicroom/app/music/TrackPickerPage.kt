@@ -19,10 +19,9 @@ fun TrackPickerPage(
     isAdded: (TrackResponse) -> Boolean,
     onAdd: suspend (TrackResponse) -> Unit,
     onBack: () -> Unit,
-    showTopTracks: Boolean = true,
 ) {
     BackHandler(onBack = onBack)
     SubScreenScaffold(title = title, onBack = onBack) {
-        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd, showTopTracks)
+        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd)
     }
 }

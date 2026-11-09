@@ -31,6 +31,5 @@ fun ProposeToEventSheet(api: MusicRoomApi, player: PlayerController, focus: Even
         isAdded = { it.id in pendingIds },
         onAdd = { focus.propose(it) },
         onDismiss = onDismiss,
-        showTopTracks = player.remoteConnected,
     )
 }

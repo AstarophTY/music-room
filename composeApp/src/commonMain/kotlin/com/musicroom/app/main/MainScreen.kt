@@ -48,16 +48,15 @@ import com.musicroom.app.home.HomeScreen
 import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.app.music.AppleMusicProviderConnection
+import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.music.MusicProviderRegistry
 import com.musicroom.app.music.SpotifyMusicProviderConnection
-import com.musicroom.app.music.MusicProviderConnection
 import com.musicroom.app.player.NowPlayingSheet
 import com.musicroom.app.player.PlayerBar
 import com.musicroom.app.player.PlaybackEnvironment
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.player.Proposer
 import com.musicroom.app.player.SpotifyPlaybackProvider
-import com.musicroom.shared.dto.TrackSource
 import com.musicroom.app.player.QueueToast
 import com.musicroom.app.playlists.PlaylistsScreen
 import com.musicroom.app.profile.AppearanceScreen
@@ -102,7 +101,6 @@ fun MainScreen(
     onThemeModeChange: (ThemeMode) -> Unit,
     onUserChange: (UserResponse) -> Unit,
     onLoggedOut: () -> Unit,
-    connections: List<MusicProviderConnection> = emptyList(),
 ) {
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     var profileRoute by rememberSaveable { mutableStateOf<ProfileRoute?>(null) }
@@ -124,12 +122,11 @@ fun MainScreen(
     val appleMusicPlayback = AppleMusicPlayback.Local.current
     val appleMusicConnection = AppleMusicConnection.Local.current
     val uriHandler = LocalUriHandler.current
-    val spotifyConnection = remember { SpotifyMusicProviderConnection(api, { uriHandler.openUri(it) }) }
-    val appleConnection = remember { AppleMusicProviderConnection(api, appleMusicConnection) }
-    val connections = listOfNotNull(
-        if (spotifyConnection.available) spotifyConnection else null,
-        if (appleConnection.available) appleConnection else null,
-    )
+    val spotifyConnection = remember(api, user.id, uriHandler) { SpotifyMusicProviderConnection(api, { uriHandler.openUri(it) }, user.spotifyConnected) }
+    val appleConnection = remember(api, appleMusicConnection, appleMusicPlayback) { AppleMusicProviderConnection(api, appleMusicConnection, appleMusicPlayback) }
+    val connections = remember(spotifyConnection, appleConnection) { listOf(spotifyConnection, appleConnection) }
+    LaunchedEffect(user.spotifyConnected, spotifyConnection) { spotifyConnection.updateConnected(user.spotifyConnected) }
+    val connectionState = connections.map { Triple(it.source, it.connected, it.searchable) }
     val player = remember(api, appleMusicPlayback) { PlayerController(api, scope, PlaybackEnvironment.create(api, scope, appleMusicPlayback, SpotifyPlaybackProvider(api))) }
     val social = remember(api, user.id) { SocialController(api, user.id, scope) }
     // The event the user listens to: its music plays on their Spotify too, and swiped songs are proposed to it.
@@ -138,8 +135,8 @@ fun MainScreen(
     LaunchedEffect(eventFocus) { eventFocus.run() }
     // An uploaded song plays in the app: it stops with the signed-in screens (logout).
     DisposableEffect(player) { onDispose { player.release() } }
-    LaunchedEffect(eventFocus, connections) {
-        val availability = MusicProviderRegistry.playbackAvailability(api, connections)
+    LaunchedEffect(eventFocus, connectionState, appleMusicPlayback.available, appleMusicPlayback.connected) {
+        val availability = MusicProviderRegistry(connections).playbackAvailability()
         eventFocus.updateProviders(availability)
     }
     // Live friends, messages and notifications while logged in.
@@ -152,7 +149,7 @@ fun MainScreen(
         eventFocus.locate = locate
     }
     // Follows what the remote provider plays while an account is linked.
-    LaunchedEffect(connections) {
+    LaunchedEffect(connectionState) {
         val remote = connections.firstOrNull { it.providesRemotePlayback && it.connected }
         if (remote != null) player.sync()
     }
@@ -165,7 +162,6 @@ fun MainScreen(
         showNowPlaying = false
         tab = MainTab.Events
     }
-    val spotifyReady = connections.any { it.connected && it.providesRemotePlayback }
     val playerBar: @Composable () -> Unit = {
         Column {
             EventFocusBar(eventFocus, onOpen = { id -> openEvents(id) })
@@ -368,7 +364,14 @@ fun MainScreen(
     }
 
     val route = profileRoute
-    CompositionLocalProvider(EventFocus.Local provides eventFocus) {
+    CompositionLocalProvider(
+        EventFocus.Local provides eventFocus,
+        ProviderSession.connections provides connections,
+        ProviderSession.onSpotifyConnected provides {
+            spotifyConnection.updateConnected(true)
+            onUserChange(user.copy(spotifyConnected = true))
+        },
+    ) {
         Box(Modifier.fillMaxSize()) {
             if (wide) {
                 // Large screen: side menu on the left instead of the top and bottom bars. On the settings tab, a

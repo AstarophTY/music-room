@@ -2,7 +2,6 @@ package com.musicroom.app.music
 
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.TrackSource
-import kotlinx.coroutines.CancellationException
 
 /**
  * Apple Music account connection behind the common [MusicProviderConnection] contract.
@@ -11,22 +10,22 @@ import kotlinx.coroutines.CancellationException
 class AppleMusicProviderConnection(
     private val api: MusicRoomApi,
     private val connection: AppleMusicConnection,
+    private val playback: AppleMusicPlayback,
 ) : MusicProviderConnection {
     override val source = TrackSource.APPLE_MUSIC
     override val available: Boolean get() = connection.available
     override val connected: Boolean get() = connection.connected
     override val displayName: String = "Apple Music"
     val storefront: String? get() = connection.storefront
-
-    override suspend fun connect(): Boolean {
-        return try {
-            connection.connect(api.appleMusicDeveloperToken().token)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
-            false
-        }
+    override val searchable get() = connected && !storefront.isNullOrBlank()
+    override suspend fun canPlay() = available && connected && playback.available && playback.connected
+    override suspend fun search(query: String, mood: String?) = api.searchAppleMusic(mood ?: query, requireNotNull(storefront))
+    override suspend fun suggestions() = api.appleMusicCharts(requireNotNull(storefront)).items
+    override suspend fun find(isrc: String) = storefront?.let { region ->
+        api.matchAppleMusic(isrc, region).items.firstOrNull { it.isrc.equals(isrc, ignoreCase = true) }
     }
+
+    override suspend fun connect(): Boolean = connection.connect(api.appleMusicDeveloperToken().token)
 
     override suspend fun disconnect() {
         connection.disconnect()

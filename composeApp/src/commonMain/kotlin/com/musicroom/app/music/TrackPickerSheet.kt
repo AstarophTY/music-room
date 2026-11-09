@@ -18,10 +18,9 @@ fun TrackPickerSheet(
     isAdded: (TrackResponse) -> Boolean,
     onAdd: suspend (TrackResponse) -> Unit,
     onDismiss: () -> Unit,
-    showTopTracks: Boolean = true,
 ) {
     AppBottomSheet(onDismiss) {
         Text(title, style = AppTheme.typography.title, color = AppTheme.colors.textPrimary)
-        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd, showTopTracks)
+        TrackPickerContent(api, player, addLabel, addedLabel, isAdded, onAdd)
     }
 }

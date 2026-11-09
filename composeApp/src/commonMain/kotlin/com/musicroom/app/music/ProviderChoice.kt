@@ -20,22 +20,24 @@ import com.musicroom.app.generated.resources.provider_choice_later
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppTheme
-import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.TrackSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-fun ProviderChoice(api: MusicRoomApi, onSpotifyConnected: () -> Unit, onContinue: () -> Unit, listenerOption: Boolean = true) {
-    val apple = AppleMusicConnection.Local.current
+fun ProviderChoice(onSpotifyConnected: () -> Unit, onContinue: () -> Unit, listenerOption: Boolean = true) {
+    val providers = ProviderSession.connections.current
+    val apple = providers.firstOrNull { it.source == TrackSource.APPLE_MUSIC }
+    val spotify = providers.firstOrNull { it.source == TrackSource.SPOTIFY }
     val scope = rememberCoroutineScope()
     var connecting by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiText?>(null) }
     Text(stringResource(Res.string.provider_choice_body), style = AppTheme.typography.body, color = AppTheme.colors.textPrimary)
-    SpotifyConnectCard(api, onConnected = onSpotifyConnected)
+    if (spotify != null && !spotify.connected) SpotifyConnectCard(spotify, onConnected = onSpotifyConnected)
     Text("Apple Music", style = AppTheme.typography.heading, color = AppTheme.colors.textPrimary)
-    Text(stringResource(if (apple.available) Res.string.provider_apple_catalog_pending else Res.string.provider_apple_unavailable), style = AppTheme.typography.bodySmall, color = AppTheme.colors.textSecondary)
-    if (apple.available && !apple.connected) {
+    Text(stringResource(if (apple?.available == true) Res.string.provider_apple_catalog_pending else Res.string.provider_apple_unavailable), style = AppTheme.typography.bodySmall, color = AppTheme.colors.textSecondary)
+    if (apple != null && apple.available && !apple.connected) {
         AppButton(
             text = stringResource(if (connecting) Res.string.apple_music_connecting else Res.string.apple_music_connect),
             enabled = !connecting,
@@ -44,7 +46,7 @@ fun ProviderChoice(api: MusicRoomApi, onSpotifyConnected: () -> Unit, onContinue
                 error = null
                 scope.launch {
                     try {
-                        if (apple.connect(api.appleMusicDeveloperToken().token)) onContinue()
+                        if (apple.connect()) onContinue()
                         else error = UiText.of(Res.string.apple_music_not_connected)
                     } catch (e: CancellationException) {
                         throw e

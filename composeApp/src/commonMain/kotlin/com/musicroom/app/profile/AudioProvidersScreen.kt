@@ -27,7 +27,8 @@ import com.musicroom.app.generated.resources.spotify_disconnect
 import com.musicroom.app.generated.resources.spotify_playback_note
 import com.musicroom.app.generated.resources.spotify_title
 import com.musicroom.app.music.SpotifyConnectCard
-import com.musicroom.app.music.AppleMusicConnection
+import com.musicroom.app.music.ProviderSession
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.app.theme.components.AppCard
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
@@ -42,12 +43,14 @@ import org.jetbrains.compose.resources.stringResource
 fun AudioProvidersScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (UserResponse) -> Unit, onBack: () -> Unit) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
-    val appleMusic = AppleMusicConnection.Local.current
+    val providers = ProviderSession.connections.current
+    val spotify = providers.firstOrNull { it.source == TrackSource.SPOTIFY }
+    val appleMusic = providers.firstOrNull { it.source == TrackSource.APPLE_MUSIC }
     var status by remember { mutableStateOf<SpotifyStatusResponse?>(null) }
     var error by remember { mutableStateOf<UiText?>(null) }
     var connecting by remember { mutableStateOf(false) }
     LaunchedEffect(user.spotifyConnected) {
-        status = try {
+        status = if (!user.spotifyConnected) null else try {
             api.spotifyStatus()
         } catch (e: CancellationException) {
             throw e
@@ -58,7 +61,7 @@ fun AudioProvidersScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (U
 
     SubScreenScaffold(title = stringResource(Res.string.audio_providers_title), onBack = onBack) {
         if (!user.spotifyConnected) {
-            SpotifyConnectCard(api, onConnected = { onUserChange(user.copy(spotifyConnected = true)) })
+            if (spotify != null) SpotifyConnectCard(spotify, onConnected = { onUserChange(user.copy(spotifyConnected = true)) })
         } else {
             AppCard(Modifier.fillMaxWidth()) {
                 SettingsRow(
@@ -75,7 +78,8 @@ fun AudioProvidersScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (U
                         error = null
                         scope.launch {
                             try {
-                                onUserChange(api.spotifyDisconnect())
+                                spotify?.disconnect()
+                                onUserChange(api.me())
                             } catch (e: CancellationException) {
                                 throw e
                             } catch (e: Exception) {
@@ -88,7 +92,7 @@ fun AudioProvidersScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (U
                 )
             }
         }
-        if (appleMusic.available) {
+        if (appleMusic != null && appleMusic.available) {
             AppCard(Modifier.fillMaxWidth()) {
                 SettingsRow(
                     Lucide.AudioLines,
@@ -97,12 +101,16 @@ fun AudioProvidersScreen(api: MusicRoomApi, user: UserResponse, onUserChange: (U
                         error = null
                         if (connecting) return@SettingsRow
                         if (appleMusic.connected) {
-                            appleMusic.disconnect()
+                            scope.launch {
+                                try { appleMusic.disconnect() }
+                                catch (e: CancellationException) { throw e }
+                                catch (e: Exception) { error = UiText.of(e) }
+                            }
                         } else {
                             scope.launch {
                                 connecting = true
                                 try {
-                                    if (!appleMusic.connect(api.appleMusicDeveloperToken().token)) {
+                                    if (!appleMusic.connect()) {
                                         error = UiText.of(Res.string.apple_music_not_connected)
                                     }
                                 } catch (e: CancellationException) {

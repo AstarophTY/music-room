@@ -63,7 +63,7 @@ import com.musicroom.app.common.WindowSize
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_clear
 import com.musicroom.app.generated.resources.common_loading
-import com.musicroom.app.generated.resources.apple_music_storefront_missing
+import com.musicroom.app.generated.resources.provider_catalog_unavailable
 import com.musicroom.app.generated.resources.genre_chill
 import com.musicroom.app.generated.resources.genre_classical
 import com.musicroom.app.generated.resources.genre_country
@@ -89,8 +89,9 @@ import com.musicroom.app.music.AlbumCard
 import com.musicroom.app.music.ArtistCard
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
+import com.musicroom.app.music.MusicCatalogSearch
+import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.music.MusicProviderRegistry
-import com.musicroom.app.music.AppleMusicConnection
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.social.FriendButton
 import com.musicroom.app.social.PersonRow
@@ -135,7 +136,7 @@ fun SearchScreen(
     var filter by rememberSaveable { mutableStateOf(SearchFilter.All) }
     var found by remember { mutableStateOf<SearchResponse?>(null) }
     var tracks by remember { mutableStateOf<List<TrackResponse>>(emptyList()) }
-    var nextOffset by remember { mutableStateOf<Int?>(null) }
+    var cursors by remember { mutableStateOf<List<MusicCatalogSearch.Cursor>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiText?>(null) }
     // Music Room users whose name matches; null while not searched.
@@ -151,7 +152,8 @@ fun SearchScreen(
     val topTrackCount = 5
     val scope = rememberCoroutineScope()
     val colors = AppTheme.colors
-    val appleMusic = AppleMusicConnection.Local.current
+    val providers = ProviderSession.connections.current
+    val providerState = providers.map { Triple(it.source, it.connected, it.searchable) }
     val compact = WindowSize.current == WindowSize.Compact
     // Label, icon, and the Spotify genre it searches.
     val moods = listOf(
@@ -178,27 +180,25 @@ fun SearchScreen(
     // Topped by the user with exactly this name (names are unique).
     val topPeopleCount = 3
 
-    LaunchedEffect(searchQuery, appleMusic.connected, appleMusic.storefront, user.spotifyConnected) {
+    LaunchedEffect(searchQuery, providerState) {
         found = null
         tracks = emptyList()
-        nextOffset = null
+        cursors = emptyList()
         error = null
         loading = false
         if (searchQuery.isEmpty()) return@LaunchedEffect
         if (selectedMood == null) delay(350)
         loading = true
         try {
-            if (appleMusic.connected && appleMusic.storefront.isNullOrBlank()) {
-                error = UiText.of(Res.string.apple_music_storefront_missing)
+            if (providers.any { it.connected && !it.searchable }) {
+                error = UiText.of(Res.string.provider_catalog_unavailable)
             }
-            val catalog = MusicProviderRegistry.connected(
-                api, user.spotifyConnected, appleMusic.connected, appleMusic.storefront,
-            ).catalogSearch()
+            val catalog = MusicProviderRegistry(providers).catalogSearch()
             val result = catalog.search(searchQuery, selectedMood?.third)
             result.failures.firstOrNull()?.let { error = UiText.of(it) }
             found = result.response
             tracks = result.response?.tracks.orEmpty()
-            nextOffset = result.response?.nextTrackOffset
+            cursors = result.cursors
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -221,14 +221,15 @@ fun SearchScreen(
         }
     }
 
-    fun loadMoreTracks(offset: Int) {
+    fun loadMoreTracks() {
         scope.launch {
             loading = true
             error = null
             try {
-                val page = api.searchTracks(searchQuery, offset)
-                tracks = (tracks + page.items).distinctBy { it.id }
-                nextOffset = page.nextOffset
+                val result = MusicProviderRegistry(providers).catalogSearch().nextTracks(searchQuery, cursors)
+                tracks = (tracks + result.response?.tracks.orEmpty()).distinctBy { it.id }
+                cursors = result.cursors
+                result.failures.firstOrNull()?.let { error = UiText.of(it) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -409,11 +410,11 @@ fun SearchScreen(
                                     SearchFilter.Tracks -> Column {
                                         trackRows(tracks)
                                         failure?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
-                                        val offset = nextOffset
-                                        if (offset != null) {
+                                        val hasMore = cursors.isNotEmpty()
+                                        if (hasMore) {
                                             AppButton(
                                                 stringResource(Res.string.search_load_more),
-                                                { loadMoreTracks(offset) },
+                                                { loadMoreTracks() },
                                                 Modifier.fillMaxWidth().padding(top = AppTheme.spacing.sm),
                                                 enabled = !loading,
                                                 variant = AppButtonVariant.Secondary,

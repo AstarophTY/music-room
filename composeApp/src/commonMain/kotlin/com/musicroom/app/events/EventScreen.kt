@@ -317,7 +317,6 @@ fun EventScreen(
             isAdded = { it.id in pendingIds },
             onAdd = { room.propose(it) },
             onDismiss = { showPicker = false },
-            showTopTracks = user.spotifyConnected,
         )
     }
     if (showInvite) EventInviteSheet(api, room, onDismiss = { showInvite = false })

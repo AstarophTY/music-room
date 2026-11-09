@@ -227,7 +227,10 @@ class PlayerControllerAppleMusicTest {
         )
         val apple = FakeAppleMusicPlayback()
         val spotify = FakeSpotifyPlayback()
-        return Fixture(api, apple, spotify, PlayerController(api, scope, PlaybackEnvironment.create(api, scope, apple, spotify)))
+        val player = PlayerController(api, scope, PlaybackEnvironment.create(api, scope, apple, spotify))
+        // The fixture represents a signed-in user with Spotify linked.
+        player.updateRemoteConnected(setOf(TrackSource.SPOTIFY))
+        return Fixture(api, apple, spotify, player)
     }
 
     private fun track(id: String, source: TrackSource) = TrackResponse(
