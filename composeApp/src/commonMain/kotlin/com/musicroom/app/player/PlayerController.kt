@@ -75,6 +75,12 @@ class PlayerController(
     var remoteConnected = false
         private set
 
+    /** Name of the remote service, for UI hints. */
+    val remoteDisplayName: String get() = remote.displayName
+
+    /** URL that opens the remote service where its devices can be started, when it has one. */
+    val remoteAppUrl: String? get() = remote.appUrl
+
     /** Updates remote connection state from the set of sources that can control playback remotely. */
     fun updateRemoteConnected(remoteSources: Set<TrackSource>) {
         remoteConnected = remoteSources.contains(remote.source)
@@ -642,8 +648,5 @@ class PlayerController(
 
         /** "Previous" restarts the song after this, and goes to the previous one before. */
         private val RESTART_THRESHOLD = 3.seconds
-
-        /** Opens the Spotify app on phones; on computers the web player, which also counts as a device. */
-        const val SPOTIFY_WEB_URL = "https://open.remote.com"
     }
 }

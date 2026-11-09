@@ -239,7 +239,7 @@
     <string name="spotify_not_connected">Non connecté</string>
     <string name="spotify_disconnect">Déconnecter Spotify</string>
     <string name="spotify_playback_note">La musique passe par Spotify Connect : il faut Spotify Premium et l’app Spotify ouverte sur un de tes appareils (téléphone, ordinateur, enceinte).</string>
-    <string name="spotify_open">Ouvrir Spotify</string>
+    <string name="player_open_app">Ouvrir %1$s</string>
     <string name="profile_section_music">Musique</string>
     <string name="reco_top_tracks">Tes titres préférés</string>
     <string name="reco_artist">Parce que tu écoutes %1$s</string>
@@ -273,7 +273,7 @@
     <string name="devices_choose">Choisir un appareil</string>
     <string name="devices_active">Lecture en cours ici</string>
     <string name="devices_refresh">Actualiser</string>
-    <string name="devices_empty">Aucun appareil trouvé. Ouvre Spotify sur ton téléphone, ton ordinateur ou une enceinte, puis actualise.</string>
+    <string name="devices_empty">Aucun appareil trouvé. Ouvre %1$s sur ton téléphone, ton ordinateur ou une enceinte, puis actualise.</string>
     <string name="now_playing_title">En cours de lecture</string>
     <string name="now_playing_open">Ouvrir le lecteur</string>
     <string name="now_playing_nothing">Rien n’est en lecture. Choisis un son pour commencer.</string>

@@ -32,7 +32,7 @@ import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_close
 import com.musicroom.app.generated.resources.event_nothing_playing
 import com.musicroom.app.generated.resources.now_playing_open
-import com.musicroom.app.generated.resources.spotify_open
+import com.musicroom.app.generated.resources.player_open_app
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.components.pressable
@@ -43,10 +43,10 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * Now playing bar under the content. Phones: cover, title, play/pause and next, with a thin progress line.
- * Large screens: controls in the middle with a seek bar, and the Spotify device on the right. The device
+ * Large screens: controls in the middle with a seek bar, and the remote device on the right. The device
  * button (an icon on phones) opens the list of devices to move the music to another one.
  * Tapping the cover or the title opens the player page ([onOpen]). Errors (no device, not Premium) show
- * above it, with a button to open Spotify when that fixes it.
+ * above it, with a button to open the remote service when that fixes it.
  */
 @Composable
 fun PlayerBar(api: MusicRoomApi, player: PlayerController, onOpen: () -> Unit, modifier: Modifier = Modifier) {
@@ -70,11 +70,13 @@ fun PlayerBar(api: MusicRoomApi, player: PlayerController, onOpen: () -> Unit, m
             ) {
                 Text(error.resolve(), style = AppTheme.typography.bodySmall, color = colors.error, modifier = Modifier.weight(1f))
                 if (player.needsDevice) {
-                    AppButton(
-                        stringResource(Res.string.spotify_open),
-                        { runCatching { uriHandler.openUri(PlayerController.SPOTIFY_WEB_URL) } },
-                        variant = AppButtonVariant.Ghost,
-                    )
+                    player.remoteAppUrl?.let { url ->
+                        AppButton(
+                            stringResource(Res.string.player_open_app, player.remoteDisplayName),
+                            { runCatching { uriHandler.openUri(url) } },
+                            variant = AppButtonVariant.Ghost,
+                        )
+                    }
                 }
                 IconButton(onClick = player::dismissError) {
                     Icon(Lucide.X, contentDescription = stringResource(Res.string.common_close), tint = colors.textSecondary)

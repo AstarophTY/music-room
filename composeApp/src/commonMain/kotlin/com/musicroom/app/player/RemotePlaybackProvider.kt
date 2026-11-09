@@ -8,6 +8,10 @@ import com.musicroom.shared.dto.TrackSource
 /** Playback capabilities provided by a remote music service. */
 interface RemotePlaybackProvider : PlaybackProvider {
     val source: TrackSource
+    /** Name of the service, shown in UI copy such as "Open %s". */
+    val displayName: String
+    /** Opens the service's app or web player, where its devices can be started; null when it has none. */
+    val appUrl: String? get() = null
     fun notConnectedError(): UiText
     fun isDisconnected(error: Exception): Boolean = false
     fun isMissingDevice(error: Exception): Boolean = false

@@ -67,7 +67,7 @@ import com.musicroom.app.generated.resources.queue_empty
 import com.musicroom.app.generated.resources.queue_propose_songs
 import com.musicroom.app.generated.resources.queue_then
 import com.musicroom.app.generated.resources.queue_title
-import com.musicroom.app.generated.resources.spotify_open
+import com.musicroom.app.generated.resources.player_open_app
 import com.musicroom.app.generated.resources.track_add_to_playlist
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
@@ -251,7 +251,7 @@ private fun TrackSection(api: MusicRoomApi, player: PlayerController, onAddToPla
                 SkipButton(player, forward = false)
                 PlayButton(player, 64.dp)
                 SkipButton(player, forward = true)
-                // A song the app plays itself (uploaded or Apple Music) does not use a Spotify device.
+                // A song the app plays itself (uploaded or Apple Music) does not use a remote device.
                 // The spacer keeps the row symmetric when the device button is hidden.
                 if (player.canTransferPlayback) DeviceButton(player) else Spacer(Modifier.size(48.dp))
             }
@@ -261,11 +261,13 @@ private fun TrackSection(api: MusicRoomApi, player: PlayerController, onAddToPla
         if (error != null) {
             Text(error.resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
             if (player.needsDevice) {
-                AppButton(
-                    stringResource(Res.string.spotify_open),
-                    { runCatching { uriHandler.openUri(PlayerController.SPOTIFY_WEB_URL) } },
-                    variant = AppButtonVariant.Secondary,
-                )
+                player.remoteAppUrl?.let { url ->
+                    AppButton(
+                        stringResource(Res.string.player_open_app, player.remoteDisplayName),
+                        { runCatching { uriHandler.openUri(url) } },
+                        variant = AppButtonVariant.Secondary,
+                    )
+                }
             }
         }
     }
