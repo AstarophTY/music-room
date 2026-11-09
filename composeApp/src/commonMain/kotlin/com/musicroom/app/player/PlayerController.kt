@@ -431,7 +431,7 @@ class PlayerController(
     }
 
     /** The app chooses each song (a list with app-local songs, or an app-local song playing or next). */
-    private fun appDriven() = appList != null || deviceSession != null || upNext.firstOrNull()?.track?.let(::isAppTrack) == true
+    private fun appDriven() = appList != null || deviceSession != null || upNext.firstOrNull()?.let { isAppTrack(it.track) } == true
 
     private fun isAppTrack(track: TrackResponse) = playbackRouter.appManaged(track)
 
