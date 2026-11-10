@@ -19,8 +19,6 @@ class AppleMusicProviderConnection(
     override val displayName: String = "Apple Music"
     val storefront: String? get() = connection.storefront
     override val searchable get() = connected && !storefront.isNullOrBlank()
-    override val providesRemotePlayback: Boolean get() = true
-    override val providesRecommendations: Boolean get() = true
     override val playlistSource: MusicPlaylistSource get() = this
 
     override suspend fun playlists(): List<MusicPlaylist> = emptyList()

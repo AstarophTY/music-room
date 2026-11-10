@@ -34,12 +34,13 @@ spotify:
   clientSecret: "$SPOTIFY_CLIENT_SECRET:"
   redirectUri: "$SPOTIFY_REDIRECT_URI:http://127.0.0.1:8080/api/v1/spotify/callback"
 
-# Music Room Premium, sold with Stripe (https://dashboard.stripe.com/apikeys). Leave STRIPE_SECRET_KEY empty to turn it off.
+# Apple Music developer token credentials.
 appleMusic:
   teamId: "$APPLE_MUSIC_TEAM_ID:"
   keyId: "$APPLE_MUSIC_KEY_ID:"
   privateKeyPath: "$APPLE_MUSIC_PRIVATE_KEY_PATH:"
 
+# Music Room Premium, sold with Stripe (https://dashboard.stripe.com/apikeys). Leave STRIPE_SECRET_KEY empty to turn it off.
 # STRIPE_PRICE_ID: the monthly price of the Premium product. Webhook endpoint: <server>/api/v1/billing/webhook
 stripe:
   secretKey: "$STRIPE_SECRET_KEY:"

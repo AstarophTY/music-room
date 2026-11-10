@@ -12,7 +12,13 @@ import java.time.Instant
 import java.util.Base64
 
 class AppleMusicTokenService(private val config: AppleMusicConfig) {
+    private var cachedToken: String? = null
+    private var cachedAt: Instant? = null
+
+    @Synchronized
     fun create(now: Instant = Instant.now()): String {
+        val issued = cachedAt
+        if (issued != null && !now.isBefore(issued) && now.isBefore(issued.plusSeconds(3300))) return requireNotNull(cachedToken)
         require(config.teamId.isNotBlank() && config.keyId.isNotBlank() && config.privateKeyPath.isNotBlank()) {
             "Apple Music is not configured"
         }
@@ -21,7 +27,10 @@ class AppleMusicTokenService(private val config: AppleMusicConfig) {
             .replace("-----END PRIVATE KEY-----", "")
             .filterNot(Char::isWhitespace)
         val key = KeyFactory.getInstance("EC").generatePrivate(PKCS8EncodedKeySpec(Base64.getDecoder().decode(pem))) as ECPrivateKey
-        return JWT.create().withKeyId(config.keyId).withIssuer(config.teamId).withIssuedAt(now)
+        val token = JWT.create().withKeyId(config.keyId).withIssuer(config.teamId).withIssuedAt(now)
             .withExpiresAt(now.plusSeconds(3600)).sign(Algorithm.ECDSA256(null, key))
+        cachedAt = now
+        cachedToken = token
+        return token
     }
 }

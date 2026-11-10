@@ -75,9 +75,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
         return AlbumResponse(
             id = "apple:$storefront:$id",
             name = value("name"),
-            artists = listOf(value("artistName")).filter { it.isNotBlank() }.map {
-                ArtistResponse(id = "apple:$storefront:$id", name = it, imageUrl = null, uri = it)
-            },
+            artists = relationship(item, "artists").map { artist(it.jsonObject, storefront) },
             imageUrl = image,
             releaseYear = value("releaseDate").take(4).takeIf { it.isNotBlank() },
             trackCount = attributes["trackCount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
