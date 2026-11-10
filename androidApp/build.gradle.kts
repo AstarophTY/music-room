@@ -15,6 +15,7 @@ android {
         versionName = "0.1.0"
     }
     buildFeatures { compose = true }
+    lint { baseline = file("lint-baseline.xml") }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,io.netty.versions.properties}" }
         // The Apple Music SDK's native libraries are loaded through System.loadLibrary.
