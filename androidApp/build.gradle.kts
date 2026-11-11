@@ -33,7 +33,7 @@ android {
 dependencies {
     implementation(files("libs/MusicKitAuth-release-1.1.5.aar"))
     implementation(files("libs/MediaPlayback-release-1.1.4.aar"))
-    // Runtime dependencies required by the bundled MusicKit Android SDK.
+    // Runtime dependencies required by the bundled MusicKit Android SDK (see libs/README.md).
     implementation("androidx.media:media:1.7.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("com.google.android.material:material:1.6.1")

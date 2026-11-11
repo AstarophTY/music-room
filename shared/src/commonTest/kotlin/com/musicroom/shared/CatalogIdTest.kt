@@ -11,10 +11,16 @@ import kotlin.test.assertNull
 class CatalogIdTest {
     @Test
     fun legacyIdentifiersRoundTripWithoutChangingStoredValues() {
-        for (value in listOf("spotify123", "mr-123", "apple:US:12345")) {
+        for (value in listOf("spotify123", "mr-123", "apple:us:12345")) {
             assertEquals(value, CatalogId.fromLegacy(value)?.toLegacy())
         }
-        assertEquals(CatalogId(TrackSource.APPLE_MUSIC, "12345", "US"), CatalogId.fromLegacy("apple:US:12345"))
+    }
+
+    @Test
+    fun appleStorefrontCasingDoesNotCreateASecondIdentity() {
+        assertEquals(CatalogId(TrackSource.APPLE_MUSIC, "12345", "us"), CatalogId.fromLegacy("apple:US:12345"))
+        assertEquals("apple:us:12345", CatalogId.fromLegacy("apple:US:12345")?.toLegacy())
+        assertEquals(CatalogId.fromLegacy("apple:us:12345"), CatalogId.fromLegacy("apple:US:12345"))
     }
 
     @Test

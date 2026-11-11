@@ -51,6 +51,8 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             bearerAuth(tokens.create())
             parameter("term", query)
             parameter("types", "songs,albums,artists")
+            // Albums carry their artists only when asked for: without them a result has no one to open.
+            parameter("include[albums]", "artists")
             parameter("limit", 25)
         }
         if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
@@ -68,7 +70,8 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
 
     private fun artist(item: JsonObject, storefront: String): ArtistResponse {
         val id = item.getValue("id").jsonPrimitive.content
-        val attributes = item.getValue("attributes").jsonObject
+        // A related artist can come back with its identity only; the name and artwork are then left empty.
+        val attributes = item["attributes"]?.jsonObject ?: JsonObject(emptyMap())
         fun value(key: String) = attributes[key]?.jsonPrimitive?.contentOrNull.orEmpty()
         val image = attributes["artwork"]?.jsonObject?.get("url")?.jsonPrimitive?.contentOrNull
             ?.replace("{w}", "300")?.replace("{h}", "300")
@@ -80,7 +83,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
         )
     }
 
-    private fun album(item: JsonObject, storefront: String): AlbumResponse {
+    internal fun album(item: JsonObject, storefront: String): AlbumResponse {
         val id = item.getValue("id").jsonPrimitive.content
         val attributes = item.getValue("attributes").jsonObject
         fun value(key: String) = attributes[key]?.jsonPrimitive?.contentOrNull.orEmpty()
@@ -89,7 +92,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
         return AlbumResponse(
             id = "apple:$storefront:$id",
             name = value("name"),
-            artists = relationship(item, "artists").map { artist(it.jsonObject, storefront) },
+            artists = relationship(item, "artists").map { artist(it.jsonObject, storefront) }.filter { it.name.isNotBlank() },
             imageUrl = image,
             releaseYear = value("releaseDate").take(4).takeIf { it.isNotBlank() },
             trackCount = attributes["trackCount"]?.jsonPrimitive?.contentOrNull?.toIntOrNull(),
@@ -129,10 +132,8 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
 
     suspend fun albumDetail(identifier: String): AlbumDetailResponse {
         val (item, region) = catalogItem(identifier, "albums", "tracks,artists")
-        val artists = relationship(item, "artists").map { artist(it.jsonObject, region) }
-        val album = album(item, region).copy(artists = artists)
         val tracks = relationship(item, "tracks").map { song(it.jsonObject, region) }
-        return AlbumDetailResponse(album, tracks)
+        return AlbumDetailResponse(album(item, region), tracks)
     }
 
     suspend fun track(identifier: String): TrackResponse {

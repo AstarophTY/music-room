@@ -192,7 +192,7 @@ class EventPlayer(
     private suspend fun remote(event: Event, track: EventTrack?): EventPlaybackProviders.Provider? =
         providers.forTrack(track?.track)?.takeIf { it.available(event.ownerId) }
 
-    /** Hands the most voted song to Spotify's queue: it plays after the current one. */
+    /** Hands the most voted song to the queue of the provider playing now: it plays after the current one. */
     private suspend fun queueTop(event: Event) {
         val top = tracks.top(event.id) ?: return
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)

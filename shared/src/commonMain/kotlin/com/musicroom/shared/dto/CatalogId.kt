@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
  * A provider-owned identifier, independent of its legacy wire and database representation.
  * Apple catalog IDs are scoped to the storefront: availability and metadata can differ by region,
  * so tracks from different storefronts remain distinct even when their recording codes match.
- * Legacy IDs keep their original casing for compatibility with stored references.
+ * The storefront is kept lower-case, as the server writes it: "apple:FR:1" and "apple:fr:1" are the same track.
  */
 @Serializable
 data class CatalogId(val source: TrackSource, val externalId: String, val storefront: String? = null) {
@@ -23,7 +23,7 @@ data class CatalogId(val source: TrackSource, val externalId: String, val storef
             if (value.startsWith("apple:")) {
                 val parts = value.split(':')
                 if (parts.size != 3 || !parts[1].matches(Regex("[A-Za-z]{2}")) || !parts[2].matches(Regex("[0-9]{1,32}"))) return null
-                return CatalogId(TrackSource.APPLE_MUSIC, parts[2], parts[1])
+                return CatalogId(TrackSource.APPLE_MUSIC, parts[2], parts[1].lowercase())
             }
             if (value.startsWith(TrackResponse.HOSTED_PREFIX)) {
                 val id = value.removePrefix(TrackResponse.HOSTED_PREFIX)
