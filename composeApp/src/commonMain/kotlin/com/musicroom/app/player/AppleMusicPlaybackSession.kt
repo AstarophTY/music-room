@@ -24,7 +24,6 @@ class AppleMusicPlaybackSession(
     override fun connectionError() = if (playback.connected) null else UiText.of(Res.string.apple_music_not_connected)
     override val canResume get() = ready
     private var ready = false
-        private set
     private var generation = 0L
     private var job: Job? = null
     private var active = false

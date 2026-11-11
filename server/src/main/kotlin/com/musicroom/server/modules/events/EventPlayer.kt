@@ -197,6 +197,7 @@ class EventPlayer(
         val top = tracks.top(event.id) ?: return
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
         val provider = remote(event, current) ?: return
+        // A different provider cannot be prequeued remotely; playTop handles it when the current track ends.
         if (providers.forTrack(top.track) !== provider) return
         tracks.setStatus(top.id, EventTracksTable.NEXT)
         try {

@@ -1,6 +1,7 @@
 package com.musicroom.server.modules.applemusic
 
 import com.musicroom.server.common.exceptions.BadRequestException
+import com.musicroom.server.common.exceptions.HttpException
 import com.musicroom.server.common.exceptions.NotFoundException
 import com.musicroom.shared.dto.AlbumDetailResponse
 import com.musicroom.shared.dto.ArtistDetailResponse
@@ -39,7 +40,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             parameter("types", "songs,albums,artists")
             parameter("limit", 25)
         }
-        check(response.status.isSuccess()) { "Apple Music catalog search failed (${response.status.value})" }
+        if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
         val root = Json.parseToJsonElement(response.bodyAsText()).jsonObject
         val results = root["results"]?.jsonObject
         val songs = results?.get("songs")?.jsonObject?.get("data")?.jsonArray.orEmpty()
@@ -95,7 +96,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             parameter("include", include)
         }
         if (response.status == HttpStatusCode.NotFound) throw NotFoundException("Apple Music item not found")
-        check(response.status.isSuccess()) { "Apple Music catalog request failed (${response.status.value})" }
+        if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
         val data = Json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]?.jsonArray
         return (data?.firstOrNull()?.jsonObject ?: throw NotFoundException("Apple Music item not found")) to region
     }
@@ -129,7 +130,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
         val region = validateStorefront(parts[1])
         val response = client.get("https://api.music.apple.com/v1/catalog/$region/songs/${parts[2]}") { bearerAuth(tokens.create()) }
         if (response.status == HttpStatusCode.NotFound) throw NotFoundException("Apple Music track not found")
-        check(response.status.isSuccess()) { "Apple Music catalog request failed (${response.status.value})" }
+        if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
         val data = Json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]?.jsonArray
         return song(data?.firstOrNull()?.jsonObject ?: throw NotFoundException("Apple Music track not found"), region)
     }
@@ -141,7 +142,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             parameter("types", "songs")
             parameter("limit", 20)
         }
-        check(response.status.isSuccess()) { "Apple Music charts request failed (${response.status.value})" }
+        if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
         return chartTracks(Json.parseToJsonElement(response.bodyAsText()).jsonObject, region)
     }
 
@@ -153,7 +154,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             parameter("filter[isrc]", isrc.uppercase())
             parameter("limit", 25)
         }
-        check(response.status.isSuccess()) { "Apple Music catalog lookup failed (${response.status.value})" }
+        if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
         val data = Json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]?.jsonArray.orEmpty()
         val tracks = data.map { song(it.jsonObject, region) }.filter { it.isrc.equals(isrc, ignoreCase = true) }
         return TrackPageResponse(tracks, tracks.size)

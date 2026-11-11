@@ -95,7 +95,7 @@ class EventsService(
         return render(eventId, setOf(userId)).getValue(userId)
     }
 
-    /** Proposes a Spotify track (with the proposer's vote), or votes for it when it already waits in the queue. */
+    /** Proposes a catalog track (with the proposer's vote), or votes for it when it already waits in the queue. */
     suspend fun propose(userId: UUID, eventId: UUID, trackId: String, location: GeoPoint?, identity: CatalogId? = null): EventDetailResponse {
         val event = visible(userId, eventId)
         checkVote(event, userId, location)

@@ -11,8 +11,39 @@ import java.time.Instant
 import java.util.Base64
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
+import kotlin.test.assertFailsWith
+import com.musicroom.server.common.exceptions.HttpException
+import io.ktor.http.HttpStatusCode
 
 class AppleMusicTokenServiceTest {
+    @Test
+    fun `missing configuration is unavailable`() {
+        val error = assertFailsWith<HttpException> {
+            AppleMusicTokenService(AppleMusicConfig("", "", "")).create()
+        }
+        assertEquals(HttpStatusCode.ServiceUnavailable, error.status)
+    }
+
+    @Test
+    fun `token is cached and key survives renewal`() {
+        val generator = KeyPairGenerator.getInstance("EC")
+        generator.initialize(ECGenParameterSpec("secp256r1"))
+        val pair = generator.generateKeyPair()
+        val file = Files.createTempFile("music-kit-cache", ".p8")
+        try {
+            Files.writeString(file, "-----BEGIN PRIVATE KEY-----\n${Base64.getEncoder().encodeToString(pair.private.encoded)}\n-----END PRIVATE KEY-----\n")
+            val service = AppleMusicTokenService(AppleMusicConfig("team", "key", file.toString()))
+            val now = Instant.now()
+            val first = service.create(now)
+            Files.delete(file)
+            assertEquals(first, service.create(now.plusSeconds(3299)))
+            assertNotEquals(first, service.create(now.plusSeconds(3300)))
+        } finally {
+            Files.deleteIfExists(file)
+        }
+    }
+
     @Test
     fun `token is signed with configured key and expires after one hour`() {
         val generator = KeyPairGenerator.getInstance("EC")

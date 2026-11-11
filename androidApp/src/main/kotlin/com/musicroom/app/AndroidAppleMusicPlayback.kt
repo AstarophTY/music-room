@@ -14,6 +14,8 @@ import com.apple.android.music.playback.queue.PlaybackQueueItemsAdded
 import com.apple.android.sdk.authentication.TokenProvider
 import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.shared.MusicRoomApi
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 
 class AndroidAppleMusicPlayback(
     private val context: Context,
@@ -24,8 +26,10 @@ class AndroidAppleMusicPlayback(
     override val connected get() = connection.connected
     private var controller: MediaPlayerController? = null
     private var listener: MediaPlayerController.Listener? = null
+    private var generation = 0L
 
     override suspend fun play(songId: String, onEnded: () -> Unit, onError: (Exception) -> Unit) {
+        val request = ++generation
         try {
             loadSdk()
         } catch (e: UnsatisfiedLinkError) {
@@ -33,7 +37,9 @@ class AndroidAppleMusicPlayback(
         }
         val userToken = connection.musicUserToken() ?: error("Connect Apple Music before playback")
         val developerToken = api.appleMusicDeveloperToken().token
-        stop()
+        currentCoroutineContext().ensureActive()
+        if (request != generation) return
+        releaseController()
         val tokens = object : TokenProvider {
             override fun getDeveloperToken(): String = developerToken
             override fun getUserToken(): String = userToken
@@ -74,6 +80,11 @@ class AndroidAppleMusicPlayback(
     override fun seek(positionMs: Long) { controller?.seekToPosition(positionMs) }
     override fun positionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: 0
     override fun stop() {
+        generation++
+        releaseController()
+    }
+
+    private fun releaseController() {
         controller?.let { player ->
             listener?.let(player::removeListener)
             player.stop()
