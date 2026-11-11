@@ -53,7 +53,9 @@ class AndroidAppleMusicPlayback(
     private var authorizationLost = false
 
     private val tokens = object : TokenProvider {
-        override fun getDeveloperToken(): String = developerToken
+        // Qualified on purpose: TokenProvider is a Java interface, so a bare `developerToken` reads this
+        // object's own getter through its synthetic property and calls itself until the stack is gone.
+        override fun getDeveloperToken(): String = this@AndroidAppleMusicPlayback.developerToken
 
         // Read on each call: reconnecting gives a new token without rebuilding the player.
         override fun getUserToken(): String = connection.musicUserToken().orEmpty()
