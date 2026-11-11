@@ -29,10 +29,11 @@ import kotlin.time.TimeSource
 /**
  * Plays Apple Music songs on the device with the MusicKit SDK.
  *
- * One player is built on the first song and then kept: each song replaces its queue. The developer token the SDK
- * asks for (at any moment, from its own threads) is fetched once and refreshed in the background, so a song paused
- * for longer than the token's hour still resumes. Songs started while a previous one was still loading are dropped
- * ([generation]), so the last requested song is the one heard.
+ * Each song gets its own player: the SDK's `stop()` disposes the audio renderer for good, and preparing a new
+ * queue on a stopped player decodes the song without ever asking for output buffers, so it plays silently.
+ * The developer token the SDK asks for (at any moment, from its own threads) is fetched once and refreshed in
+ * the background, so a song paused for longer than the token's hour still resumes. Songs started while a
+ * previous one was still loading are dropped ([generation]), so the last requested song is the one heard.
  */
 class AndroidAppleMusicPlayback(
     private val context: Context,
@@ -48,9 +49,6 @@ class AndroidAppleMusicPlayback(
     private var refreshJob: Job? = null
     @Volatile private var developerToken: String = ""
     private var tokenAt: TimeSource.Monotonic.ValueTimeMark? = null
-
-    /** The account behind the player is gone (token revoked): the next song builds a new one. */
-    private var authorizationLost = false
 
     private val tokens = object : TokenProvider {
         // Qualified on purpose: TokenProvider is a Java interface, so a bare `developerToken` reads this
@@ -97,16 +95,15 @@ class AndroidAppleMusicPlayback(
     override fun seek(positionMs: Long) { controller?.seekToPosition(positionMs) }
     override fun positionMs(): Long = controller?.currentPosition?.coerceAtLeast(0) ?: 0
 
-    /** Stops the music; the player stays, ready for the next song. */
     override fun stop() {
         generation++
         request = null
-        controller?.stop()
+        release()
     }
 
+    /** A player for one song: a stopped one decodes without output buffers, so it would play in silence. */
     private fun player(): MediaPlayerController {
-        if (authorizationLost) release()
-        controller?.let { return it }
+        release()
         val player = MediaPlayerControllerFactory.createLocalController(context, Handler(Looper.getMainLooper()), tokens)
         player.addListener(listener)
         controller = player
@@ -115,15 +112,12 @@ class AndroidAppleMusicPlayback(
     }
 
     private fun release() {
-        refreshJob?.cancel()
-        refreshJob = null
         controller?.let { player ->
             player.removeListener(listener)
             player.stop()
             player.release()
         }
         controller = null
-        authorizationLost = false
     }
 
     /** Fetches the developer token when the one at hand is missing or close to its hour. */
@@ -166,8 +160,6 @@ class AndroidAppleMusicPlayback(
             val target = current() ?: return
             if (error.type == MediaPlayerException.TYPE_MUSIC_USER_TOKEN_ERROR) {
                 connection.disconnect()
-                // Released on the next song: the SDK is still inside this callback.
-                authorizationLost = true
                 target.onError(IllegalStateException("Apple Music authorization expired. Connect Apple Music again.", error))
             } else {
                 target.onError(error)
