@@ -114,7 +114,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
         }
     }
 
-    /** Whether the user can focus an event (Spotify Premium linked); false drops the current focus. */
+    /** Whether a connected provider can play event tracks; false drops the current focus. */
     fun updateProviders(availability: MusicPlaybackAvailability) {
         providers = availability
         canFocus = availability.canListen

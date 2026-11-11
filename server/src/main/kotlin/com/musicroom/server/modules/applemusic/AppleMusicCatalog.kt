@@ -16,6 +16,9 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.statement.HttpResponse
+import kotlinx.coroutines.CancellationException
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.isSuccess
@@ -31,10 +34,20 @@ import kotlinx.serialization.json.longOrNull
 class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
     private val client = HttpClient(CIO)
 
+    private suspend fun get(url: String, block: HttpRequestBuilder.() -> Unit): HttpResponse = try {
+        client.get(url, block)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: HttpException) {
+        throw e
+    } catch (e: Exception) {
+        throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog is unavailable")
+    }
+
     suspend fun search(query: String, storefront: String): SearchResponse {
         val region = validateStorefront(storefront)
         if (query.isBlank() || query.length > 200) throw BadRequestException("Invalid search query")
-        val response = client.get("https://api.music.apple.com/v1/catalog/$region/search") {
+        val response = get("https://api.music.apple.com/v1/catalog/$region/search") {
             bearerAuth(tokens.create())
             parameter("term", query)
             parameter("types", "songs,albums,artists")
@@ -91,7 +104,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             throw BadRequestException("Invalid Apple Music identifier")
         }
         val region = validateStorefront(parts[1])
-        val response = client.get("https://api.music.apple.com/v1/catalog/$region/$type/${parts[2]}") {
+        val response = get("https://api.music.apple.com/v1/catalog/$region/$type/${parts[2]}") {
             bearerAuth(tokens.create())
             parameter("include", include)
         }
@@ -128,7 +141,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
             throw BadRequestException("Invalid Apple Music track")
         }
         val region = validateStorefront(parts[1])
-        val response = client.get("https://api.music.apple.com/v1/catalog/$region/songs/${parts[2]}") { bearerAuth(tokens.create()) }
+        val response = get("https://api.music.apple.com/v1/catalog/$region/songs/${parts[2]}") { bearerAuth(tokens.create()) }
         if (response.status == HttpStatusCode.NotFound) throw NotFoundException("Apple Music track not found")
         if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
         val data = Json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]?.jsonArray
@@ -137,7 +150,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
 
     suspend fun charts(storefront: String): TrackPageResponse {
         val region = validateStorefront(storefront)
-        val response = client.get("https://api.music.apple.com/v1/catalog/$region/charts") {
+        val response = get("https://api.music.apple.com/v1/catalog/$region/charts") {
             bearerAuth(tokens.create())
             parameter("types", "songs")
             parameter("limit", 20)
@@ -149,7 +162,7 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
     suspend fun matchIsrc(isrc: String, storefront: String): TrackPageResponse {
         val region = validateStorefront(storefront)
         if (!isrc.matches(Regex("[A-Za-z0-9]{12}"))) throw BadRequestException("Invalid recording code")
-        val response = client.get("https://api.music.apple.com/v1/catalog/$region/songs") {
+        val response = get("https://api.music.apple.com/v1/catalog/$region/songs") {
             bearerAuth(tokens.create())
             parameter("filter[isrc]", isrc.uppercase())
             parameter("limit", 25)

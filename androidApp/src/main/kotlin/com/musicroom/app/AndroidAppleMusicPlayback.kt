@@ -14,6 +14,13 @@ import com.apple.android.music.playback.queue.PlaybackQueueItemsAdded
 import com.apple.android.sdk.authentication.TokenProvider
 import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.shared.MusicRoomApi
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
@@ -27,6 +34,9 @@ class AndroidAppleMusicPlayback(
     private var controller: MediaPlayerController? = null
     private var listener: MediaPlayerController.Listener? = null
     private var generation = 0L
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var refreshJob: Job? = null
+    @Volatile private var developerToken: String = ""
 
     override suspend fun play(songId: String, onEnded: () -> Unit, onError: (Exception) -> Unit) {
         val request = ++generation
@@ -36,10 +46,11 @@ class AndroidAppleMusicPlayback(
             throw IllegalStateException("Apple Music playback is not supported on this device", e)
         }
         val userToken = connection.musicUserToken() ?: error("Connect Apple Music before playback")
-        val developerToken = api.appleMusicDeveloperToken().token
+        val freshToken = api.appleMusicDeveloperToken().token
         currentCoroutineContext().ensureActive()
         if (request != generation) return
         releaseController()
+        developerToken = freshToken
         val tokens = object : TokenProvider {
             override fun getDeveloperToken(): String = developerToken
             override fun getUserToken(): String = userToken
@@ -52,11 +63,21 @@ class AndroidAppleMusicPlayback(
             override fun onPlaybackStateUpdated(controller: MediaPlayerController) = Unit
             override fun onBufferingStateChanged(controller: MediaPlayerController, isBuffering: Boolean) = Unit
             override fun onCurrentItemChanged(controller: MediaPlayerController, previousItem: PlayerQueueItem?, currentItem: PlayerQueueItem?) = Unit
-            override fun onItemEnded(controller: MediaPlayerController, queueItem: PlayerQueueItem, position: Long) = onEnded()
+            override fun onItemEnded(controller: MediaPlayerController, queueItem: PlayerQueueItem, position: Long) {
+                if (request == generation) onEnded()
+            }
             override fun onMetadataUpdated(controller: MediaPlayerController, item: PlayerQueueItem?) = Unit
             override fun onPlaybackQueueChanged(controller: MediaPlayerController, items: MutableList<PlayerQueueItem>) = Unit
             override fun onPlaybackQueueItemsAdded(controller: MediaPlayerController, items: PlaybackQueueItemsAdded) = Unit
-            override fun onPlaybackError(controller: MediaPlayerController, error: MediaPlayerException) = onError(error)
+            override fun onPlaybackError(controller: MediaPlayerController, error: MediaPlayerException) {
+                if (request != generation) return
+                if (error.type == MediaPlayerException.TYPE_MUSIC_USER_TOKEN_ERROR) {
+                    connection.disconnect()
+                    onError(IllegalStateException("Apple Music authorization expired. Connect Apple Music again.", error))
+                } else {
+                    onError(error)
+                }
+            }
             override fun onPlaybackModeChanged(controller: MediaPlayerController, mode: PlaybackModeContainer) = Unit
             override fun onPlaybackRepeatModeChanged(controller: MediaPlayerController, mode: Int) = Unit
             override fun onPlaybackShuffleModeChanged(controller: MediaPlayerController, mode: Int) = Unit
@@ -64,7 +85,27 @@ class AndroidAppleMusicPlayback(
         controller = player
         listener = callbacks
         player.addListener(callbacks)
-        player.prepare(CatalogPlaybackQueueItemProvider.Builder().items(MediaItemType.SONG, songId).build(), true)
+        try {
+            player.prepare(CatalogPlaybackQueueItemProvider.Builder().items(MediaItemType.SONG, songId).build(), true)
+        } catch (e: Exception) {
+            releaseController()
+            throw e
+        }
+        refreshJob = scope.launch {
+            while (true) {
+                delay(45 * 60 * 1000L)
+                while (true) {
+                    try {
+                        developerToken = api.appleMusicDeveloperToken().token
+                        break
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        delay(60 * 1000L)
+                    }
+                }
+            }
+        }
     }
 
     /** Loads the SDK's native libraries, as its sample app does; playback fails without them. */
@@ -85,6 +126,8 @@ class AndroidAppleMusicPlayback(
     }
 
     private fun releaseController() {
+        refreshJob?.cancel()
+        refreshJob = null
         controller?.let { player ->
             listener?.let(player::removeListener)
             player.stop()

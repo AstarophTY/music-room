@@ -2,7 +2,12 @@ package com.musicroom.shared.dto
 
 import kotlinx.serialization.Serializable
 
-/** A provider-owned identifier, independent of its legacy wire and database representation. */
+/**
+ * A provider-owned identifier, independent of its legacy wire and database representation.
+ * Apple catalog IDs are scoped to the storefront: availability and metadata can differ by region,
+ * so tracks from different storefronts remain distinct even when their recording codes match.
+ * Legacy IDs keep their original casing for compatibility with stored references.
+ */
 @Serializable
 data class CatalogId(val source: TrackSource, val externalId: String, val storefront: String? = null) {
     /** Preserves the identifiers already stored by previous versions. */
