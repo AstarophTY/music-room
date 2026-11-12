@@ -447,6 +447,8 @@ class PlayerController(
         leaveDevicePlayback()
         activeDeviceSource = session.source
         synchronizer.stopWaiting()
+        // The error of the song before belongs to that song: it would otherwise still be read under this one.
+        dismissError()
         update(PlaybackStateResponse(active = true, isPlaying = true, track = track, deviceName = HOSTED_DEVICE))
         session.start(track)
     }
