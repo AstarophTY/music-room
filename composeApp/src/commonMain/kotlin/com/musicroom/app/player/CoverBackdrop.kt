@@ -45,6 +45,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
@@ -74,6 +77,7 @@ import com.musicroom.app.music.TrackRow
 import com.musicroom.app.playlists.AddToPlaylistSheet
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
+import com.musicroom.app.theme.color.DarkColors
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
@@ -81,8 +85,26 @@ import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun CoverBackdrop(api: MusicRoomApi, imageUrl: String?, modifier: Modifier = Modifier) {
-    val colors = AppTheme.colors
-    Box(modifier.clipToBounds()) {
+    val glow = AppTheme.colors.accent
+    Box(
+        modifier.clipToBounds().drawBehind {
+            // The blurred cover is what lights this sheet, whose text is white. An event playing nothing has
+            // no cover to give: the app's own black and amber stand in, never the theme's own background,
+            // which is white in the light theme and would leave that text unreadable.
+            drawRect(DarkColors.background)
+            listOf(
+                Offset(size.width * 0.12f, size.height * 0.08f) to size.minDimension * 0.5f,
+                Offset(size.width * 0.95f, size.height * 0.38f) to size.minDimension * 0.4f,
+                Offset(size.width * 0.3f, size.height * 0.95f) to size.minDimension * 0.45f,
+            ).forEach { (center, radius) ->
+                drawCircle(
+                    Brush.radialGradient(listOf(glow.copy(alpha = 0.22f), Color.Transparent), center, radius),
+                    radius,
+                    center,
+                )
+            }
+        },
+    ) {
         Crossfade(imageUrl, Modifier.fillMaxSize(), label = "nowPlayingBackdrop") { url ->
             if (url != null) {
                 RemoteImage(
