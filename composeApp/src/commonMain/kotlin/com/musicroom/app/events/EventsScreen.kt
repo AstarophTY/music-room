@@ -155,12 +155,19 @@ fun EventsScreen(
         Box(Modifier.fillMaxSize()) {
             if (onMap) {
                 EventsMap(api, list.orEmpty(), here, onOpenEvent, Modifier.fillMaxSize())
-                // The map runs under the filters: the background fades into it rather than cutting it.
+                // The map runs under the filters: the background holds behind them, then fades well below
+                // rather than stopping at their edge, which would draw a line across the map.
                 Column(
                     Modifier.fillMaxWidth()
-                        .background(Brush.verticalGradient(listOf(colors.background, colors.background.copy(alpha = 0f))))
+                        .background(
+                            Brush.verticalGradient(
+                                0f to colors.background,
+                                0.5f to colors.background,
+                                1f to colors.background.copy(alpha = 0f),
+                            ),
+                        )
                         .padding(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm)
-                        .padding(bottom = AppTheme.spacing.lg),
+                        .padding(bottom = AppTheme.spacing.xxl),
                     verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
                 ) {
                     filters(Modifier.fillMaxWidth())
