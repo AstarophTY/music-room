@@ -1,5 +1,6 @@
 package com.musicroom.app
 
+import com.musicroom.app.music.AppleMusicException
 import com.musicroom.app.music.AppleMusicPlayback
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSNotificationCenter
@@ -32,7 +33,7 @@ class IosAppleMusicPlayback(private val connection: IosAppleMusicConnection) : A
     /** [onError] goes unused: the player reports its failures when preparing a song, which throws instead. */
     override suspend fun play(songId: String, onEnded: () -> Unit, onError: (Exception) -> Unit) {
         val current = ++generation
-        if (!connection.connected) error("Connect Apple Music before playback")
+        if (!connection.connected) throw AppleMusicException("connect Apple Music first", whilePlaying = true)
         observeEnd()
         request = Request(current, onEnded)
         player.setQueueWithStoreIDs(listOf(songId))
@@ -75,7 +76,7 @@ class IosAppleMusicPlayback(private val connection: IosAppleMusicConnection) : A
             if (error == null) {
                 continuation.resume(Unit)
             } else {
-                continuation.resumeWithException(IllegalStateException("Apple Music playback failed: ${error.localizedDescription}"))
+                continuation.resumeWithException(AppleMusicException(error.localizedDescription, whilePlaying = true))
             }
         }
     }

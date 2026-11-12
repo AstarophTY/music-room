@@ -63,7 +63,10 @@ sealed interface UiText {
             is SocialSignInException ->
                 of(if (error.notConfigured) Res.string.error_social_not_configured else Res.string.error_social_failed)
             // The device refused, not the network: saying the server is unreachable would send the user looking far away.
-            is AppleMusicException -> of(Res.string.apple_music_device_failed, error.message.orEmpty())
+            is AppleMusicException -> of(
+                if (error.whilePlaying) Res.string.apple_music_playback_failed else Res.string.apple_music_device_failed,
+                error.message.orEmpty(),
+            )
             else -> of(Res.string.error_network)
         }
 

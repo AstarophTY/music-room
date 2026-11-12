@@ -12,6 +12,7 @@ import com.apple.android.music.playback.queue.CatalogPlaybackQueueItemProvider
 import com.apple.android.music.playback.queue.PlaybackModeContainer
 import com.apple.android.music.playback.queue.PlaybackQueueItemsAdded
 import com.apple.android.sdk.authentication.TokenProvider
+import com.musicroom.app.music.AppleMusicException
 import com.musicroom.app.music.AppleMusicPlayback
 import com.musicroom.shared.MusicRoomApi
 import kotlinx.coroutines.CoroutineScope
@@ -65,9 +66,9 @@ class AndroidAppleMusicPlayback(
         try {
             loadSdk()
         } catch (e: UnsatisfiedLinkError) {
-            throw IllegalStateException("Apple Music playback is not supported on this device", e)
+            throw AppleMusicException("its player does not run on this device", whilePlaying = true, cause = e)
         }
-        if (connection.musicUserToken().isNullOrBlank()) error("Connect Apple Music before playback")
+        if (connection.musicUserToken().isNullOrBlank()) throw AppleMusicException("connect Apple Music first", whilePlaying = true)
         refreshDeveloperToken()
         currentCoroutineContext().ensureActive()
         // Another song was asked for while the token was fetched: that one wins.
@@ -160,9 +161,9 @@ class AndroidAppleMusicPlayback(
             val target = current() ?: return
             if (error.type == MediaPlayerException.TYPE_MUSIC_USER_TOKEN_ERROR) {
                 connection.disconnect()
-                target.onError(IllegalStateException("Apple Music authorization expired. Connect Apple Music again.", error))
+                target.onError(AppleMusicException("the authorization expired, connect Apple Music again", whilePlaying = true, cause = error))
             } else {
-                target.onError(error)
+                target.onError(AppleMusicException(error.message ?: "error ${error.type}", whilePlaying = true, cause = error))
             }
         }
         override fun onPlaybackModeChanged(controller: MediaPlayerController, mode: PlaybackModeContainer) = Unit

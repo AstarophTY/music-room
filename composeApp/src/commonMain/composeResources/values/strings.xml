@@ -247,6 +247,7 @@
     <string name="apple_music_playback_pending">Apple Music playback is not available yet.</string>
     <string name="apple_music_not_connected">Apple Music connection was not completed.</string>
     <string name="apple_music_device_failed">Apple Music is not available on this device: %1$s</string>
+    <string name="apple_music_playback_failed">Apple Music could not play this song: %1$s</string>
     <string name="event_host_provider_required">Connect an audio provider to host an event with music.</string>
     <string name="audio_providers_home_description">Manage your music provider connections.</string>
     <string name="audio_providers_home_action">Manage providers</string>
