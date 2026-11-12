@@ -8,6 +8,7 @@ import androidx.compose.runtime.setValue
 import com.apple.android.sdk.authentication.AuthenticationFactory
 import com.apple.android.sdk.authentication.TokenError
 import com.musicroom.app.music.AppleMusicConnection
+import com.musicroom.app.music.AppleMusicException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
@@ -39,7 +40,7 @@ class AndroidAppleMusicConnection(activity: ComponentActivity) : AppleMusicConne
             if (token.isError && token.error == TokenError.USER_CANCELLED) {
                 continuation.resume(false)
             } else if (token.isError) {
-                continuation.resumeWithException(IllegalStateException("Apple Music authorization failed: ${token.error}"))
+                continuation.resumeWithException(AppleMusicException("${token.error}"))
             } else {
                 try {
                     val received = token.musicUserToken?.takeIf { it.isNotBlank() }
