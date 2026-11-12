@@ -203,11 +203,13 @@ Playlists made in Music Room (`/api/v1/playlists`), stored in 4 tables:
 - `playlist_tracks`: the songs in order, with the Spotify track details saved when the song was added.
 - `playlist_covers`: the photo, re-encoded as a 512x512 JPEG.
 
-Only the owner renames, changes the type, manages members and deletes the playlist. Users who are neither the owner nor a member get 404. In the app, the Create button opens a card from the bottom; songs are added from Spotify search and the playlist plays on the user's Spotify device.
+Only the owner renames, changes the type, manages members and deletes the playlist. Users who are neither the owner nor a member get 404. In the app, *New playlist* in the Playlists tab opens a card from the bottom; songs are added from search and the playlist plays on the user's provider.
 
 ## App design and languages
 
-- Navigation: avatar (top left) opens the profile and settings; bottom bar with Home, Search, Events (middle), Playlists, Create. Events, playlists and create show placeholders until the matching services exist on the server. A player bar sits above the bottom bar (under the content on large screens) while Spotify plays.
+- Navigation: avatar (top left) opens the profile and settings; bottom bar with Home, Search, Events (middle), Playlists and Settings. A player bar sits above the bottom bar (under the content on large screens) while music plays.
+- Creating: each tab creates its own, and only its own. *New playlist* lives in Playlists, *Create an event* in Events; an event asks for a connected music provider first, since it plays on its host's.
+- Events tab: a map first, the list one tap away (the icon at the end of the filters). The map draws [OpenStreetMap](https://www.openstreetmap.org/copyright) tiles itself in common code, so Android, iOS, desktop and web all get the same one, with no API key: `map/MapTile.kt` holds the projection, `map/EventsMap.kt` the view. It opens on the user's position, otherwise on a view holding every event. Events without a place are only in the list. Tiles are cached with the album covers; the policy of the tile servers asks for the identifying `User-Agent` the app sends and for light use, so a busier app should move to a tile provider of its own.
 - Colors: [Radix Colors](https://www.radix-ui.com/colors) yellow + sand, light and dark themes, all in `theme/color/Palette.kt`. The theme (system, light, dark) is chosen in Profile > Appearance and saved on the device.
 - Icons: [Lucide](https://lucide.dev) (`com.composables:icons-lucide-cmp`).
 - Languages: English and French, from `composeApp/src/commonMain/composeResources/values*/strings.xml`. The app follows the phone's language and sends it as `Accept-Language`, so server emails use it too.

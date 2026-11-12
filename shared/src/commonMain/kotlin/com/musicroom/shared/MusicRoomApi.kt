@@ -526,10 +526,13 @@ class MusicRoomApi(
         }
     }
 
-    /** Downloads a public file (album cover...). */
-    suspend fun download(url: String): ByteArray {
+    /**
+     * Downloads a public file (album cover, map tile...). [headers] identifies the app where the host asks
+     * for it, as the OpenStreetMap tile policy does; a browser sets its own and ignores them.
+     */
+    suspend fun download(url: String, headers: Map<String, String> = emptyMap()): ByteArray {
         val target = if (url.startsWith("http://") || url.startsWith("https://")) url else url(url)
-        return plainHttp.get(target).bodyOrThrow()
+        return plainHttp.get(target) { headers.forEach { (name, value) -> header(name, value) } }.bodyOrThrow()
     }
 
     suspend fun deleteAvatar(): UserResponse = authorized(HttpMethod.Delete, ApiRoutes.USERS_ME_AVATAR).bodyOrThrow()

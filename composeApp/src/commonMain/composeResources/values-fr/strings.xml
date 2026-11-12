@@ -101,14 +101,13 @@
     <string name="events_empty_title">Pas encore d’événement</string>
     <string name="events_empty_body">Les événements publics et tes invitations apparaîtront ici.</string>
     <string name="events_create">Créer un événement</string>
+    <string name="events_view_map">Afficher la carte</string>
+    <string name="events_view_list">Afficher la liste</string>
+    <string name="events_map_none">Aucun événement avec un lieu à afficher sur la carte.</string>
+    <string name="events_without_place">%1$d événement(s) sans lieu ne sont que dans la liste.</string>
     <string name="playlists_empty_title">Pas encore de playlist</string>
     <string name="playlists_empty_body">Crée une playlist et modifie-la en direct avec tes amis.</string>
     <string name="playlists_create">Nouvelle playlist</string>
-    <string name="create_title">Tu veux lancer quoi ?</string>
-    <string name="create_event_title">Événement avec votes</string>
-    <string name="create_event_body">Les invités proposent des sons et votent. Le plus voté passe ensuite.</string>
-    <string name="create_playlist_title">Playlist</string>
-    <string name="create_playlist_body">Crée une playlist seul ou à plusieurs, et écoute-la.</string>
     <string name="create_control_title">Partager le contrôle</string>
     <string name="create_control_body">Laisse tes amis lancer, mettre en pause ou passer les sons sur ton appareil.</string>
     <string name="profile_open">Ouvrir ton profil</string>
@@ -404,6 +403,8 @@
     <string name="spotify_required_body">Music Room joue la musique avec ton compte Spotify. Lie-le pour lancer ce titre et ajouter des titres à la file d’attente.</string>
     <!-- Events (Music Track Vote) -->
     <string name="events_filter_mine">Les miens</string>
+    <string name="map_zoom_in">Zoomer</string>
+    <string name="map_zoom_out">Dézoomer</string>
     <string name="events_subtitle">Propose des sons, vote, et le plus voté passe ensuite.</string>
     <string name="events_nearby_empty">Aucun événement public autour de toi pour l’instant. Crée-en un pour que les gens à proximité votent.</string>
     <string name="events_nearby_unavailable">Ta position n’est pas disponible sur cet appareil.</string>

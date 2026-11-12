@@ -101,14 +101,13 @@
     <string name="events_empty_title">No events yet</string>
     <string name="events_empty_body">Public events and your invitations will appear here.</string>
     <string name="events_create">Create an event</string>
+    <string name="events_view_map">Show the map</string>
+    <string name="events_view_list">Show the list</string>
+    <string name="events_map_none">No event with a place to show on the map.</string>
+    <string name="events_without_place">%1$d event(s) without a place are only in the list.</string>
     <string name="playlists_empty_title">No playlists yet</string>
     <string name="playlists_empty_body">Create a playlist and edit it live with your friends.</string>
     <string name="playlists_create">New playlist</string>
-    <string name="create_title">What do you want to start?</string>
-    <string name="create_event_title">Live vote event</string>
-    <string name="create_event_body">Guests suggest tracks and vote. The most voted one plays next.</string>
-    <string name="create_playlist_title">Playlist</string>
-    <string name="create_playlist_body">Build a playlist alone or with friends, and play it.</string>
     <string name="create_control_title">Share control</string>
     <string name="create_control_body">Let friends play, pause or skip on your device.</string>
     <string name="profile_open">Open your profile</string>
@@ -416,6 +415,8 @@
     <string name="spotify_required_body">Music Room plays songs through your Spotify account. Link it to play this song and add songs to the queue.</string>
     <!-- Events (Music Track Vote) -->
     <string name="events_filter_mine">Mine</string>
+    <string name="map_zoom_in">Zoom in</string>
+    <string name="map_zoom_out">Zoom out</string>
     <string name="events_subtitle">Propose songs, vote, and the most voted one plays next.</string>
     <string name="events_nearby_empty">No public event around you yet. Create one and people nearby can vote.</string>
     <string name="events_nearby_unavailable">Your position is not available on this device.</string>
