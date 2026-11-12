@@ -33,6 +33,7 @@ import com.composables.icons.lucide.Plus
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.map_zoom_in
 import com.musicroom.app.generated.resources.map_zoom_out
+import com.musicroom.app.theme.color.DarkColors
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
@@ -59,6 +60,7 @@ fun EventsMap(
     modifier: Modifier = Modifier,
 ) {
     val colors = AppTheme.colors
+    val tint = remember(colors) { MapTint.of(colors, dark = colors == DarkColors) }
     val placed = remember(events) { events.filter { it.location != null } }
     var camera by remember { mutableStateOf(MapCamera.covering(placed.mapNotNull { it.location }) ?: MapCamera.Default) }
     var followedUser by remember { mutableStateOf(false) }
@@ -82,8 +84,9 @@ fun EventsMap(
     ) {
         val widthPx = with(density) { maxWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
-        val tilePx = with(density) { tileDp.toPx() } * camera.tileScale
-        val zoom = camera.tileZoom
+        // Draw the next level at half size: its extra pixels keep tiles sharp on dense screens.
+        val zoom = camera.tileZoom + 1
+        val tilePx = with(density) { tileDp.toPx() } * camera.tileScale / 2f
         val tiles = MapTile.count(zoom)
         // The view, in tiles: its top left corner is half a screen up and left of the centre.
         val left = MapTile.x(camera.longitude, zoom) - widthPx / 2f / tilePx
@@ -96,6 +99,7 @@ fun EventsMap(
                     MapTileImage(
                         api,
                         MapTile(zoom, wrapped, row),
+                        tint,
                         // Anchored by its middle, which lands its corner exactly where the grid wants it.
                         Modifier.anchored((column - left + 0.5f) * tilePx, (row - top + 0.5f) * tilePx, centred = true)
                             .size(with(density) { tilePx.toDp() }),
