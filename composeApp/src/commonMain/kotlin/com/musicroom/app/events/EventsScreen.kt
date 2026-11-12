@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -155,29 +156,29 @@ fun EventsScreen(
         Box(Modifier.fillMaxSize()) {
             if (onMap) {
                 EventsMap(api, list.orEmpty(), here, onOpenEvent, Modifier.fillMaxSize())
-                // The map runs under the filters: the background holds behind them, then fades well below
-                // rather than stopping at their edge, which would draw a line across the map.
-                Column(
-                    Modifier.fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                0f to colors.background,
-                                0.5f to colors.background,
-                                1f to colors.background.copy(alpha = 0f),
-                            ),
-                        )
-                        .padding(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm)
-                        .padding(bottom = AppTheme.spacing.xxl),
-                    verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
-                ) {
-                    filters(Modifier.fillMaxWidth())
-                    error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
-                    val missing = list?.count { it.location == null } ?: 0
-                    if (list != null && list.none { it.location != null }) {
-                        Text(stringResource(Res.string.events_map_none), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-                    } else if (missing > 0) {
-                        Text(stringResource(Res.string.events_without_place, missing), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+                // The map runs under the filters. Whatever is read sits on the plain background, and the
+                // fade starts only below it, so the background never ends on a line across the map.
+                Column(Modifier.fillMaxWidth()) {
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .background(colors.background)
+                            .padding(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
+                    ) {
+                        filters(Modifier.fillMaxWidth())
+                        error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
+                        val missing = list?.count { it.location == null } ?: 0
+                        if (list != null && list.none { it.location != null }) {
+                            Text(stringResource(Res.string.events_map_none), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+                        } else if (missing > 0) {
+                            Text(stringResource(Res.string.events_without_place, missing), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+                        }
                     }
+                    Box(
+                        Modifier.fillMaxWidth().height(AppTheme.spacing.xxl).background(
+                            Brush.verticalGradient(listOf(colors.background, colors.background.copy(alpha = 0f))),
+                        ),
+                    )
                 }
                 AppButton(
                     stringResource(Res.string.events_create),
