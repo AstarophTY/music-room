@@ -68,10 +68,8 @@ import com.musicroom.app.generated.resources.queue_propose_songs
 import com.musicroom.app.generated.resources.queue_then
 import com.musicroom.app.generated.resources.queue_title
 import com.musicroom.app.generated.resources.player_open_app
-import com.musicroom.app.generated.resources.track_add_to_playlist
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
-import com.musicroom.app.playlists.AddToPlaylistSheet
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppShapes
@@ -99,7 +97,6 @@ fun NowPlayingSheet(
     val focus = EventFocus.Local.current
     val event = focus?.event
     var addingToQueue by remember { mutableStateOf(false) }
-    var choosingPlaylist by remember { mutableStateOf(false) }
 
     LaunchedEffect(player) { player.followQueue() }
 
@@ -121,7 +118,7 @@ fun NowPlayingSheet(
                         .padding(start = AppTheme.spacing.lg, end = AppTheme.spacing.lg, top = AppTheme.spacing.xl, bottom = AppTheme.spacing.md),
                     verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
                 ) {
-                    TrackSection(api, player, onAddToPlaylist = { choosingPlaylist = true })
+                    TrackSection(api, player)
                     if (event != null && focus != null) {
                         SectionTitle(stringResource(Res.string.queue_title), color = Color.White)
                         EventQueueList(api, focus)
@@ -158,8 +155,6 @@ fun NowPlayingSheet(
             AddToQueueSheet(api, player, onDismiss = { addingToQueue = false })
         }
     }
-    val current = player.track
-    if (choosingPlaylist && current != null) AddToPlaylistSheet(api, current, onDismiss = { choosingPlaylist = false })
 }
 
 /**

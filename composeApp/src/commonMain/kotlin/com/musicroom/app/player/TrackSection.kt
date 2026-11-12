@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -50,7 +49,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.CirclePlus
 import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Music
@@ -68,7 +66,6 @@ import com.musicroom.app.generated.resources.queue_propose_songs
 import com.musicroom.app.generated.resources.queue_then
 import com.musicroom.app.generated.resources.queue_title
 import com.musicroom.app.generated.resources.player_open_app
-import com.musicroom.app.generated.resources.track_add_to_playlist
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
 import com.musicroom.app.playlists.AddToPlaylistSheet
@@ -80,7 +77,7 @@ import com.musicroom.shared.MusicRoomApi
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
-internal fun TrackSection(api: MusicRoomApi, player: PlayerController, onAddToPlaylist: () -> Unit) {
+internal fun TrackSection(api: MusicRoomApi, player: PlayerController) {
     val colors = AppTheme.colors
     val uriHandler = LocalUriHandler.current
     val track = player.track
@@ -128,19 +125,9 @@ internal fun TrackSection(api: MusicRoomApi, player: PlayerController, onAddToPl
                 horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onAddToPlaylist, enabled = track != null) {
-                    Icon(
-                        imageVector = Lucide.CirclePlus,
-                        contentDescription = stringResource(Res.string.track_add_to_playlist),
-                        tint = Color.White,
-                    )
-                }
                 SkipButton(player, forward = false)
                 PlayButton(player, 64.dp)
                 SkipButton(player, forward = true)
-                // A song the app plays itself (uploaded or Apple Music) does not use a remote device.
-                // The spacer keeps the row symmetric when the device button is hidden.
-                if (player.canTransferPlayback) DeviceButton(player) else Spacer(Modifier.size(48.dp))
             }
         }
 
