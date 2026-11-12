@@ -17,10 +17,19 @@ CMDLINE_TOOLS_URL := https://dl.google.com/android/repository/commandlinetools-l
 WINDOWS_APP      := build/windows/MusicRoom
 WINDOWS_JRE_URL  := https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jre/hotspot/normal/eclipse
 
+IOS_PROJECT      := iosApp/iosApp.xcodeproj
+IOS_SCHEME       := iosApp
+IOS_BUNDLE_ID    := com.musicroom.app
+IOS_APP          := MusicRoom.app
+IOS_DERIVED_DATA := build/ios
+# Name (or prefix) of the simulator to use, e.g. IOS_SIMULATOR="iPhone 18 Pro".
+IOS_SIMULATOR    ?= iPhone
+
 .DEFAULT_GOAL := help
 
 .PHONY: help env up down restart logs ps db dev build test clean fclean re psql tools \
-        android android-sdk emulator check-env check-android desktop linux windows web
+        android android-sdk emulator check-env check-sdk check-android check-ios \
+        desktop linux windows web ios
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -92,15 +101,41 @@ emulator: ## Start the Android emulator and wait until it has booted
 	@until [ "$$("$(ADB)" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = "1" ]; do sleep 2; done
 	@echo "Emulator ready."
 
-check-android:
+check-sdk:
 	@[ -f local.properties ] || [ -d "$(ANDROID_HOME)/platforms" ] || { \
 		echo "No Android SDK found. Run 'make android-sdk' (or open the project in Android Studio)."; exit 1; }
+
+check-android: check-sdk
 	@"$(ADB)" devices 2>/dev/null | grep -qw device$$ || { \
 		echo "No device connected. Run 'make emulator' or plug in a phone with USB debugging enabled."; exit 1; }
 
 android: check-android ## Install and launch the app on the connected emulator/device
 	$(GRADLE) :androidApp:installDebug
 	"$(ADB)" shell am start -n com.musicroom.app/.MainActivity
+
+check-ios: check-sdk
+	@[ "$$(uname)" = "Darwin" ] || { echo "The iOS app can only be built on macOS."; exit 1; }
+	@xcodebuild -version > /dev/null 2>&1 || { \
+		echo "Xcode not ready: install Xcode, then run 'sudo xcode-select -s /Applications/Xcode.app'."; exit 1; }
+
+ios: check-ios ## Build and launch the iOS app on a simulator (macOS + Xcode, Apple Silicon only)
+	@set -e; \
+	udid=$$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1); \
+	if [ -z "$$udid" ]; then \
+		udid=$$(xcrun simctl list devices available | grep -E '^[[:space:]]+$(IOS_SIMULATOR)' \
+			| head -1 | grep -oE '[0-9A-F-]{36}' || true); fi; \
+	[ -n "$$udid" ] || { \
+		echo "No '$(IOS_SIMULATOR)' simulator found: install one from Xcode > Settings > Components,"; \
+		echo "or pick another one with 'make ios IOS_SIMULATOR=\"iPhone 18 Pro\"'."; exit 1; }; \
+	echo "Booting simulator $$udid..."; \
+	xcrun simctl bootstatus "$$udid" -b; \
+	open -a Simulator --args -CurrentDeviceUDID "$$udid" 2>/dev/null \
+		|| open -a "$$(xcode-select -p)/../Applications/DeviceHub.app" 2>/dev/null \
+		|| echo "No Simulator window opened; the app still runs on the booted device."; \
+	xcodebuild -project $(IOS_PROJECT) -scheme $(IOS_SCHEME) -configuration Debug \
+		-destination "id=$$udid" -derivedDataPath $(IOS_DERIVED_DATA) build; \
+	xcrun simctl install "$$udid" "$(IOS_DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(IOS_APP)"; \
+	xcrun simctl launch "$$udid" $(IOS_BUNDLE_ID)
 
 desktop: ## Run the desktop app on this computer (Linux, macOS, or Windows with Gradle)
 	$(GRADLE) :composeApp:run
