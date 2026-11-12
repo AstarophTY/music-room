@@ -4,6 +4,7 @@ import com.musicroom.server.common.Controller
 import com.musicroom.server.common.guards.jwtGuard
 import com.musicroom.shared.ApiRoutes
 import com.musicroom.shared.dto.AppleMusicDeveloperToken
+import com.musicroom.shared.dto.AppleMusicStorefront
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -14,6 +15,11 @@ class AppleMusicController(private val tokens: AppleMusicTokenService, private v
         jwtGuard {
             get(ApiRoutes.APPLE_MUSIC_DEVELOPER_TOKEN) {
                 call.respond(AppleMusicDeveloperToken(tokens.create()))
+            }
+            get(ApiRoutes.APPLE_MUSIC_STOREFRONT) {
+                val userToken = call.request.headers[ApiRoutes.APPLE_MUSIC_USER_TOKEN_HEADER]
+                    ?: throw BadRequestException("Missing Apple Music user token")
+                call.respond(AppleMusicStorefront(catalog.storefront(userToken)))
             }
             get(ApiRoutes.APPLE_MUSIC_ARTIST) {
                 call.respond(catalog.artistDetail(call.request.queryParameters["id"] ?: throw BadRequestException("Missing artist")))

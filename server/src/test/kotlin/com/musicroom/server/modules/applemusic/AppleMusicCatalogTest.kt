@@ -1,5 +1,7 @@
 package com.musicroom.server.modules.applemusic
 
+import com.musicroom.server.common.exceptions.BadRequestException
+import com.musicroom.server.common.exceptions.NotFoundException
 import com.musicroom.server.config.AppleMusicConfig
 import com.musicroom.shared.dto.TrackSource
 import com.musicroom.server.modules.spotify.client.model.SpotifyExternalIds
@@ -8,6 +10,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class AppleMusicCatalogTest {
     @Test
@@ -59,5 +62,23 @@ class AppleMusicCatalogTest {
         assertEquals("https://example.com/300x300.jpg", track.imageUrl)
         assertEquals(42000L, track.durationMs)
         assertEquals(true, track.explicit)
+    }
+
+    @Test
+    fun `the storefront of an account is its two-letter region`() {
+        val root = Json.parseToJsonElement("""{"data":[{"id":"fr","type":"storefronts","attributes":{"name":"France"}}]}""").jsonObject
+        assertEquals("fr", AppleMusicCatalog(AppleMusicTokenService(AppleMusicConfig())).storefrontId(root))
+    }
+
+    @Test
+    fun `an account without a storefront is reported as missing`() {
+        val root = Json.parseToJsonElement("""{"data":[]}""").jsonObject
+        assertFailsWith<NotFoundException> { AppleMusicCatalog(AppleMusicTokenService(AppleMusicConfig())).storefrontId(root) }
+    }
+
+    @Test
+    fun `a storefront that is not a region is rejected rather than queried`() {
+        val root = Json.parseToJsonElement("""{"data":[{"id":"../../catalog"}]}""").jsonObject
+        assertFailsWith<BadRequestException> { AppleMusicCatalog(AppleMusicTokenService(AppleMusicConfig())).storefrontId(root) }
     }
 }

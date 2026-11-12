@@ -16,6 +16,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.statement.HttpResponse
 import kotlinx.coroutines.CancellationException
@@ -147,6 +148,29 @@ class AppleMusicCatalog(private val tokens: AppleMusicTokenService) {
         if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
         val data = Json.parseToJsonElement(response.bodyAsText()).jsonObject["data"]?.jsonArray
         return song(data?.firstOrNull()?.jsonObject ?: throw NotFoundException("Apple Music track not found"), region)
+    }
+
+    /**
+     * The storefront of the account behind [userToken]. Apple only tells a client its region in three letters
+     * (StoreKit) or not at all, while the catalog routes need the two-letter one this answers with.
+     */
+    suspend fun storefront(userToken: String): String {
+        if (userToken.isBlank() || userToken.length > 2048) throw BadRequestException("Invalid Apple Music user token")
+        val response = get("https://api.music.apple.com/v1/me/storefront") {
+            bearerAuth(tokens.create())
+            header("Music-User-Token", userToken)
+        }
+        if (response.status == HttpStatusCode.Unauthorized || response.status == HttpStatusCode.Forbidden) {
+            throw HttpException(HttpStatusCode.Unauthorized, "apple_music_user_token_invalid", "Connect Apple Music again")
+        }
+        if (!response.status.isSuccess()) throw HttpException(HttpStatusCode.BadGateway, "apple_music_upstream_error", "Apple Music catalog request failed")
+        return storefrontId(Json.parseToJsonElement(response.bodyAsText()).jsonObject)
+    }
+
+    internal fun storefrontId(root: JsonObject): String {
+        val id = root["data"]?.jsonArray?.firstOrNull()?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull
+            ?: throw NotFoundException("Apple Music storefront not found")
+        return validateStorefront(id)
     }
 
     suspend fun charts(storefront: String): TrackPageResponse {

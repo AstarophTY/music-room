@@ -55,6 +55,7 @@ import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.ResetPasswordRequest
 import com.musicroom.shared.dto.SpotifyConnectResponse
 import com.musicroom.shared.dto.AppleMusicDeveloperToken
+import com.musicroom.shared.dto.AppleMusicStorefront
 import com.musicroom.shared.dto.SpotifyStatusResponse
 import com.musicroom.shared.dto.TrackPageResponse
 import com.musicroom.shared.dto.TrackSource
@@ -82,6 +83,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.request
@@ -203,6 +205,12 @@ class MusicRoomApi(
 
     suspend fun appleMusicDeveloperToken(): AppleMusicDeveloperToken =
         authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_DEVELOPER_TOKEN).bodyOrThrow()
+
+    /** The region of the Apple Music account behind [userToken], which the catalog routes need. */
+    suspend fun appleMusicStorefront(userToken: String): AppleMusicStorefront =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_STOREFRONT) {
+            header(ApiRoutes.APPLE_MUSIC_USER_TOKEN_HEADER, userToken)
+        }.bodyOrThrow()
 
     suspend fun searchAppleMusic(query: String, storefront: String): SearchResponse =
         authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_SEARCH) {
