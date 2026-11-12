@@ -19,11 +19,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeSource
 
@@ -43,10 +46,17 @@ class AndroidAppleMusicPlayback(
 ) : AppleMusicPlayback {
     override val available = true
     override val connected get() = connection.connected
-    private var controller: MediaPlayerController? = null
+    @Volatile private var controller: MediaPlayerController? = null
     private var generation = 0L
     private var request: Request? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+
+    /**
+     * Building, preparing and releasing the SDK's player each take their time, and the caller is the main
+     * thread: the app stopped answering taps long enough for Android to report it. One thread of its own
+     * keeps them off it, in the order they were asked for.
+     */
+    private val sdk = Executors.newSingleThreadExecutor { task -> Thread(task, "apple-music-sdk") }.asCoroutineDispatcher()
     private var refreshJob: Job? = null
     @Volatile private var developerToken: String = ""
     private var tokenAt: TimeSource.Monotonic.ValueTimeMark? = null
@@ -63,20 +73,21 @@ class AndroidAppleMusicPlayback(
 
     override suspend fun play(songId: String, onEnded: () -> Unit, onError: (Exception) -> Unit) {
         val current = ++generation
-        try {
-            loadSdk()
-        } catch (e: UnsatisfiedLinkError) {
-            throw AppleMusicException("its player does not run on this device", whilePlaying = true, cause = e)
-        }
         if (connection.musicUserToken().isNullOrBlank()) throw AppleMusicException("connect Apple Music first", whilePlaying = true)
         refreshDeveloperToken()
         currentCoroutineContext().ensureActive()
         // Another song was asked for while the token was fetched: that one wins.
         if (current != generation) return
         request = Request(current, onEnded, onError)
-        val player = player()
+        if (refreshJob == null) refreshJob = scope.launch { keepDeveloperTokenFresh() }
         try {
-            player.prepare(CatalogPlaybackQueueItemProvider.Builder().items(MediaItemType.SONG, songId).build(), true)
+            withContext(sdk) {
+                loadSdk()
+                player().prepare(CatalogPlaybackQueueItemProvider.Builder().items(MediaItemType.SONG, songId).build(), true)
+            }
+        } catch (e: UnsatisfiedLinkError) {
+            if (current == generation) request = null
+            throw AppleMusicException("its player does not run on this device", whilePlaying = true, cause = e)
         } catch (e: Exception) {
             if (current == generation) request = null
             throw e
@@ -99,26 +110,25 @@ class AndroidAppleMusicPlayback(
     override fun stop() {
         generation++
         request = null
-        release()
+        val playing = controller ?: return
+        controller = null
+        scope.launch(sdk) { release(playing) }
     }
 
     /** A player for one song: a stopped one decodes without output buffers, so it would play in silence. */
     private fun player(): MediaPlayerController {
-        release()
+        controller?.let { release(it) }
         val player = MediaPlayerControllerFactory.createLocalController(context, Handler(Looper.getMainLooper()), tokens)
         player.addListener(listener)
         controller = player
-        if (refreshJob == null) refreshJob = scope.launch { keepDeveloperTokenFresh() }
         return player
     }
 
-    private fun release() {
-        controller?.let { player ->
-            player.removeListener(listener)
-            player.stop()
-            player.release()
-        }
-        controller = null
+    /** Tearing a player down decodes its way out and blocks for seconds: never on the thread that asked. */
+    private fun release(player: MediaPlayerController) {
+        player.removeListener(listener)
+        player.stop()
+        player.release()
     }
 
     /** Fetches the developer token when the one at hand is missing or close to its hour. */
