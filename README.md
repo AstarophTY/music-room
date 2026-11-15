@@ -1,8 +1,54 @@
 # Music Room
 
-Collaborative mobile music application.
+Collaborative music app: create a live **event**, let guests propose songs and **vote** in real time, and the most
+voted song plays next on the host's Spotify. Playlists can be edited together, and Premium users can upload their
+own songs.
 
-**Stack:** Kotlin Multiplatform, Compose Multiplatform (Android), Ktor (server), Exposed, PostgreSQL, Flyway.
+One Kotlin codebase runs on **Android, iOS, desktop and web**, backed by a Ktor server.
+
+**Stack:** Kotlin Multiplatform, Compose Multiplatform, Ktor (REST + WebSocket), Exposed, PostgreSQL, Flyway,
+Docker. Integrations: Spotify, Stripe, Google and Apple sign-in.
+
+## Features
+
+- **Live events**: guests propose songs and vote; votes are pushed to every listener over WebSocket and the
+  most voted song is queued on the host's Spotify. Events can be public or private, and voting can be limited to
+  invited people or to people **on site** (GPS radius + time window). One vote per user and song is enforced by
+  the database, even with simultaneous votes.
+- **Collaborative playlists**: personal or shared, with read / write access per member.
+- **Accounts and security**: email + password (bcrypt), email verification, JWT access + refresh tokens,
+  two-factor authentication (authenticator app or email, recovery codes), Google and Apple sign-in, rate limiting.
+- **Social**: friends, private messages and notifications in real time, public profiles and avatars.
+- **Premium (Stripe)**: monthly subscription to upload your own MP3s, played by the app alongside Spotify.
+- **English and French**, light and dark themes.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph Clients["Compose Multiplatform app"]
+    android["Android"]
+    ios["iOS"]
+    desktop["Desktop"]
+    web["Web (Wasm)"]
+  end
+  shared["shared/<br/>DTOs + API client"]
+  Clients --> shared
+  shared -->|"REST + WebSocket (JWT)"| server["Ktor server"]
+  server --> db[("PostgreSQL<br/>Flyway migrations")]
+  server --> spotify["Spotify API"]
+  server --> stripe["Stripe"]
+  server --> oauth["Google / Apple sign-in"]
+  server --> smtp["SMTP (emails)"]
+```
+
+The `shared` module holds the DTOs and the HTTP client used by both the apps and the server, so the API contract
+is checked by the compiler on both sides.
+
+## Tests and CI
+
+`make test` runs the server and shared tests (PostgreSQL through Testcontainers). GitHub Actions runs them on
+every push, and builds, lints and unit-tests the Android app.
 
 ## Requirements
 
@@ -103,7 +149,12 @@ server/src/main/kotlin/com/musicroom/server/
 │   └── websocket/
 └── modules/
     ├── system/             # /health, /api/v1/info
-    ├── auth/               # register, login, refresh, logout, change password
+    ├── auth/               # register, login, refresh, logout, 2FA, Google/Apple sign-in
+    ├── social/             # friends, messages, notifications
+    ├── spotify/            # Spotify account link, playback, search
+    ├── playlists/          # collaborative playlists
+    ├── events/             # live events, votes, WebSocket hub
+    ├── premium/            # Stripe subscription, uploaded songs
     └── users/
         ├── UsersModule.kt       # wires repository, service, controller
         ├── UsersController.kt   # HTTP routes
@@ -206,7 +257,7 @@ Only the owner renames, changes the type, manages members and deletes the playli
 
 ## App design and languages
 
-- Navigation: avatar (top left) opens the profile and settings; bottom bar with Home, Search, Events (middle), Playlists, Create. Events, playlists and create show placeholders until the matching services exist on the server. A player bar sits above the bottom bar (under the content on large screens) while Spotify plays.
+- Navigation: avatar (top left) opens the profile and settings; bottom bar with Home, Search, Events (middle), Playlists, Create. A player bar sits above the bottom bar (under the content on large screens) while Spotify plays.
 - Colors: [Radix Colors](https://www.radix-ui.com/colors) yellow + sand, light and dark themes, all in `theme/color/Palette.kt`. The theme (system, light, dark) is chosen in Profile > Appearance and saved on the device.
 - Icons: [Lucide](https://lucide.dev) (`com.composables:icons-lucide-cmp`).
 - Languages: English and French, from `composeApp/src/commonMain/composeResources/values*/strings.xml`. The app follows the phone's language and sends it as `Accept-Language`, so server emails use it too.
