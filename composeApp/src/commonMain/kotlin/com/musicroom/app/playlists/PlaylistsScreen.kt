@@ -13,13 +13,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.backhandler.BackHandler
 import com.musicroom.app.common.UiText
+import com.musicroom.app.create.NewPlaylistForm
 import com.musicroom.app.music.MusicPlaylist
 import com.musicroom.app.music.ProviderSession
 import com.musicroom.app.player.PlayerController
+import com.musicroom.app.theme.components.AppBottomSheet
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistResponse
 import com.musicroom.shared.dto.SocialCountsResponse
@@ -38,7 +41,6 @@ fun PlaylistsScreen(
     api: MusicRoomApi,
     user: UserResponse,
     player: PlayerController,
-    onCreate: () -> Unit,
     openRoomPlaylistId: String?,
     openProviderPlaylistKey: String?,
     counts: SocialCountsResponse,
@@ -53,6 +55,8 @@ fun PlaylistsScreen(
     var errorsBySource by remember { mutableStateOf<Map<TrackSource, UiText>>(emptyMap()) }
     var roomPlaylists by remember { mutableStateOf<List<PlaylistResponse>?>(null) }
     var roomError by remember { mutableStateOf<UiText?>(null) }
+    // A playlist is started from this tab and nowhere else, and opens as soon as it exists.
+    var creating by rememberSaveable { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(playlistProviders.map { it.source }, attempt) {
@@ -127,10 +131,20 @@ fun PlaylistsScreen(
             }
             else -> PlaylistsList(
                 api, roomPlaylists, roomError, shelves,
-                onRetry = { attempt++ }, onCreate = onCreate,
+                onRetry = { attempt++ }, onCreate = { creating = true },
                 onOpenRoom = onOpenRoomPlaylist,
                 onOpenProviderPlaylist = { onOpenProviderPlaylist(it.key) },
             )
+        }
+    }
+
+    if (creating) {
+        AppBottomSheet({ creating = false }) { _ ->
+            NewPlaylistForm(api, onCreated = { playlist ->
+                creating = false
+                attempt++
+                onOpenRoomPlaylist(playlist.id)
+            })
         }
     }
 }

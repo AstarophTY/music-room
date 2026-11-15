@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.ImagePlus
 import com.composables.icons.lucide.ListMusic
 import com.composables.icons.lucide.Lucide
@@ -30,7 +28,6 @@ import com.musicroom.app.common.PickedImage
 import com.musicroom.app.common.UiText
 import com.musicroom.app.common.rememberImagePicker
 import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.common_back
 import com.musicroom.app.generated.resources.playlist_create_button
 import com.musicroom.app.generated.resources.playlist_name_label
 import com.musicroom.app.generated.resources.playlist_photo_add
@@ -57,7 +54,7 @@ import org.jetbrains.compose.resources.stringResource
 
 /** Name, type and optional photo of a new playlist. The photo is uploaded right after the playlist is created. */
 @Composable
-fun NewPlaylistForm(api: MusicRoomApi, onBack: () -> Unit, onCreated: (PlaylistResponse) -> Unit) {
+fun NewPlaylistForm(api: MusicRoomApi, onCreated: (PlaylistResponse) -> Unit) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
@@ -93,12 +90,7 @@ fun NewPlaylistForm(api: MusicRoomApi, onBack: () -> Unit, onCreated: (PlaylistR
         }
     }
 
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
-            Icon(Lucide.ArrowLeft, contentDescription = stringResource(Res.string.common_back), tint = colors.textPrimary)
-        }
-        Text(stringResource(Res.string.playlists_create), style = AppTheme.typography.title, color = colors.textPrimary)
-    }
+    Text(stringResource(Res.string.playlists_create), style = AppTheme.typography.title, color = colors.textPrimary)
 
     Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.md), verticalAlignment = Alignment.CenterVertically) {
         val coverModifier = Modifier.size(96.dp).clip(AppShapes.large)

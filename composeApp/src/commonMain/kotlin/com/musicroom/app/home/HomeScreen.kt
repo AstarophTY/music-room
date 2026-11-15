@@ -22,7 +22,6 @@ fun HomeScreen(
     api: MusicRoomApi,
     user: UserResponse,
     player: PlayerController,
-    onCreate: () -> Unit = {},
     onOpenEvent: (String) -> Unit,
     onOpenEvents: () -> Unit,
     onOpenRoomPlaylist: (String) -> Unit,

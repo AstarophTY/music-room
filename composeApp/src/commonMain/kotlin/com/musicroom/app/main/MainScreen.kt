@@ -40,7 +40,6 @@ import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.platform.LocalUriHandler
 import com.musicroom.app.common.WindowSize
 import com.musicroom.app.common.rememberLocationProvider
-import com.musicroom.app.create.CreateSheet
 import com.musicroom.app.events.EventFocus
 import com.musicroom.app.events.EventFocusBar
 import com.musicroom.app.events.EventsScreen
@@ -108,7 +107,6 @@ fun MainScreen(
     var tab by rememberSaveable { mutableStateOf(MainTab.Home) }
     var profileRoute by rememberSaveable { mutableStateOf<ProfileRoute?>(null) }
     var sideNavCollapsed by rememberSaveable { mutableStateOf(false) }
-    var showCreate by rememberSaveable { mutableStateOf(false) }
     var openRoomPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
     // The provider playlist open in the Playlists tab.
     var openProviderPlaylist by rememberSaveable { mutableStateOf<String?>(null) }
@@ -203,7 +201,6 @@ fun MainScreen(
             modifier = Modifier.align(Alignment.BottomCenter),
         )
     }
-    val openCreate = { showCreate = true }
     // Choosing a tab closes the social pages.
     val selectTab: (MainTab) -> Unit = {
         socialPages = emptyList()
@@ -257,13 +254,13 @@ fun MainScreen(
         )
     }
     val openProfile = { openSocial(SocialPage.Profile(user.id)) }
+    val openAudioProviders = { profileRoute = ProfileRoute.AudioProviders; tab = MainTab.Settings }
     val tabPage: @Composable (MainTab) -> Unit = { shown ->
         when (shown) {
             MainTab.Home -> HomeScreen(
                 api = api,
                 user = user,
                 player = player,
-                onCreate = openCreate,
                 onOpenEvent = { id -> openEvents(id) },
                 onOpenEvents = { openEvents(null) },
                 onOpenRoomPlaylist = { id ->
@@ -291,13 +288,13 @@ fun MainScreen(
                 openEventId = openEvent,
                 onOpenEvent = { openEvent = it },
                 onOpenUser = { openSocial(SocialPage.Profile(it)) },
-                onCreate = openCreate,
+                providers = connections,
+                onOpenProviders = openAudioProviders,
             )
             MainTab.Playlists -> PlaylistsScreen(
                 api,
                 user,
                 player,
-                onCreate = openCreate,
                 openRoomPlaylistId = openRoomPlaylist,
                 openProviderPlaylistKey = openProviderPlaylist,
                 counts = social.counts,
@@ -514,24 +511,4 @@ fun MainScreen(
         }
     }
 
-    if (showCreate) {
-        CreateSheet(
-            api,
-            providers = connections,
-            onOpenProviders = { showCreate = false; profileRoute = ProfileRoute.AudioProviders; tab = MainTab.Settings },
-            onDismiss = { showCreate = false },
-            onPlaylistCreated = { playlist ->
-                showCreate = false
-                profileRoute = null
-                socialPages = emptyList()
-                closeNowPlaying()
-                openRoomPlaylist = playlist.id
-                tab = MainTab.Playlists
-            },
-            onEventCreated = { id ->
-                showCreate = false
-                openEvents(id)
-            },
-        )
-    }
 }
