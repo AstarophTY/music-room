@@ -21,33 +21,61 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Music
 import com.composables.icons.lucide.Palette
 import com.composables.icons.lucide.Pencil
-import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.ShieldCheck
 import com.composables.icons.lucide.Sparkles
+import com.composables.icons.lucide.Users
 import com.musicroom.app.auth.TermsDialog
 import com.musicroom.app.common.Reveal
+import com.musicroom.app.common.TabContent
+import com.musicroom.app.common.WindowSize
+import com.musicroom.app.common.deviceName
 import com.musicroom.app.common.icon
-import com.musicroom.app.common.SubScreenScaffold
 import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.generated.resources.appearance_dark
+import com.musicroom.app.generated.resources.appearance_light
+import com.musicroom.app.generated.resources.appearance_system
+import com.musicroom.app.generated.resources.audio_providers_title
 import com.musicroom.app.generated.resources.friends_pending
 import com.musicroom.app.generated.resources.friends_title
-import com.musicroom.app.generated.resources.*
+import com.musicroom.app.generated.resources.language_name
+import com.musicroom.app.generated.resources.logout
+import com.musicroom.app.generated.resources.my_songs_title
+import com.musicroom.app.generated.resources.premium_title
+import com.musicroom.app.generated.resources.profile_appearance
+import com.musicroom.app.generated.resources.profile_edit
+import com.musicroom.app.generated.resources.profile_language
+import com.musicroom.app.generated.resources.profile_language_value
+import com.musicroom.app.generated.resources.profile_password
+import com.musicroom.app.generated.resources.profile_section_about
+import com.musicroom.app.generated.resources.profile_section_account
+import com.musicroom.app.generated.resources.profile_section_music
+import com.musicroom.app.generated.resources.profile_section_preferences
+import com.musicroom.app.generated.resources.profile_section_security
+import com.musicroom.app.generated.resources.social_edit
+import com.musicroom.app.generated.resources.social_link_cta
+import com.musicroom.app.generated.resources.social_section
+import com.musicroom.app.generated.resources.tab_settings
+import com.musicroom.app.generated.resources.terms_title
+import com.musicroom.app.generated.resources.twofa_settings_title
+import com.musicroom.app.generated.resources.twofa_status_off
+import com.musicroom.app.generated.resources.twofa_status_on
 import com.musicroom.app.theme.ThemeMode
 import com.musicroom.app.theme.components.AppCard
-import com.musicroom.app.common.deviceName
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
-/** Profile header and settings menu, opened from the avatar in the top bar. The sections arrive one after the other. */
+/**
+ * Settings tab: the account header, then the settings grouped by theme. Each row opens its page, which
+ * replaces the tab; the player keeps running under it.
+ */
 @Composable
-fun ProfileScreen(
+fun SettingsScreen(
     api: MusicRoomApi,
     user: UserResponse,
     themeMode: ThemeMode,
     pendingRequests: Int,
-    onBack: () -> Unit,
     onOpen: (ProfileRoute) -> Unit,
     onOpenFriends: () -> Unit,
     onLogout: () -> Unit,
@@ -63,7 +91,10 @@ fun ProfileScreen(
         },
     )
 
-    SubScreenScaffold(title = stringResource(Res.string.profile_title), onBack = onBack) {
+    TabContent {
+        if (WindowSize.current != WindowSize.Compact) {
+            Text(stringResource(Res.string.tab_settings), style = AppTheme.typography.display, color = colors.textPrimary)
+        }
         ProfileHeader(api, user)
 
         Reveal(3) {
@@ -110,9 +141,8 @@ fun ProfileScreen(
                 AppCard(Modifier.fillMaxWidth()) {
                     SettingsRow(
                         Lucide.AudioLines,
-                        stringResource(Res.string.spotify_title),
-                        { onOpen(ProfileRoute.Spotify) },
-                        value = stringResource(if (user.spotifyConnected) Res.string.spotify_connected else Res.string.spotify_not_connected),
+                        stringResource(Res.string.audio_providers_title),
+                        { onOpen(ProfileRoute.AudioProviders) },
                     )
                     SettingsRow(Lucide.Music, stringResource(Res.string.my_songs_title), { onOpen(ProfileRoute.MySongs) })
                     SettingsRow(Lucide.Sparkles, stringResource(Res.string.premium_title), { onOpen(ProfileRoute.Premium) })

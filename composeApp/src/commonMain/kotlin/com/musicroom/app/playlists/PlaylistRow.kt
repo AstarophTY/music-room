@@ -16,17 +16,17 @@ import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.playlists_by
 import com.musicroom.app.generated.resources.playlists_track_count
+import com.musicroom.app.music.MusicPlaylist
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
-import com.musicroom.shared.dto.PlaylistSummaryResponse
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /** Playlist in a list: cover, name, then its owner and track count. */
 @Composable
-fun PlaylistRow(api: MusicRoomApi, playlist: PlaylistSummaryResponse, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun PlaylistRow(api: MusicRoomApi, playlist: MusicPlaylist, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val colors = AppTheme.colors
     val details = listOfNotNull(
         playlist.owner?.let { stringResource(Res.string.playlists_by, it) },

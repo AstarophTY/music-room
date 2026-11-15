@@ -9,6 +9,7 @@ data class AppConfig(
     val oauth: OAuthConfig = OAuthConfig(),
     val mail: MailConfig = MailConfig(),
     val spotify: SpotifyConfig = SpotifyConfig(),
+    val appleMusic: AppleMusicConfig = AppleMusicConfig(),
     val stripe: StripeConfig = StripeConfig(),
 ) {
     companion object {
@@ -44,6 +45,11 @@ data class AppConfig(
                 clientId = config.string("spotify.clientId"),
                 clientSecret = config.string("spotify.clientSecret"),
                 redirectUri = config.string("spotify.redirectUri").ifEmpty { SpotifyConfig().redirectUri },
+            ),
+            appleMusic = AppleMusicConfig(
+                teamId = config.string("appleMusic.teamId"),
+                keyId = config.string("appleMusic.keyId"),
+                privateKeyPath = config.string("appleMusic.privateKeyPath"),
             ),
         )
 

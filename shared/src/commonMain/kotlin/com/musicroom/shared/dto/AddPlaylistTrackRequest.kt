@@ -2,6 +2,6 @@ package com.musicroom.shared.dto
 
 import kotlinx.serialization.Serializable
 
-/** [trackId]: Spotify track id; the server reads the track details from Spotify. */
+/** Adds a track using its existing ID and, when available, its explicit catalog identity. */
 @Serializable
-data class AddPlaylistTrackRequest(val trackId: String)
+data class AddPlaylistTrackRequest(val trackId: String, val catalogId: CatalogId? = null)

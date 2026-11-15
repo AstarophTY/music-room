@@ -24,14 +24,20 @@ import com.musicroom.shared.MusicRoomApi
 import kotlinx.coroutines.CancellationException
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
+private val playlistFallbackCache = mutableMapOf<String, String>()
+
 /**
  * Photo of a Music Room playlist, downloaded once per version then cached. Without a photo: the cover of its
- * first song ([fallbackUrl]), or a yellow tile with a music icon.
+ * first song ([fallbackUrl]), or fetched from its tracks, or a yellow tile with a music icon.
  */
 @Composable
 fun PlaylistCover(api: MusicRoomApi, playlistId: String, coverVersion: Long?, fallbackUrl: String?, modifier: Modifier = Modifier) {
     val key = coverVersion?.let { "playlist-cover:$playlistId:$it" }
     var photo by remember(key) { mutableStateOf(key?.let { ImageCache[it] }) }
+    var resolvedFallback by remember(playlistId, fallbackUrl) {
+        mutableStateOf(fallbackUrl ?: playlistFallbackCache[playlistId])
+    }
+
     LaunchedEffect(key) {
         if (key == null || photo != null) return@LaunchedEffect
         photo = try {
@@ -42,10 +48,27 @@ fun PlaylistCover(api: MusicRoomApi, playlistId: String, coverVersion: Long?, fa
             null
         }
     }
+
+    LaunchedEffect(playlistId, coverVersion, fallbackUrl) {
+        if (coverVersion != null || resolvedFallback != null || playlistId.isBlank()) return@LaunchedEffect
+        try {
+            val detail = api.roomPlaylist(playlistId)
+            val firstTrackCover = detail.tracks.firstOrNull()?.track?.imageUrl
+            if (firstTrackCover != null) {
+                playlistFallbackCache[playlistId] = firstTrackCover
+                resolvedFallback = firstTrackCover
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
     val loaded = photo
+    val fallback = resolvedFallback
     when {
         loaded != null -> Image(loaded, contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
-        coverVersion == null && fallbackUrl != null -> RemoteImage(api, fallbackUrl, modifier)
+        coverVersion == null && fallback != null -> RemoteImage(api, fallback, modifier)
         else -> {
             val colors = AppTheme.colors
             Box(

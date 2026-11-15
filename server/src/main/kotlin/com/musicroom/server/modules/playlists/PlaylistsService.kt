@@ -7,7 +7,7 @@ import com.musicroom.server.common.exceptions.NotFoundException
 import com.musicroom.server.common.exceptions.ValidationException
 import com.musicroom.server.modules.playlists.entities.Playlist
 import com.musicroom.server.modules.premium.HostedTracksService
-import com.musicroom.server.modules.spotify.SpotifyService
+import com.musicroom.server.modules.catalog.TrackCatalog
 import com.musicroom.server.modules.users.AvatarImages
 import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.server.modules.users.UsersService
@@ -21,6 +21,8 @@ import com.musicroom.shared.dto.PlaylistDetailResponse
 import com.musicroom.shared.dto.PlaylistListResponse
 import com.musicroom.shared.dto.PlaylistResponse
 import com.musicroom.shared.dto.PlaylistType
+import com.musicroom.shared.dto.CatalogId
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.UpdatePlaylistRequest
 import java.util.UUID
@@ -37,7 +39,7 @@ class PlaylistsService(
     private val members: PlaylistMembersRepository,
     private val tracks: PlaylistTracksRepository,
     private val users: UsersRepository,
-    private val spotify: SpotifyService,
+    private val catalog: TrackCatalog,
     private val hosted: HostedTracksService,
     private val friends: PlaylistFriends,
 ) {
@@ -87,14 +89,18 @@ class PlaylistsService(
     }
 
     /** Reads the track (from Spotify with the user's account, or an uploaded song), then adds it at the end. */
-    suspend fun addTrack(userId: UUID, playlistId: UUID, trackId: String): PlaylistDetailResponse {
+    suspend fun addTrack(userId: UUID, playlistId: UUID, trackId: String, identity: CatalogId? = null): PlaylistDetailResponse {
         editable(userId, playlistId)
         if (trackId.isBlank() || trackId.length > MAX_TRACK_ID_LENGTH) throw NotFoundException("Track not found")
         if (tracks.count(playlistId) >= PlaylistValidation.MAX_TRACKS) {
             throw BadRequestException("A playlist holds ${PlaylistValidation.MAX_TRACKS} songs at most", ApiErrors.PLAYLIST_FULL)
         }
-        // A song uploaded to Music Room, or one of the Spotify catalog.
-        val track = if (trackId.startsWith(TrackResponse.HOSTED_PREFIX)) hosted.track(trackId) else spotify.track(userId, trackId)
+        val parsed = CatalogId.fromLegacy(trackId) ?: throw BadRequestException("Invalid catalog identifier")
+        if (identity != null && identity != parsed) throw BadRequestException("Catalog identifier does not match track ID")
+        val track = when (parsed.source) {
+            TrackSource.MUSIC_ROOM -> hosted.track(trackId)
+            else -> catalog.track(userId, parsed)
+        }
         if (!tracks.add(playlistId, track, userId)) {
             throw ConflictException("This song is already in the playlist", ApiErrors.TRACK_ALREADY_IN_PLAYLIST)
         }

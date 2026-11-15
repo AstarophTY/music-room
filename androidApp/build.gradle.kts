@@ -15,8 +15,11 @@ android {
         versionName = "0.1.0"
     }
     buildFeatures { compose = true }
+    lint { baseline = file("lint-baseline.xml") }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1,INDEX.LIST,io.netty.versions.properties}" }
+        // The Apple Music SDK's native libraries are loaded through System.loadLibrary.
+        jniLibs.useLegacyPackaging = true
     }
     buildTypes {
         getByName("release") { isMinifyEnabled = false }
@@ -28,6 +31,14 @@ android {
 }
 
 dependencies {
+    implementation(files("libs/MusicKitAuth-release-1.1.5.aar"))
+    implementation(files("libs/MediaPlayback-release-1.1.4.aar"))
+    // Runtime dependencies required by the bundled MusicKit Android SDK (see libs/README.md).
+    implementation("androidx.media:media:1.7.0")
+    implementation("androidx.appcompat:appcompat:1.7.0")
+    implementation("com.google.android.material:material:1.6.1")
+    implementation("com.squareup.picasso:picasso:2.5.2")
+    implementation("com.google.code.gson:gson:2.8.6")
     implementation(project(":composeApp"))
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)

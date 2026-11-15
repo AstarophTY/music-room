@@ -16,4 +16,6 @@ data class AlbumResponse(
     val trackCount: Int? = null,
     val type: AlbumType = AlbumType.ALBUM,
     val uri: String,
-)
+) {
+    val catalogId: CatalogId? get() = CatalogId.fromLegacy(id)
+}

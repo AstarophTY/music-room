@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_focus_queue_hint
 import com.musicroom.app.generated.resources.event_next
@@ -21,19 +22,18 @@ import org.jetbrains.compose.resources.stringResource
 fun EventQueueList(api: MusicRoomApi, focus: EventFocus, modifier: Modifier = Modifier) {
     val event = focus.event ?: return
     val detail = focus.detail
-    val colors = AppTheme.colors
     Column(modifier, verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-        Text(stringResource(Res.string.event_focus_queue_hint, event.name), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+        Text(stringResource(Res.string.event_focus_queue_hint, event.name), style = AppTheme.typography.bodySmall, color = Color.White)
         detail?.next?.let { next ->
-            Text(stringResource(Res.string.event_next), style = AppTheme.typography.label, color = colors.textSecondary)
-            EventTrackRow(api, next, rank = null)
+            Text(stringResource(Res.string.event_next), style = AppTheme.typography.label, color = Color.White)
+            EventTrackRow(api, next, rank = null, lightContent = true)
         }
         if (detail != null && detail.queue.isEmpty()) {
-            Text(stringResource(Res.string.event_queue_empty_body), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+            Text(stringResource(Res.string.event_queue_empty_body), style = AppTheme.typography.bodySmall, color = Color.White)
         }
         Column {
             detail?.queue?.forEachIndexed { index, entry ->
-                EventTrackRow(api, entry, rank = index + 1) {
+                EventTrackRow(api, entry, rank = index + 1, lightContent = true) {
                     VoteButton(entry.votes, entry.voted, enabled = event.canVote, onClick = { focus.toggleVote(entry.id) })
                 }
             }

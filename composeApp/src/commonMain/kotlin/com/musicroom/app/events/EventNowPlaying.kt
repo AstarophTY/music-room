@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Music
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_nothing_playing
@@ -66,7 +65,6 @@ fun EventNowPlaying(api: MusicRoomApi, detail: EventDetailResponse, actions: @Co
     AppCard(Modifier.fillMaxWidth()) {
         Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md)) {
             Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                if (playing && entry != null) Equalizer(color = colors.accentText, height = 14.dp)
                 Text(
                     stringResource(if (detail.event.status == EventStatus.PAUSED) Res.string.event_paused else Res.string.event_now_playing),
                     style = AppTheme.typography.label,

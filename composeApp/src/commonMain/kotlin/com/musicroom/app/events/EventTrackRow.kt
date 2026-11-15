@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,7 +33,8 @@ import org.jetbrains.compose.resources.stringResource
 
 /**
  * A song of the event's queue: its place ([rank], hidden when null), cover, title, who proposed it, and [trailing]
- * (the vote button). [onRemove] (the owner, or the proposer) shows a cross.
+ * (the vote button). [onRemove] (the owner, or the proposer) shows a cross. [lightContent] draws the text and icons
+ * white, for the player's dark, blurred backdrop.
  */
 @Composable
 fun EventTrackRow(
@@ -41,9 +43,11 @@ fun EventTrackRow(
     rank: Int?,
     modifier: Modifier = Modifier,
     onRemove: (() -> Unit)? = null,
+    lightContent: Boolean = false,
     trailing: @Composable () -> Unit = {},
 ) {
     val colors = AppTheme.colors
+    val contentColor = if (lightContent) Color.White else colors.textPrimary
     Row(
         modifier.fillMaxWidth().padding(vertical = AppTheme.spacing.xs),
         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
@@ -53,18 +57,18 @@ fun EventTrackRow(
             Text(
                 rank.toString(),
                 style = AppTheme.typography.label,
-                color = if (rank == 1) colors.accentText else colors.textSecondary,
+                color = if (lightContent) Color.White else if (rank == 1) colors.accentText else colors.textSecondary,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.width(24.dp),
             )
         }
         RemoteImage(api, entry.track.imageUrl, Modifier.size(48.dp).clip(AppShapes.small))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(entry.track.name, style = AppTheme.typography.label, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(entry.track.name, style = AppTheme.typography.label, color = contentColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 entry.track.artists.joinToString(", "),
                 style = AppTheme.typography.bodySmall,
-                color = colors.textSecondary,
+                color = if (lightContent) Color.White else colors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -74,7 +78,7 @@ fun EventTrackRow(
                     Text(
                         stringResource(Res.string.event_proposed_by, by.displayName),
                         style = AppTheme.typography.bodySmall,
-                        color = colors.textSecondary,
+                        color = if (lightContent) Color.White else colors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -83,7 +87,12 @@ fun EventTrackRow(
         }
         if (onRemove != null) {
             IconButton(onClick = onRemove) {
-                Icon(Lucide.X, contentDescription = stringResource(Res.string.event_track_remove), tint = colors.textSecondary, modifier = Modifier.size(18.dp))
+                Icon(
+                    Lucide.X,
+                    contentDescription = stringResource(Res.string.event_track_remove),
+                    tint = if (lightContent) Color.White else colors.textSecondary,
+                    modifier = Modifier.size(18.dp),
+                )
             }
         }
         trailing()

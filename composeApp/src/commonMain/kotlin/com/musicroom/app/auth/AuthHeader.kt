@@ -3,7 +3,6 @@ package com.musicroom.app.auth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -13,7 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.ArrowLeft
 import com.composables.icons.lucide.Lucide
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.app_name
 import com.musicroom.app.generated.resources.common_back
@@ -30,10 +28,8 @@ fun AuthHeader(onBack: (() -> Unit)?, backEnabled: Boolean) {
                 Icon(Lucide.ArrowLeft, contentDescription = stringResource(Res.string.common_back), tint = colors.textPrimary)
             }
         } else {
-            Equalizer(color = colors.accentText, height = 20.dp)
             Text(
                 stringResource(Res.string.app_name),
-                modifier = Modifier.padding(start = AppTheme.spacing.sm),
                 style = AppTheme.typography.label,
                 color = colors.textPrimary,
             )

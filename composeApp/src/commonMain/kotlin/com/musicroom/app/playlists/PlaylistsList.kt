@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.composables.icons.lucide.ListMusic
 import com.composables.icons.lucide.Lucide
@@ -22,33 +24,28 @@ import com.musicroom.app.generated.resources.home_playlists_title
 import com.musicroom.app.generated.resources.playlists_create
 import com.musicroom.app.generated.resources.playlists_empty_body
 import com.musicroom.app.generated.resources.playlists_empty_title
+import com.musicroom.app.generated.resources.playlists_from_provider
 import com.musicroom.app.generated.resources.playlists_mine
-import com.musicroom.app.generated.resources.playlists_spotify
-import com.musicroom.app.generated.resources.playlists_spotify_empty
-import com.musicroom.app.music.SpotifyConnectCard
+import com.musicroom.app.generated.resources.playlists_provider_empty
+import com.musicroom.app.music.MusicPlaylist
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistResponse
-import com.musicroom.shared.dto.PlaylistSummaryResponse
-import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
-/** The two sections of the playlists tab. Two columns on tablets and computers. */
+/** The playlists tab: Music Room playlists, then one shelf per provider that lists the user's playlists. */
 @Composable
 fun PlaylistsList(
     api: MusicRoomApi,
-    user: UserResponse,
     roomPlaylists: List<PlaylistResponse>?,
     roomError: UiText?,
-    spotifyPlaylists: List<PlaylistSummaryResponse>?,
-    spotifyError: UiText?,
+    providerShelves: List<ProviderPlaylists>,
     onRetry: () -> Unit,
-    onSpotifyConnected: () -> Unit,
     onCreate: () -> Unit,
     onOpenRoom: (String) -> Unit,
-    onOpenSpotify: (String) -> Unit,
+    onOpenProviderPlaylist: (MusicPlaylist) -> Unit,
 ) {
     val colors = AppTheme.colors
     val columns = if (WindowSize.current == WindowSize.Compact) 1 else 2
@@ -76,14 +73,21 @@ fun PlaylistsList(
     }
 
     TabContent {
-        Row {
-            Text(stringResource(Res.string.home_playlists_title), Modifier.weight(1f), style = AppTheme.typography.display, color = colors.textPrimary)
-            if (!roomPlaylists.isNullOrEmpty()) {
-                AppButton(stringResource(Res.string.playlists_create), onCreate, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
+        if (WindowSize.current != WindowSize.Compact) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(Res.string.home_playlists_title), Modifier.weight(1f), style = AppTheme.typography.display, color = colors.textPrimary)
+                if (!roomPlaylists.isNullOrEmpty()) {
+                    AppButton(stringResource(Res.string.playlists_create), onCreate, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
+                }
             }
         }
 
-        SectionTitle(stringResource(Res.string.playlists_mine))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle(stringResource(Res.string.playlists_mine), Modifier.weight(1f))
+            if (WindowSize.current == WindowSize.Compact && !roomPlaylists.isNullOrEmpty()) {
+                AppButton(stringResource(Res.string.playlists_create), onCreate, variant = AppButtonVariant.Secondary, icon = Lucide.Plus)
+            }
+        }
         when {
             roomPlaylists == null -> status(roomError, loading = true)
             roomPlaylists.isEmpty() -> EmptyState(
@@ -96,15 +100,19 @@ fun PlaylistsList(
             else -> grid(roomPlaylists) { playlist, modifier -> RoomPlaylistRow(api, playlist, onClick = { onOpenRoom(playlist.id) }, modifier = modifier) }
         }
 
-        SectionTitle(
-            stringResource(Res.string.playlists_spotify) + (spotifyPlaylists?.takeIf { user.spotifyConnected }?.let { " · ${it.size}" } ?: ""),
-        )
-        when {
-            !user.spotifyConnected -> SpotifyConnectCard(api, onConnected = onSpotifyConnected)
-            spotifyPlaylists == null || spotifyError != null -> status(spotifyError, loading = spotifyPlaylists == null)
-            spotifyPlaylists.isEmpty() ->
-                Text(stringResource(Res.string.playlists_spotify_empty), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-            else -> grid(spotifyPlaylists) { playlist, modifier -> PlaylistRow(api, playlist, onClick = { onOpenSpotify(playlist.id) }, modifier = modifier) }
+        providerShelves.forEach { shelf ->
+            val playlists = shelf.playlists
+            SectionTitle(stringResource(Res.string.playlists_from_provider, shelf.provider.displayName) + (playlists?.let { " · ${it.size}" } ?: ""))
+            when {
+                shelf.error != null -> status(shelf.error, loading = false)
+                playlists == null -> status(null, loading = true)
+                playlists.isEmpty() -> Text(
+                    stringResource(Res.string.playlists_provider_empty, shelf.provider.displayName),
+                    style = AppTheme.typography.bodySmall,
+                    color = colors.textSecondary,
+                )
+                else -> grid(playlists) { playlist, modifier -> PlaylistRow(api, playlist, onClick = { onOpenProviderPlaylist(playlist) }, modifier = modifier) }
+            }
         }
     }
 }

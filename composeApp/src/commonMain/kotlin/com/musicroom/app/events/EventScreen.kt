@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,22 +28,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.ArrowLeft
-import com.composables.icons.lucide.CircleStop
 import com.composables.icons.lucide.Globe
 import com.composables.icons.lucide.HeadphoneOff
 import com.composables.icons.lucide.Headphones
 import com.composables.icons.lucide.Lock
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MapPin
-import com.composables.icons.lucide.Pause
-import com.composables.icons.lucide.Play
 import com.composables.icons.lucide.Plus
-import com.composables.icons.lucide.Settings
-import com.composables.icons.lucide.SkipForward
-import com.composables.icons.lucide.UserPlus
 import com.composables.icons.lucide.Users
 import com.composables.icons.lucide.Vote
 import com.musicroom.app.common.EmptyState
@@ -52,7 +43,6 @@ import com.musicroom.app.common.PersonAvatar
 import com.musicroom.app.common.UiText
 import com.musicroom.app.common.rememberLocationProvider
 import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.common_back
 import com.musicroom.app.generated.resources.common_loading
 import com.musicroom.app.generated.resources.event_by
 import com.musicroom.app.generated.resources.event_cannot_vote_closed
@@ -70,18 +60,13 @@ import com.musicroom.app.generated.resources.event_focus_premium
 import com.musicroom.app.generated.resources.event_unfocus
 import com.musicroom.app.generated.resources.event_listeners
 import com.musicroom.app.generated.resources.event_next
-import com.musicroom.app.generated.resources.event_pause
 import com.musicroom.app.generated.resources.event_propose
 import com.musicroom.app.generated.resources.event_propose_added
 import com.musicroom.app.generated.resources.event_propose_title
 import com.musicroom.app.generated.resources.event_queue
 import com.musicroom.app.generated.resources.event_queue_empty_body
 import com.musicroom.app.generated.resources.event_queue_empty_title
-import com.musicroom.app.generated.resources.event_resume
 import com.musicroom.app.generated.resources.event_settings
-import com.musicroom.app.generated.resources.event_skip
-import com.musicroom.app.generated.resources.event_start
-import com.musicroom.app.generated.resources.event_stop
 import com.musicroom.app.generated.resources.event_visibility_private
 import com.musicroom.app.generated.resources.event_visibility_public
 import com.musicroom.app.music.TrackPickerSheet
@@ -94,7 +79,6 @@ import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
-import com.musicroom.shared.dto.EventStatus
 import com.musicroom.shared.dto.EventVisibility
 import com.musicroom.shared.dto.EventVoteLicense
 import com.musicroom.shared.dto.UserResponse
@@ -124,7 +108,6 @@ fun EventScreen(
     var showSettings by remember { mutableStateOf(false) }
     SideEffect {
         room.locate = locate
-        room.onSpotifyNeeded = player::askToLinkSpotify
     }
     LaunchedEffect(room) { room.run() }
     LaunchedEffect(room.deleted) { if (room.deleted) onBack() }
@@ -142,228 +125,178 @@ fun EventScreen(
 
     Box(Modifier.fillMaxSize().background(colors.background), contentAlignment = Alignment.TopCenter) {
         val detail = room.detail
-        if (detail == null) {
-            Column(Modifier.fillMaxWidth().padding(AppTheme.spacing.md)) {
-                IconButton(onClick = onBack) {
-                    Icon(Lucide.ArrowLeft, contentDescription = stringResource(Res.string.common_back), tint = colors.textPrimary)
-                }
+        Column(Modifier.fillMaxSize().widthIn(max = 760.dp)) {
+            EventHeader(
+                event = detail?.event,
+                onBack = onBack,
+                onInvite = { showInvite = true },
+                onSettings = { showSettings = true },
+            )
+            if (detail == null) {
                 Text(
                     room.error?.resolve() ?: stringResource(Res.string.common_loading),
                     style = AppTheme.typography.bodySmall,
                     color = if (room.error != null) colors.error else colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm),
                 )
+                return@Column
             }
-            return@Box
-        }
-        val event = detail.event
-        LazyColumn(
-            Modifier.fillMaxSize().widthIn(max = 760.dp),
-            contentPadding = PaddingValues(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
-        ) {
-            item(key = "header") {
-                Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = onBack) {
-                            Icon(Lucide.ArrowLeft, contentDescription = stringResource(Res.string.common_back), tint = colors.textPrimary)
+            val event = detail.event
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.md),
+            ) {
+                item(key = "header") {
+                    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                        Row(
+                            Modifier.pressable(onClick = { if (!event.isOwner) onOpenUser(event.owner.id) }),
+                            horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            PersonAvatar(api, event.owner.id, event.owner.displayName, event.owner.avatarColor, event.owner.avatarVersion, size = 18.dp)
+                            Text(stringResource(Res.string.event_by, event.owner.displayName), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text(event.name, style = AppTheme.typography.title, color = colors.textPrimary, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Row(
-                                Modifier.pressable(onClick = { if (!event.isOwner) onOpenUser(event.owner.id) }),
-                                horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                PersonAvatar(api, event.owner.id, event.owner.displayName, event.owner.avatarColor, event.owner.avatarVersion, size = 18.dp)
-                                Text(stringResource(Res.string.event_by, event.owner.displayName), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+                        if (event.description.isNotBlank()) {
+                            Text(event.description, style = AppTheme.typography.body, color = colors.textSecondary)
+                        }
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                            if (event.visibility == EventVisibility.PUBLIC) {
+                                pill(Lucide.Globe, stringResource(Res.string.event_visibility_public))
+                            } else {
+                                pill(Lucide.Lock, stringResource(Res.string.event_visibility_private))
                             }
-                        }
-                        if (event.isOwner) {
-                            IconButton(onClick = { showInvite = true }) {
-                                Icon(Lucide.UserPlus, contentDescription = stringResource(Res.string.event_invite_title), tint = colors.textPrimary)
+                            when (event.voteLicense) {
+                                EventVoteLicense.EVERYONE -> pill(Lucide.Vote, stringResource(Res.string.event_license_everyone_short))
+                                EventVoteLicense.INVITED -> pill(Lucide.Users, stringResource(Res.string.event_license_invited_short))
+                                EventVoteLicense.LOCATION -> {
+                                    val radius = event.radiusMeters ?: 0
+                                    val area = if (radius >= 1_000) "${radius / 1_000} km" else "$radius m"
+                                    val end = event.endsAt
+                                    pill(
+                                        Lucide.MapPin,
+                                        if (end != null) {
+                                            stringResource(Res.string.event_license_area_until, area, clockTime(end))
+                                        } else {
+                                            stringResource(Res.string.event_license_area_short, area)
+                                        },
+                                    )
+                                }
                             }
-                            IconButton(onClick = { showSettings = true }) {
-                                Icon(Lucide.Settings, contentDescription = stringResource(Res.string.event_settings), tint = colors.textPrimary)
-                            }
+                            pill(Lucide.Headphones, stringResource(Res.string.event_listeners, event.listeners))
                         }
-                    }
-                    if (event.description.isNotBlank()) {
-                        Text(event.description, style = AppTheme.typography.body, color = colors.textSecondary)
-                    }
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                        if (event.visibility == EventVisibility.PUBLIC) {
-                            pill(Lucide.Globe, stringResource(Res.string.event_visibility_public))
-                        } else {
-                            pill(Lucide.Lock, stringResource(Res.string.event_visibility_private))
+                        if (!event.canVote) {
+                            Text(
+                                stringResource(
+                                    if (event.voteLicense == EventVoteLicense.INVITED) Res.string.event_cannot_vote_invited else Res.string.event_cannot_vote_closed,
+                                ),
+                                style = AppTheme.typography.bodySmall,
+                                color = colors.warning,
+                            )
                         }
-                        when (event.voteLicense) {
-                            EventVoteLicense.EVERYONE -> pill(Lucide.Vote, stringResource(Res.string.event_license_everyone_short))
-                            EventVoteLicense.INVITED -> pill(Lucide.Users, stringResource(Res.string.event_license_invited_short))
-                            EventVoteLicense.LOCATION -> {
-                                val radius = event.radiusMeters ?: 0
-                                val area = if (radius >= 1_000) "${radius / 1_000} km" else "$radius m"
-                                val end = event.endsAt
-                                pill(
-                                    Lucide.MapPin,
-                                    if (end != null) {
-                                        stringResource(Res.string.event_license_area_until, area, clockTime(end))
-                                    } else {
-                                        stringResource(Res.string.event_license_area_short, area)
-                                    },
-                                )
-                            }
-                        }
-                        pill(Lucide.Headphones, stringResource(Res.string.event_listeners, event.listeners))
-                    }
-                    if (!event.canVote) {
-                        Text(
-                            stringResource(
-                                if (event.voteLicense == EventVoteLicense.INVITED) Res.string.event_cannot_vote_invited else Res.string.event_cannot_vote_closed,
-                            ),
-                            style = AppTheme.typography.bodySmall,
-                            color = colors.warning,
-                        )
                     }
                 }
-            }
 
-            item(key = "now") {
-                EventNowPlaying(api, detail) {
-                    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                        if (event.isOwner) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                                when (event.status) {
-                                    EventStatus.PLAYING -> AppButton(
-                                        stringResource(Res.string.event_pause),
-                                        room::pause,
-                                        Modifier.weight(1f),
-                                        enabled = !room.busy,
-                                        variant = AppButtonVariant.Secondary,
-                                        icon = Lucide.Pause,
-                                    )
-                                    else -> AppButton(
-                                        stringResource(if (event.status == EventStatus.PAUSED) Res.string.event_resume else Res.string.event_start),
-                                        room::play,
-                                        Modifier.weight(1f),
-                                        enabled = !room.busy,
-                                        icon = Lucide.Play,
-                                    )
+                item(key = "now") {
+                    EventNowPlaying(api, detail) {
+                        Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                            if (event.isOwner) {
+                                // The music is driven from the player (play, pause, next): only the problem shows here.
+                                detail.playbackIssue?.let { code ->
+                                    Text(UiText.of(ApiException(409, code, null)).resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
                                 }
-                                if (event.status != EventStatus.WAITING) {
-                                    AppButton(
-                                        stringResource(Res.string.event_skip),
-                                        room::skip,
-                                        Modifier.weight(1f),
-                                        enabled = !room.busy,
-                                        variant = AppButtonVariant.Secondary,
-                                        icon = Lucide.SkipForward,
-                                    )
-                                }
-                            }
-                            if (event.status != EventStatus.WAITING) {
-                                AppButton(
-                                    stringResource(Res.string.event_stop),
-                                    room::stop,
-                                    Modifier.fillMaxWidth(),
-                                    enabled = !room.busy,
-                                    variant = AppButtonVariant.Ghost,
-                                    icon = Lucide.CircleStop,
-                                )
-                            }
-                            detail.playbackIssue?.let { code ->
-                                Text(UiText.of(ApiException(409, code, null)).resolve(), style = AppTheme.typography.bodySmall, color = colors.error)
-                            }
-                        } else {
-                            Text(
-                                stringResource(Res.string.event_host_streams, event.owner.displayName),
-                                style = AppTheme.typography.bodySmall,
-                                color = colors.textSecondary,
-                            )
-                        }
-                        // Listening to the event: the user's Spotify follows its music, and swiped songs go to it.
-                        val focus = EventFocus.Local.current
-                        if (focus != null) {
-                            val focused = focus.event?.id == event.id
-                            AppButton(
-                                stringResource(if (focused) Res.string.event_unfocus else Res.string.event_focus),
-                                { if (focused) focus.unfocus() else focus.focus(event) },
-                                Modifier.fillMaxWidth(),
-                                enabled = focused || focus.canFocus,
-                                variant = if (focused) AppButtonVariant.Ghost else AppButtonVariant.Secondary,
-                                icon = if (focused) Lucide.HeadphoneOff else Lucide.Headphones,
-                            )
-                            if (!focused) {
+                            } else {
                                 Text(
-                                    stringResource(if (focus.canFocus) Res.string.event_focus_hint else Res.string.event_focus_premium),
+                                    stringResource(Res.string.event_host_streams, event.owner.displayName),
                                     style = AppTheme.typography.bodySmall,
                                     color = colors.textSecondary,
                                 )
                             }
+                            // Listening to the event: the user's Spotify follows its music, and swiped songs go to it.
+                            val focus = EventFocus.Local.current
+                            if (focus != null) {
+                                val focused = focus.event?.id == event.id
+                                AppButton(
+                                    stringResource(if (focused) Res.string.event_unfocus else Res.string.event_focus),
+                                    { if (focused) focus.unfocus() else focus.focus(event) },
+                                    Modifier.fillMaxWidth(),
+                                    enabled = focused || focus.canFocus,
+                                    variant = if (focused) AppButtonVariant.Ghost else AppButtonVariant.Secondary,
+                                    icon = if (focused) Lucide.HeadphoneOff else Lucide.Headphones,
+                                )
+                                if (!focused) {
+                                    Text(
+                                        stringResource(if (focus.canFocus) Res.string.event_focus_hint else Res.string.event_focus_premium),
+                                        style = AppTheme.typography.bodySmall,
+                                        color = colors.textSecondary,
+                                    )
+                                }
+                            }
                         }
                     }
                 }
-            }
 
-            room.error?.let { error ->
-                item(key = "error") { Text(error.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
-            }
+                room.error?.let { error ->
+                    item(key = "error") { Text(error.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
+                }
 
-            detail.next?.let { next ->
-                item(key = "next-title") { Text(stringResource(Res.string.event_next), style = AppTheme.typography.label, color = colors.textSecondary) }
-                item(key = next.id) { AppCard(Modifier.fillMaxWidth().animateItem()) { EventTrackRow(api, next, rank = null) } }
-            }
+                detail.next?.let { next ->
+                    item(key = "next-title") { Text(stringResource(Res.string.event_next), style = AppTheme.typography.label, color = colors.textSecondary) }
+                    item(key = next.id) { AppCard(Modifier.fillMaxWidth().animateItem()) { EventTrackRow(api, next, rank = null) } }
+                }
 
-            item(key = "queue-title") {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        stringResource(Res.string.event_queue, detail.queue.size),
-                        style = AppTheme.typography.heading,
-                        color = colors.textPrimary,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (event.canVote) {
-                        AppButton(stringResource(Res.string.event_propose), { showPicker = true }, icon = Lucide.Plus)
+                item(key = "queue-title") {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(Res.string.event_queue, detail.queue.size),
+                            style = AppTheme.typography.heading,
+                            color = colors.textPrimary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (event.canVote) {
+                            AppButton(stringResource(Res.string.event_propose), { showPicker = true }, icon = Lucide.Plus)
+                        }
                     }
                 }
-            }
-            if (detail.queue.isEmpty()) {
-                item(key = "empty") {
-                    EmptyState(
-                        Lucide.Vote,
-                        stringResource(Res.string.event_queue_empty_title),
-                        stringResource(Res.string.event_queue_empty_body),
-                        actionLabel = if (event.canVote) stringResource(Res.string.event_propose) else null,
-                        onAction = { showPicker = true },
-                    )
+                if (detail.queue.isEmpty()) {
+                    item(key = "empty") {
+                        EmptyState(
+                            Lucide.Vote,
+                            stringResource(Res.string.event_queue_empty_title),
+                            stringResource(Res.string.event_queue_empty_body),
+                            actionLabel = if (event.canVote) stringResource(Res.string.event_propose) else null,
+                            onAction = { showPicker = true },
+                        )
+                    }
                 }
-            }
-            itemsIndexed(detail.queue, key = { _, entry -> entry.id }) { index, entry ->
-                val mine = entry.proposedBy?.id == user.id
-                EventTrackRow(
-                    api,
-                    entry,
-                    rank = index + 1,
-                    modifier = Modifier.animateItem(),
-                    onRemove = if (event.isOwner || mine) ({ room.remove(entry.id) }) else null,
-                ) {
-                    VoteButton(entry.votes, entry.voted, enabled = event.canVote, onClick = { room.toggleVote(entry.id) })
+                itemsIndexed(detail.queue, key = { _, entry -> entry.id }) { index, entry ->
+                    val mine = entry.proposedBy?.id == user.id
+                    EventTrackRow(
+                        api,
+                        entry,
+                        rank = index + 1,
+                        modifier = Modifier.animateItem(),
+                        onRemove = if (event.isOwner || mine) ({ room.remove(entry.id) }) else null,
+                    ) {
+                        VoteButton(entry.votes, entry.voted, enabled = event.canVote, onClick = { room.toggleVote(entry.id) })
+                    }
                 }
-            }
 
-            if (detail.invited.isNotEmpty()) {
-                item(key = "invited") {
-                    Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), modifier = Modifier.padding(top = AppTheme.spacing.md)) {
-                        Text(stringResource(Res.string.event_invited_people, detail.invited.size), style = AppTheme.typography.label, color = colors.textSecondary)
-                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
-                            detail.invited.forEach { person ->
-                                PersonAvatar(
-                                    api,
-                                    person.id,
-                                    person.displayName,
-                                    person.avatarColor,
-                                    person.avatarVersion,
-                                    modifier = Modifier.pressable(onClick = { if (person.id != user.id) onOpenUser(person.id) }),
-                                )
+                if (detail.invited.isNotEmpty()) {
+                    item(key = "invited") {
+                        Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), modifier = Modifier.padding(top = AppTheme.spacing.md)) {
+                            Text(stringResource(Res.string.event_invited_people, detail.invited.size), style = AppTheme.typography.label, color = colors.textSecondary)
+                            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
+                                detail.invited.forEach { person ->
+                                    PersonAvatar(
+                                        api,
+                                        person.id,
+                                        person.displayName,
+                                        person.avatarColor,
+                                        person.avatarVersion,
+                                        modifier = Modifier.pressable(onClick = { if (person.id != user.id) onOpenUser(person.id) }),
+                                    )
+                                }
                             }
                         }
                     }
@@ -384,7 +317,6 @@ fun EventScreen(
             isAdded = { it.id in pendingIds },
             onAdd = { room.propose(it) },
             onDismiss = { showPicker = false },
-            showTopTracks = user.spotifyConnected,
         )
     }
     if (showInvite) EventInviteSheet(api, room, onDismiss = { showInvite = false })

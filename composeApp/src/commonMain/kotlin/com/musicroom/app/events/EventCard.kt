@@ -22,7 +22,6 @@ import com.composables.icons.lucide.Lock
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MapPin
 import com.composables.icons.lucide.Vote
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.PersonAvatar
 import com.musicroom.app.common.RemoteImage
 import com.musicroom.app.generated.resources.Res
@@ -76,7 +75,6 @@ fun EventCard(api: MusicRoomApi, event: EventResponse, onClick: () -> Unit, modi
                         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (playing) Equalizer(color = colors.onAccent, height = 10.dp)
                         Text(
                             stringResource(if (playing) Res.string.event_live else Res.string.event_paused),
                             style = AppTheme.typography.bodySmall,

@@ -28,7 +28,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.RefreshCw
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_loading
@@ -36,7 +35,7 @@ import com.musicroom.app.generated.resources.devices_active
 import com.musicroom.app.generated.resources.devices_empty
 import com.musicroom.app.generated.resources.devices_refresh
 import com.musicroom.app.generated.resources.devices_title
-import com.musicroom.app.generated.resources.spotify_open
+import com.musicroom.app.generated.resources.player_open_app
 import com.musicroom.app.theme.components.AppBottomSheet
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
@@ -49,7 +48,7 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Card from the bottom listing the user's devices with Spotify open (phone, computer, speaker...). The one
+ * Card from the bottom listing the user's devices with the remote service open (phone, computer, speaker...). The one
  * playing is highlighted; tapping another moves the music there and closes the card. With none, it explains
  * how to make one appear.
  */
@@ -88,12 +87,18 @@ fun DevicePickerSheet(player: PlayerController, onDismiss: () -> Unit) {
             devices == null && loading ->
                 Text(stringResource(Res.string.common_loading), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
             devices.isNullOrEmpty() -> {
-                Text(stringResource(Res.string.devices_empty), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
-                AppButton(
-                    stringResource(Res.string.spotify_open),
-                    { runCatching { uriHandler.openUri(PlayerController.SPOTIFY_WEB_URL) } },
-                    variant = AppButtonVariant.Secondary,
+                Text(
+                    stringResource(Res.string.devices_empty, player.remoteDisplayName),
+                    style = AppTheme.typography.bodySmall,
+                    color = colors.textSecondary,
                 )
+                player.remoteAppUrl?.let { url ->
+                    AppButton(
+                        stringResource(Res.string.player_open_app, player.remoteDisplayName),
+                        { runCatching { uriHandler.openUri(url) } },
+                        variant = AppButtonVariant.Secondary,
+                    )
+                }
             }
             else -> Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
                 devices.forEach { device ->
@@ -136,7 +141,6 @@ fun DevicePickerSheet(player: PlayerController, onDismiss: () -> Unit) {
                                 Text(stringResource(Res.string.devices_active), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
                             }
                         }
-                        if (device.isActive && player.isPlaying) Equalizer(color = colors.accentText, height = 16.dp)
                     }
                 }
             }

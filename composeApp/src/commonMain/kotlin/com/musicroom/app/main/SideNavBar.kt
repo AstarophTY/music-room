@@ -29,7 +29,6 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
 import com.composables.icons.lucide.PanelLeftClose
 import com.composables.icons.lucide.PanelLeftOpen
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.UserAvatar
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.app_name
@@ -48,16 +47,15 @@ import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Side menu that replaces the bottom bar on large screens. The profile stays at the top left.
+ * Side menu that replaces the bottom bar on large screens. The user row at the top opens their profile page.
  * [collapsed] shrinks it to icons only; the button at the bottom toggles it.
- * [selected] is null while a profile page is open: the profile row is highlighted instead of a tab.
  * Under the tabs, messages and notifications with their [counts]; [socialOpen] is the social page shown, if any.
  */
 @Composable
 fun SideNavBar(
     api: MusicRoomApi,
     user: UserResponse,
-    selected: MainTab?,
+    selected: MainTab,
     collapsed: Boolean,
     onToggleCollapsed: () -> Unit,
     onSelect: (MainTab) -> Unit,
@@ -71,7 +69,7 @@ fun SideNavBar(
     val border = AppTheme.spacing.border
     val width by animateDpAsState(if (collapsed) 72.dp else 256.dp)
     val padding = if (collapsed) 12.dp else AppTheme.spacing.md
-    val profileOpen = selected == null
+    val profileOpen = (socialOpen as? SocialPage.Profile)?.userId == user.id
     Column(
         Modifier.width(width).fillMaxHeight().background(colors.surface)
             .drawBehind { drawLine(colors.border, Offset(size.width, 0f), Offset(size.width, size.height), border.toPx()) }
@@ -81,38 +79,16 @@ fun SideNavBar(
         verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            Modifier.fillMaxWidth().pressable(onClick = onOpenProfile)
-                .background(if (profileOpen) colors.accentSubtle else Color.Transparent, AppShapes.pill)
-                .padding(vertical = AppTheme.spacing.xs, horizontal = if (collapsed) 0.dp else AppTheme.spacing.xs),
-            horizontalArrangement = if (collapsed) Arrangement.Center else Arrangement.spacedBy(AppTheme.spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            UserAvatar(api, user, size = 44.dp)
-            if (!collapsed) {
-                Column {
-                    Text(
-                        user.displayName,
-                        style = AppTheme.typography.label,
-                        color = if (profileOpen) colors.accentText else colors.textPrimary,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        stringResource(Res.string.profile_open),
-                        style = AppTheme.typography.bodySmall,
-                        color = colors.textSecondary,
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
-        Spacer(Modifier.padding(top = AppTheme.spacing.md))
         MainTab.entries.forEach { tab ->
-            SideNavItem(tab, selected = tab == selected && socialOpen == null, collapsed = collapsed, onClick = { onSelect(tab) })
+            SideNavItem(
+                tab,
+                selected = tab == selected && socialOpen == null,
+                collapsed = collapsed,
+                onClick = { onSelect(tab) },
+                avatar = if (tab == MainTab.Settings) {
+                    { UserAvatar(api, user, size = 22.dp) }
+                } else null,
+            )
         }
         Spacer(Modifier.padding(top = AppTheme.spacing.sm))
         SideNavAction(
@@ -138,7 +114,6 @@ fun SideNavBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (!collapsed) {
-                Equalizer(color = colors.accentText, height = 18.dp, modifier = Modifier.padding(start = AppTheme.spacing.sm))
                 Text(
                     stringResource(Res.string.app_name),
                     style = AppTheme.typography.label,

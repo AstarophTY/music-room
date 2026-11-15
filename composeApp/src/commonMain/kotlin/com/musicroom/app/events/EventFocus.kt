@@ -10,6 +10,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.musicroom.app.common.UiText
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.event_location_failed
+import com.musicroom.app.generated.resources.event_track_unavailable
+import com.musicroom.app.music.MusicPlaybackAvailability
+import com.musicroom.app.player.EventRemote
 import com.musicroom.app.player.PlayerController
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
@@ -32,12 +35,13 @@ import kotlin.time.Clock
 /**
  * The one event the user listens to, if any. While an event is focused, the user's Spotify follows its music (the
  * same song, at the same moment, paused with it), and songs swiped to the right are proposed to it instead of
- * going to the queue. Focusing stops the user's own music, and the player refuses their own commands until they
- * stop listening ([PlayerController.lockedByEvent]). With no event focused, the player works on its own as usual.
+ * going to the queue. Focusing stops the user's own music, and the player's buttons drive the event; playing a song
+ * of their own makes the user leave it ([PlayerController.lockedByEvent]). With no event focused, the player works
+ * on its own as usual.
  * Focusing needs a linked Spotify Premium account ([canFocus]), since it plays on the user's Spotify.
  */
 @Stable
-class EventFocus(private val api: MusicRoomApi, private val player: PlayerController, private val scope: CoroutineScope) {
+class EventFocus(private val api: MusicRoomApi, private val player: PlayerController, private val scope: CoroutineScope) : EventRemote {
     /** The focused event, kept up to date while [run] follows it. */
     var event by mutableStateOf<EventResponse?>(null)
         private set
@@ -59,18 +63,62 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
 
     /** What was last played on the user's Spotify for the event: the song and whether it was playing. */
     private var synced: Pair<String?, Boolean>? = null
+    private var listenJob: Job? = null
+    private var providers: MusicPlaybackAvailability? = null
     private var nextNoticeId = 0L
     private var noticeJob: Job? = null
 
     init {
         // While focused, songs added to the queue go to the event.
         player.proposeToEvent = ::propose
+        player.leaveEvent = ::unfocus
     }
 
-    /** Whether the user can focus an event (Spotify Premium linked); false drops the current focus. */
-    fun updateCanFocus(premium: Boolean) {
-        canFocus = premium
-        if (!premium) unfocus()
+    /** An owner command (start, pause, skip) is running: the buttons wait for its answer. */
+    private var commandRunning by mutableStateOf(false)
+
+    // The player's buttons drive the focused event (see [EventRemote]): its owner starts, pauses and skips the music.
+    override val canControl: Boolean get() = event?.isOwner == true && !commandRunning
+
+    override val playing: Boolean get() = event?.status == EventStatus.PLAYING
+
+    override val canSkip: Boolean get() = event?.status?.let { it != EventStatus.WAITING } == true
+
+    override fun togglePlay() {
+        val target = event ?: return
+        command(target) { if (target.status == EventStatus.PLAYING) api.pauseEvent(target.id) else api.playEvent(target.id) }
+    }
+
+    override fun skip() {
+        val target = event ?: return
+        command(target) { api.skipEvent(target.id) }
+    }
+
+    /** Sends an owner command; its answer is the event's new state, and a problem shows in the player. */
+    private fun command(target: EventResponse, action: suspend () -> EventDetailResponse) {
+        if (commandRunning) return
+        commandRunning = true
+        scope.launch {
+            try {
+                val answer = action()
+                if (event?.id == target.id) {
+                    event = answer.event
+                    detail = answer
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                player.reportPlaybackError(UiText.of(e))
+            }
+            commandRunning = false
+        }
+    }
+
+    /** Whether a connected provider can play event tracks; false drops the current focus. */
+    fun updateProviders(availability: MusicPlaybackAvailability) {
+        providers = availability
+        canFocus = availability.canListen
+        if (!canFocus) unfocus()
     }
 
     fun focus(newEvent: EventResponse) {
@@ -79,15 +127,19 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
         detail = null
         event = newEvent
         player.lockForEvent(true)
+        player.eventRemote = this
         // The user's own music stops; the owner's Spotify may already play the event, which goes on.
         val ownerStreaming = newEvent.isOwner && newEvent.status == EventStatus.PLAYING
         if (player.isPlaying && !ownerStreaming) player.forEvent { player.togglePlay() }
     }
 
     fun unfocus() {
+        listenJob?.cancel()
         event = null
         detail = null
         synced = null
+        commandRunning = false
+        player.eventRemote = null
         player.lockForEvent(false)
     }
 
@@ -106,7 +158,7 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
         scope.launch {
             val problem = try {
                 val location = location(target)
-                tracks.forEach { track -> detail = api.proposeEventTrack(target.id, track.id, location) }
+                tracks.forEach { track -> detail = api.proposeEventTrack(target.id, track, location) }
                 null
             } catch (e: CancellationException) {
                 throw e
@@ -189,20 +241,40 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
      * The owner's own Spotify already plays it.
      */
     private fun listenAlong(detail: EventDetailResponse) {
-        if (detail.event.isOwner || !player.spotifyConnected) return
         val track = detail.nowPlaying?.track
+        if (detail.event.isOwner && track != null && providers?.hostControlsPlayback(track) == true) {
+            listenJob?.cancel()
+            synced = track.id to (detail.event.status == EventStatus.PLAYING)
+            player.stopEventLocalPlayback()
+            return
+        }
         val playing = track != null && detail.event.status == EventStatus.PLAYING
         val target = track?.id to playing
         if (target == synced) return
         val previous = synced
         synced = target
+        listenJob?.cancel()
         when {
             playing && track != null -> {
-                player.forEvent { player.play(listOf(track), 0) }
-                scope.launch {
-                    // Spotify needs a moment to start the song before it can jump to the event's moment.
+                listenJob = scope.launch {
+                    if (player.isPlaying && player.track?.id != track.id) {
+                        player.forEvent { player.togglePlay() }
+                    }
+                    val playable = try {
+                        resolveTrack(track)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (playable == null) {
+                        player.reportPlaybackError(UiText.of(Res.string.event_track_unavailable))
+                        return@launch
+                    }
+                    if (event?.id != detail.event.id || synced != target) return@launch
+                    player.forEvent { player.play(listOf(playable), 0) }
                     delay(SEEK_DELAY_MS)
-                    if (event?.id != detail.event.id) return@launch
+                    if (event?.id != detail.event.id || synced != target) return@launch
                     player.forEvent { player.seek(detail.progressMs + (Clock.System.now().toEpochMilliseconds() - detail.sentAt)) }
                 }
             }
@@ -210,6 +282,9 @@ class EventFocus(private val api: MusicRoomApi, private val player: PlayerContro
             previous?.second == true && player.isPlaying -> player.forEvent { player.togglePlay() }
         }
     }
+
+    private suspend fun resolveTrack(track: TrackResponse): TrackResponse? =
+        providers?.resolve(track)
 
     /** The position to send for [target], when its votes need one; throws [LocationUnavailable] when unknown. */
     private suspend fun location(target: EventResponse): GeoPoint? =

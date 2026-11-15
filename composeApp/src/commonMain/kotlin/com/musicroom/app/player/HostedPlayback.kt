@@ -1,6 +1,7 @@
 package com.musicroom.app.player
 
 import com.musicroom.shared.MusicRoomApi
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.TrackResponse
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -17,7 +18,9 @@ class HostedPlayback(
     private val scope: CoroutineScope,
     private val onEnded: () -> Unit,
     private val onError: (Exception) -> Unit,
-) {
+) : DevicePlaybackSession {
+    override val source = TrackSource.MUSIC_ROOM
+    override fun start(track: TrackResponse) = play(track)
     private val audio = LocalAudioPlayer()
     private val cache = LinkedHashMap<String, ByteArray>()
     private var job: Job? = null
@@ -48,21 +51,21 @@ class HostedPlayback(
         }
     }
 
-    fun pause() {
+    override fun pause() {
         playing = false
         audio.pause()
     }
 
-    fun resume() {
+    override fun resume() {
         playing = true
         audio.play()
     }
 
-    fun seek(positionMs: Long) = audio.seek(positionMs)
+    override fun seek(positionMs: Long) = audio.seek(positionMs)
 
-    fun positionMs(): Long = audio.positionMs()
+    override fun positionMs(): Long = audio.positionMs()
 
-    fun stop() {
+    override fun stop() {
         generation++
         playing = false
         job?.cancel()

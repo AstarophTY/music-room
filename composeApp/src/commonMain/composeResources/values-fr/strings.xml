@@ -71,11 +71,13 @@
     <string name="tab_search">Recherche</string>
     <string name="tab_events">Événements</string>
     <string name="tab_playlists">Playlists</string>
-    <string name="tab_create">Créer</string>
+    <string name="tab_settings">Paramètres</string>
     <string name="home_greeting">Salut %1$s</string>
     <string name="home_hero_title">Laisse la salle choisir le prochain son.</string>
     <string name="home_hero_body">Lance un événement en direct : chacun propose des sons et vote en temps réel.</string>
     <string name="home_hero_button">Lancer un événement</string>
+    <string name="home_rooms_title">Salles publiques</string>
+    <string name="home_rooms_empty">Aucune salle publique pour le moment. Lance-en une et invite tes amis.</string>
     <string name="home_playlists_title">Tes playlists</string>
     <string name="search_placeholder">Titres, artistes, albums, personnes</string>
     <string name="search_browse">Explorer par ambiance</string>
@@ -85,7 +87,14 @@
     <string name="genre_electro">Électro</string>
     <string name="genre_jazz">Jazz</string>
     <string name="genre_chill">Détente</string>
-    <string name="events_title">Trouve un événement</string>
+    <string name="genre_rnb">R&amp;B</string>
+    <string name="genre_latin">Latino</string>
+    <string name="genre_classical">Classique</string>
+    <string name="genre_reggae">Reggae</string>
+    <string name="genre_country">Country</string>
+    <string name="genre_metal">Metal</string>
+    <string name="genre_indie">Indie</string>
+    <string name="genre_soul">Soul</string>
     <string name="events_filter_nearby">À proximité</string>
     <string name="events_filter_public">Publics</string>
     <string name="events_filter_invited">Invitations</string>
@@ -102,7 +111,6 @@
     <string name="create_playlist_body">Crée une playlist seul ou à plusieurs, et écoute-la.</string>
     <string name="create_control_title">Partager le contrôle</string>
     <string name="create_control_body">Laisse tes amis lancer, mettre en pause ou passer les sons sur ton appareil.</string>
-    <string name="profile_title">Profil</string>
     <string name="profile_open">Ouvrir ton profil</string>
     <string name="sidebar_collapse">Masquer le menu</string>
     <string name="sidebar_expand">Afficher le menu</string>
@@ -231,9 +239,8 @@
     <string name="spotify_not_connected">Non connecté</string>
     <string name="spotify_disconnect">Déconnecter Spotify</string>
     <string name="spotify_playback_note">La musique passe par Spotify Connect : il faut Spotify Premium et l’app Spotify ouverte sur un de tes appareils (téléphone, ordinateur, enceinte).</string>
-    <string name="spotify_open">Ouvrir Spotify</string>
+    <string name="player_open_app">Ouvrir %1$s</string>
     <string name="profile_section_music">Musique</string>
-    <string name="reco_title">Pour toi</string>
     <string name="reco_top_tracks">Tes titres préférés</string>
     <string name="reco_artist">Parce que tu écoutes %1$s</string>
     <string name="reco_empty">Écoute quelques titres sur Spotify et tes recommandations apparaîtront ici.</string>
@@ -266,7 +273,7 @@
     <string name="devices_choose">Choisir un appareil</string>
     <string name="devices_active">Lecture en cours ici</string>
     <string name="devices_refresh">Actualiser</string>
-    <string name="devices_empty">Aucun appareil trouvé. Ouvre Spotify sur ton téléphone, ton ordinateur ou une enceinte, puis actualise.</string>
+    <string name="devices_empty">Aucun appareil trouvé. Ouvre %1$s sur ton téléphone, ton ordinateur ou une enceinte, puis actualise.</string>
     <string name="now_playing_title">En cours de lecture</string>
     <string name="now_playing_open">Ouvrir le lecteur</string>
     <string name="now_playing_nothing">Rien n’est en lecture. Choisis un son pour commencer.</string>
@@ -293,11 +300,11 @@
     <string name="error_spotify_no_device">Ouvre l’app Spotify sur un de tes appareils, puis réessaie</string>
     <string name="error_spotify_premium_required">La lecture nécessite Spotify Premium</string>
     <string name="playlists_mine">Créées dans Music Room</string>
-    <string name="playlists_spotify">Depuis Spotify</string>
+    <string name="playlists_from_provider">Depuis %1$s</string>
     <string name="playlists_by">par %1$s</string>
     <string name="playlists_play">Lire</string>
-    <string name="playlists_open_spotify">Ouvrir dans Spotify</string>
-    <string name="playlists_spotify_empty">Pas encore de playlist sur ton compte Spotify.</string>
+    <string name="playlists_open_provider">Ouvrir dans %1$s</string>
+    <string name="playlists_provider_empty">Pas encore de playlist sur ton compte %1$s.</string>
     <string name="error_spotify_playlist_restricted">Spotify ne montre que les titres de tes propres playlists. Tu peux quand même la lancer.</string>
     <plurals name="playlists_track_count">
         <item quantity="one">%1$d titre</item>
@@ -433,7 +440,6 @@
     <string name="event_paused">En pause</string>
     <string name="event_now_playing">En cours</string>
     <string name="event_nothing_playing">Rien ne joue pour l’instant.</string>
-    <string name="event_host_streams">%1$s lance la musique : écoute l’événement pour l’entendre sur ton Spotify, ou contente-toi de voter.</string>
     <string name="event_start">Lancer la musique</string>
     <string name="event_resume">Reprendre</string>
     <string name="event_pause">Pause</string>
@@ -450,8 +456,6 @@
     <string name="event_proposed_by">proposé par %1$s</string>
     <string name="event_focus">Écouter cet événement</string>
     <string name="event_unfocus">Ne plus écouter</string>
-    <string name="event_focus_hint">Ton Spotify suit sa musique, et les sons ajoutés à la file (ou swipés vers la droite) sont proposés ici.</string>
-    <string name="event_focus_premium">Écouter un événement demande un compte Spotify Premium lié.</string>
     <string name="player_locked_by_event">Tu écoutes un événement : arrête de l’écouter pour jouer ta propre musique.</string>
     <string name="event_focus_listening">Tu écoutes %1$s</string>
     <string name="event_focus_proposed">%1$s proposé</string>
@@ -517,4 +521,5 @@
     <string name="error_audio_too_large">Ce fichier est trop lourd (20 Mo au plus).</string>
     <string name="error_hosted_track_limit">Tu as ajouté le nombre maximum de sons. Supprimes-en un pour en ajouter un autre.</string>
     <string name="error_hosted_track_not_allowed">Les événements jouent sur Spotify : les sons ajoutés à Music Room ne peuvent pas y aller.</string>
+    <string name="queue_propose_songs">Proposer des morceaux</string>
 </resources>

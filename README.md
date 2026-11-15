@@ -112,6 +112,7 @@ make psql   # then: SELECT email, password_hash FROM users;
 | `make android-sdk` | Install the Android SDK + an emulator (no root needed)                            |
 | `make emulator`    | Start the Android emulator                                                        |
 | `make android`     | Install and launch the app on the connected emulator/device                       |
+| `make ios`         | Build and launch the app on an iOS simulator (macOS + Xcode)                      |
 | `make linux`       | Run the desktop app (on WSL it opens through WSLg)                                |
 | `make windows`     | Build the Windows app with its own Java in `build/windows/MusicRoom` and start it |
 | `make web`         | Run the web app on http://localhost:3000                                          |
@@ -268,6 +269,10 @@ All secrets live in `.env`, which is git-ignored. Only `.env.example` is committ
 
 ## iOS app
 
-Open `iosApp/iosApp.xcodeproj` in Xcode and run the `iosApp` scheme on an Apple Silicon simulator or a signed device. The Xcode build invokes Gradle to build the shared Compose framework and copy its resources. The Android SDK must also be configured because `composeApp` is included only when an Android SDK is available. The project supports iOS 15 and later; Intel simulators are not supported by the current Compose dependencies.
+`make ios` builds the app and launches it on an iOS simulator (the booted one, otherwise the first available iPhone; pick another with `make ios IOS_SIMULATOR="iPhone 18 Pro"`). Build products go to `build/ios`.
+
+Alternatively, open `iosApp/iosApp.xcodeproj` in Xcode and run the `iosApp` scheme on an Apple Silicon simulator or a signed device. The Xcode build invokes Gradle to build the shared Compose framework and copy its resources. The Android SDK must also be configured because `composeApp` is included only when an Android SDK is available. The project supports iOS 15 and later; Intel simulators are not supported by the current Compose dependencies.
 
 The default server URL is `http://localhost:8080`, which reaches the host from the simulator. Set a reachable server URL on a physical device. The app currently permits HTTP connections, matching the Android client; use HTTPS for production.
+
+**Apple Music** connects with StoreKit (`NSAppleMusicUsageDescription` is in `Info.plist`) and plays through the Music app of the device (`MPMusicPlayerController`), so it needs a **physical device signed in to an Apple Music subscription**: the simulator has no music services and reports an error when a song starts. StoreKit only tells the app its region in three letters, while the catalog wants two, so the server answers it from the connected account: `GET /api/v1/apple-music/storefront` with the `Music-User-Token` header.

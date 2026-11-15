@@ -76,7 +76,7 @@ fun AddToPlaylistSheet(api: MusicRoomApi, track: TrackResponse, onDismiss: () ->
             error = null
             scope.launch {
                 try {
-                    api.addPlaylistTrack(playlist.id, track.id)
+                    api.addPlaylistTrack(playlist.id, track)
                     added = playlist
                     delay(700)
                     close()

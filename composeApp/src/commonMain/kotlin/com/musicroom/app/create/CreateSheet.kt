@@ -27,8 +27,14 @@ import com.musicroom.app.generated.resources.create_event_title
 import com.musicroom.app.generated.resources.create_playlist_body
 import com.musicroom.app.generated.resources.create_playlist_title
 import com.musicroom.app.generated.resources.create_title
+import com.musicroom.app.generated.resources.event_host_provider_required
+import com.musicroom.app.generated.resources.audio_providers_home_action
+import com.musicroom.app.generated.resources.common_back
 import com.musicroom.app.theme.components.AppBottomSheet
+import com.musicroom.app.theme.components.AppButton
+import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.app.music.MusicProviderConnection
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistResponse
 import org.jetbrains.compose.resources.stringResource
@@ -40,6 +46,8 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 fun CreateSheet(
     api: MusicRoomApi,
+    providers: List<MusicProviderConnection>,
+    onOpenProviders: () -> Unit,
     onDismiss: () -> Unit,
     onPlaylistCreated: (PlaylistResponse) -> Unit,
     onEventCreated: (String) -> Unit,
@@ -59,7 +67,13 @@ fun CreateSheet(
                 if (shown == "playlist") {
                     NewPlaylistForm(api, onBack = { form = "" }, onCreated = onPlaylistCreated)
                 } else if (shown == "event") {
-                    NewEventForm(api, onBack = { form = "" }, onCreated = onEventCreated)
+                    if (providers.any { it.available && it.connected }) {
+                        NewEventForm(api, onBack = { form = "" }, onCreated = onEventCreated)
+                    } else {
+                        Text(stringResource(Res.string.event_host_provider_required), style = AppTheme.typography.body, color = AppTheme.colors.textPrimary)
+                        AppButton(stringResource(Res.string.audio_providers_home_action), onClick = onOpenProviders)
+                        AppButton(stringResource(Res.string.common_back), onClick = { form = "" }, variant = AppButtonVariant.Secondary)
+                    }
                 } else {
                     Text(stringResource(Res.string.create_title), style = AppTheme.typography.title, color = AppTheme.colors.textPrimary)
                     CreateOptionCard(

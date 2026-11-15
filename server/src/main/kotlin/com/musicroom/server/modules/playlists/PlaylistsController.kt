@@ -70,7 +70,7 @@ class PlaylistsController(private val service: PlaylistsService) : Controller {
 
             post(ApiRoutes.PLAYLIST_TRACKS) {
                 val request = call.receive<AddPlaylistTrackRequest>()
-                call.respond(service.addTrack(call.currentUserId(), call.uuid("id"), request.trackId.trim()))
+                call.respond(service.addTrack(call.currentUserId(), call.uuid("id"), request.trackId.trim(), request.catalogId))
             }
             delete(ApiRoutes.PLAYLIST_TRACK) {
                 call.respond(service.removeTrack(call.currentUserId(), call.uuid("id"), call.uuid("entryId")))

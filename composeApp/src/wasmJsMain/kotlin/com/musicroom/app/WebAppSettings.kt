@@ -5,6 +5,9 @@ import com.musicroom.app.theme.ThemeMode
 import kotlinx.browser.localStorage
 
 internal class WebAppSettings : AppSettings {
+    override var providerChoiceSeen: Boolean
+        get() = localStorage.getItem("music-room.provider_choice_seen") == "true"
+        set(value) = localStorage.setItem("music-room.provider_choice_seen", value.toString())
     override var themeMode: ThemeMode
         get() = localStorage.getItem(THEME_KEY)?.let { saved -> ThemeMode.entries.firstOrNull { it.name == saved } }
             ?: ThemeMode.System

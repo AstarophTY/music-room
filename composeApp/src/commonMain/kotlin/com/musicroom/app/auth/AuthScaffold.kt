@@ -9,31 +9,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.composables.icons.lucide.ArrowLeft
-import com.composables.icons.lucide.Lucide
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.common.WindowSize
-import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.app_name
-import com.musicroom.app.generated.resources.common_back
-import com.musicroom.app.generated.resources.signup_step
-import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
-import org.jetbrains.compose.resources.stringResource
 
 /**
  * Common layout of the auth screens: brand mark or back arrow, step progress, title, subtitle, then [content].

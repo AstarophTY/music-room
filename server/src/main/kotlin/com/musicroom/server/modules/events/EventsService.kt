@@ -9,7 +9,7 @@ import com.musicroom.server.modules.events.entities.Event
 import com.musicroom.server.modules.events.entities.EventTrack
 import com.musicroom.server.modules.events.entities.EventTracksTable
 import com.musicroom.server.modules.social.PeopleRepository
-import com.musicroom.server.modules.spotify.SpotifyService
+import com.musicroom.server.modules.catalog.TrackCatalog
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.EventValidation
 import com.musicroom.shared.GeoDistance
@@ -25,6 +25,8 @@ import com.musicroom.shared.dto.EventsResponse
 import com.musicroom.shared.dto.EventsScope
 import com.musicroom.shared.dto.GeoPoint
 import com.musicroom.shared.dto.PublicUserResponse
+import com.musicroom.shared.dto.CatalogId
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.TrackResponse
 import java.time.OffsetDateTime
 import java.util.UUID
@@ -40,11 +42,12 @@ class EventsService(
     private val events: EventsRepository,
     private val tracks: EventTracksRepository,
     private val people: PeopleRepository,
-    private val spotify: SpotifyService,
+    private val catalog: TrackCatalog,
+    playback: EventPlaybackProviders,
     private val friends: EventFriends,
 ) {
     val hub = EventsHub { eventId, userIds -> render(eventId, userIds) }
-    val player = EventPlayer(events, tracks, spotify, onChange = hub::changed)
+    val player = EventPlayer(events, tracks, playback, onChange = hub::changed)
 
     suspend fun create(userId: UUID, request: CreateEventRequest): EventDetailResponse {
         validate(request)
@@ -92,8 +95,8 @@ class EventsService(
         return render(eventId, setOf(userId)).getValue(userId)
     }
 
-    /** Proposes a Spotify track (with the proposer's vote), or votes for it when it already waits in the queue. */
-    suspend fun propose(userId: UUID, eventId: UUID, trackId: String, location: GeoPoint?): EventDetailResponse {
+    /** Proposes a catalog track (with the proposer's vote), or votes for it when it already waits in the queue. */
+    suspend fun propose(userId: UUID, eventId: UUID, trackId: String, location: GeoPoint?, identity: CatalogId? = null): EventDetailResponse {
         val event = visible(userId, eventId)
         checkVote(event, userId, location)
         if (event.ownerId != userId && tracks.queuedBy(eventId, userId) >= MAX_QUEUED_PER_USER) {
@@ -101,11 +104,13 @@ class EventsService(
         }
         if (trackId.isBlank() || trackId.length > 64) throw BadRequestException("Unknown track")
         // The event plays on Spotify, which cannot play the songs uploaded to Music Room.
-        if (trackId.startsWith(TrackResponse.HOSTED_PREFIX)) {
+        val parsed = CatalogId.fromLegacy(trackId) ?: throw BadRequestException("Invalid catalog identifier")
+        if (identity != null && identity != parsed) throw BadRequestException("Catalog identifier does not match track ID")
+        if (parsed.source == TrackSource.MUSIC_ROOM) {
             throw BadRequestException("Songs uploaded to Music Room cannot play in an event", ApiErrors.HOSTED_TRACK_NOT_ALLOWED)
         }
-        // The details come from Spotify, not from the app.
-        val track = spotify.track(userId, trackId)
+        // Resolve catalogue metadata on the server before accepting a track.
+        val track = catalog.track(userId, parsed)
         tracks.propose(eventId, track, userId)
         hub.changed(eventId)
         return detail(userId, eventId)

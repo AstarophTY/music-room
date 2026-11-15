@@ -9,62 +9,59 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import com.composables.icons.lucide.Bell
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
-import com.musicroom.app.common.UserAvatar
-import com.musicroom.app.common.Equalizer
 import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.app_name
+import com.musicroom.app.generated.resources.home_greeting
+import com.musicroom.app.generated.resources.home_playlists_title
 import com.musicroom.app.generated.resources.messages_title
 import com.musicroom.app.generated.resources.notifications_title
-import com.musicroom.app.generated.resources.profile_open
+import com.musicroom.app.generated.resources.tab_events
+import com.musicroom.app.generated.resources.tab_search
+import com.musicroom.app.generated.resources.tab_settings
 import com.musicroom.app.social.BadgedIconButton
-import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppTheme
-import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.SocialCountsResponse
 import com.musicroom.shared.dto.UserResponse
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Avatar on the left (opens the profile), app name, a small live equalizer, then the notifications bell and the
- * chats, each with the number of what waits.
+ * Top bar: shows the current tab title (display typography) on the left aligned with the notifications bell
+ * and messages chat icons on the right.
  */
 @Composable
 fun MainTopBar(
-    api: MusicRoomApi,
+    tab: MainTab,
     user: UserResponse,
     counts: SocialCountsResponse,
-    onOpenProfile: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenMessages: () -> Unit,
 ) {
     val colors = AppTheme.colors
-    val openProfile = stringResource(Res.string.profile_open)
+    val title = when (tab) {
+        MainTab.Home -> stringResource(Res.string.home_greeting, user.displayName)
+        MainTab.Search -> stringResource(Res.string.tab_search)
+        MainTab.Events -> stringResource(Res.string.tab_events)
+        MainTab.Playlists -> stringResource(Res.string.home_playlists_title)
+        MainTab.Settings -> stringResource(Res.string.tab_settings)
+    }
     Row(
         Modifier.fillMaxWidth().statusBarsPadding()
             .padding(horizontal = AppTheme.spacing.md, vertical = AppTheme.spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        UserAvatar(
-            api,
-            user,
-            Modifier.pressable(onClick = onOpenProfile).semantics { contentDescription = openProfile },
-            size = 40.dp,
-        )
         Text(
-            stringResource(Res.string.app_name),
+            title,
             modifier = Modifier.weight(1f),
-            style = AppTheme.typography.heading,
+            style = AppTheme.typography.display,
             color = colors.textPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        Equalizer(color = colors.accentText, height = 18.dp)
-        Row {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             BadgedIconButton(Lucide.Bell, stringResource(Res.string.notifications_title), counts.unreadNotifications, onOpenNotifications)
             BadgedIconButton(Lucide.MessageCircle, stringResource(Res.string.messages_title), counts.unreadMessages, onOpenMessages)
         }

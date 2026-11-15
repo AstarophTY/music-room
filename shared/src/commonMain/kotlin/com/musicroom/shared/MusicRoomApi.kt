@@ -6,6 +6,7 @@ import com.musicroom.shared.dto.AlbumDetailResponse
 import com.musicroom.shared.dto.ArtistDetailResponse
 import com.musicroom.shared.dto.AuthResponse
 import com.musicroom.shared.dto.BillingUrlResponse
+import com.musicroom.shared.dto.CatalogId
 import com.musicroom.shared.dto.ChangePasswordRequest
 import com.musicroom.shared.dto.CreatePlaylistRequest
 import com.musicroom.shared.dto.ConversationsResponse
@@ -53,8 +54,11 @@ import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.SearchResponse
 import com.musicroom.shared.dto.ResetPasswordRequest
 import com.musicroom.shared.dto.SpotifyConnectResponse
+import com.musicroom.shared.dto.AppleMusicDeveloperToken
+import com.musicroom.shared.dto.AppleMusicStorefront
 import com.musicroom.shared.dto.SpotifyStatusResponse
 import com.musicroom.shared.dto.TrackPageResponse
+import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.TrackResponse
 import com.musicroom.shared.dto.TransferRequest
 import com.musicroom.shared.dto.TwoFactorChallengeResponse
@@ -79,6 +83,7 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.request
@@ -198,6 +203,32 @@ class MusicRoomApi(
 
     suspend fun spotifyStatus(): SpotifyStatusResponse = authorized(HttpMethod.Get, ApiRoutes.SPOTIFY_STATUS).bodyOrThrow()
 
+    suspend fun appleMusicDeveloperToken(): AppleMusicDeveloperToken =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_DEVELOPER_TOKEN).bodyOrThrow()
+
+    /** The region of the Apple Music account behind [userToken], which the catalog routes need. */
+    suspend fun appleMusicStorefront(userToken: String): AppleMusicStorefront =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_STOREFRONT) {
+            header(ApiRoutes.APPLE_MUSIC_USER_TOKEN_HEADER, userToken)
+        }.bodyOrThrow()
+
+    suspend fun searchAppleMusic(query: String, storefront: String): SearchResponse =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_SEARCH) {
+            url.parameters.append("q", query)
+            url.parameters.append("storefront", storefront)
+        }.bodyOrThrow()
+
+    suspend fun appleMusicCharts(storefront: String): TrackPageResponse =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_CHARTS) {
+            url.parameters.append("storefront", storefront)
+        }.bodyOrThrow()
+
+    suspend fun matchAppleMusic(isrc: String, storefront: String): TrackPageResponse =
+        authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_MATCH) {
+            url.parameters.append("isrc", isrc)
+            url.parameters.append("storefront", storefront)
+        }.bodyOrThrow()
+
     /** Returns the Spotify page to open in the browser to connect the account. */
     suspend fun spotifyConnect(): SpotifyConnectResponse =
         authorized(HttpMethod.Post, ApiRoutes.SPOTIFY_CONNECT).bodyOrThrow()
@@ -214,9 +245,21 @@ class MusicRoomApi(
     suspend fun search(query: String): SearchResponse =
         authorized(HttpMethod.Get, ApiRoutes.MUSIC_SEARCH_ALL) { url.parameters.append("q", query) }.bodyOrThrow()
 
-    suspend fun artist(id: String): ArtistDetailResponse = authorized(HttpMethod.Get, ApiRoutes.artist(id)).bodyOrThrow()
+    suspend fun artist(id: String): ArtistDetailResponse = artist(requireNotNull(CatalogId.fromLegacy(id)) { "Invalid artist catalog identity" })
 
-    suspend fun album(id: String): AlbumDetailResponse = authorized(HttpMethod.Get, ApiRoutes.album(id)).bodyOrThrow()
+    suspend fun artist(id: CatalogId): ArtistDetailResponse = when (id.source) {
+        TrackSource.APPLE_MUSIC -> authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_ARTIST) { parameter("id", id.toLegacy()) }.bodyOrThrow()
+        TrackSource.SPOTIFY -> authorized(HttpMethod.Get, ApiRoutes.artist(id.externalId)).bodyOrThrow()
+        TrackSource.MUSIC_ROOM -> throw IllegalArgumentException("Hosted artists are not supported")
+    }
+
+    suspend fun album(id: String): AlbumDetailResponse = album(requireNotNull(CatalogId.fromLegacy(id)) { "Invalid album catalog identity" })
+
+    suspend fun album(id: CatalogId): AlbumDetailResponse = when (id.source) {
+        TrackSource.APPLE_MUSIC -> authorized(HttpMethod.Get, ApiRoutes.APPLE_MUSIC_ALBUM) { parameter("id", id.toLegacy()) }.bodyOrThrow()
+        TrackSource.SPOTIFY -> authorized(HttpMethod.Get, ApiRoutes.album(id.externalId)).bodyOrThrow()
+        TrackSource.MUSIC_ROOM -> throw IllegalArgumentException("Hosted albums are not supported")
+    }
 
     suspend fun track(id: String): TrackResponse = authorized(HttpMethod.Get, ApiRoutes.track(id)).bodyOrThrow()
 
@@ -304,7 +347,12 @@ class MusicRoomApi(
 
     /** Adds a Spotify track at the end of the playlist. */
     suspend fun addPlaylistTrack(id: String, trackId: String): PlaylistDetailResponse =
-        authorized(HttpMethod.Post, ApiRoutes.roomPlaylistTracks(id)) { jsonBody(AddPlaylistTrackRequest(trackId)) }.bodyOrThrow()
+        authorized(HttpMethod.Post, ApiRoutes.roomPlaylistTracks(id)) { jsonBody(AddPlaylistTrackRequest(trackId, CatalogId.fromLegacy(trackId))) }.bodyOrThrow()
+
+    suspend fun addPlaylistTrack(id: String, track: TrackResponse): PlaylistDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.roomPlaylistTracks(id)) {
+            jsonBody(AddPlaylistTrackRequest(track.id, requireNotNull(track.catalogId) { "Invalid track catalog identity" }))
+        }.bodyOrThrow()
 
     suspend fun removePlaylistTrack(id: String, entryId: String): PlaylistDetailResponse =
         authorized(HttpMethod.Delete, ApiRoutes.roomPlaylistTrack(id, entryId)).bodyOrThrow()
@@ -426,7 +474,12 @@ class MusicRoomApi(
 
     /** Proposes a Spotify track (with the user's vote). [location]: needed when votes are limited to an area. */
     suspend fun proposeEventTrack(id: String, trackId: String, location: GeoPoint? = null): EventDetailResponse =
-        authorized(HttpMethod.Post, ApiRoutes.eventTracks(id)) { jsonBody(ProposeTrackRequest(trackId, location)) }.bodyOrThrow()
+        authorized(HttpMethod.Post, ApiRoutes.eventTracks(id)) { jsonBody(ProposeTrackRequest(trackId, location, CatalogId.fromLegacy(trackId))) }.bodyOrThrow()
+
+    suspend fun proposeEventTrack(id: String, track: TrackResponse, location: GeoPoint? = null): EventDetailResponse =
+        authorized(HttpMethod.Post, ApiRoutes.eventTracks(id)) {
+            jsonBody(ProposeTrackRequest(track.id, location, requireNotNull(track.catalogId) { "Invalid track catalog identity" }))
+        }.bodyOrThrow()
 
     suspend fun removeEventTrack(id: String, trackId: String): EventDetailResponse =
         authorized(HttpMethod.Delete, ApiRoutes.eventTrack(id, trackId)).bodyOrThrow()
@@ -474,7 +527,10 @@ class MusicRoomApi(
     }
 
     /** Downloads a public file (album cover...). */
-    suspend fun download(url: String): ByteArray = plainHttp.get(url).bodyOrThrow()
+    suspend fun download(url: String): ByteArray {
+        val target = if (url.startsWith("http://") || url.startsWith("https://")) url else url(url)
+        return plainHttp.get(target).bodyOrThrow()
+    }
 
     suspend fun deleteAvatar(): UserResponse = authorized(HttpMethod.Delete, ApiRoutes.USERS_ME_AVATAR).bodyOrThrow()
 

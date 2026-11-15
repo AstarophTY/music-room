@@ -15,6 +15,7 @@ local.properties
 *.iml
 .vscode/
 .fleet/
+skills/
 
 .DS_Store
 Thumbs.db

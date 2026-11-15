@@ -40,7 +40,6 @@ import com.musicroom.app.generated.resources.events_empty_title
 import com.musicroom.app.generated.resources.events_nearby_empty
 import com.musicroom.app.generated.resources.events_nearby_unavailable
 import com.musicroom.app.generated.resources.events_subtitle
-import com.musicroom.app.generated.resources.events_title
 import com.musicroom.app.player.PlayerController
 import com.musicroom.app.theme.components.AppChip
 import com.musicroom.app.theme.tokens.AppTheme
@@ -123,10 +122,7 @@ fun EventsScreen(
             return@AnimatedContent
         }
         TabContent {
-            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
-                Text(stringResource(Res.string.events_title), style = AppTheme.typography.display, color = colors.textPrimary)
-                Text(stringResource(Res.string.events_subtitle), style = AppTheme.typography.body, color = colors.textSecondary)
-            }
+            Text(stringResource(Res.string.events_subtitle), style = AppTheme.typography.body, color = colors.textSecondary)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm)) {
                 EventFilter.entries.forEach { option ->
                     AppChip(stringResource(option.label), selected = option == filter, onClick = { filter = option })

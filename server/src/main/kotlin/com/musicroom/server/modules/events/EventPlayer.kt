@@ -4,9 +4,7 @@ import com.musicroom.server.common.exceptions.HttpException
 import com.musicroom.server.modules.events.entities.Event
 import com.musicroom.server.modules.events.entities.EventTrack
 import com.musicroom.server.modules.events.entities.EventTracksTable
-import com.musicroom.server.modules.spotify.SpotifyService
 import com.musicroom.shared.dto.EventStatus
-import com.musicroom.shared.dto.PlayRequest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.TimeSource
@@ -35,7 +33,7 @@ import org.slf4j.LoggerFactory
 class EventPlayer(
     private val events: EventsRepository,
     private val tracks: EventTracksRepository,
-    private val spotify: SpotifyService,
+    private val providers: EventPlaybackProviders,
     private val onChange: (UUID) -> Unit,
 ) {
     private val log = LoggerFactory.getLogger(EventPlayer::class.java)
@@ -93,7 +91,7 @@ class EventPlayer(
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
         when {
             event.status == EventStatus.PAUSED && current != null -> {
-                if (streams(event)) spotify.play(event.ownerId, PlayRequest())
+                remote(event, current)?.play(event.ownerId)
                 // The clock goes on from where it was paused.
                 positions[event.id] = progressMs(event) to System.currentTimeMillis()
             }
@@ -106,7 +104,8 @@ class EventPlayer(
     }
 
     suspend fun pause(event: Event) = lock(event.id).withLock {
-        if (streams(event)) spotify.pause(event.ownerId)
+        val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+        remote(event, current)?.pause(event.ownerId)
         positions[event.id] = progressMs(event) to System.currentTimeMillis()
         events.setStatus(event.id, EventStatus.PAUSED)
         onChange(event.id)
@@ -123,7 +122,8 @@ class EventPlayer(
     /** Stops the event's music: the current song counts as played, the next one goes back to the vote. */
     suspend fun stop(event: Event) = lock(event.id).withLock {
         try {
-            if (streams(event)) spotify.pause(event.ownerId)
+            val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+            remote(event, current)?.pause(event.ownerId)
         } catch (e: HttpException) {
             // Nothing to pause on Spotify: stopping the event is enough.
         }
@@ -149,8 +149,9 @@ class EventPlayer(
     }
 
     private suspend fun check(event: Event) {
-        if (!streams(event)) return checkClock(event)
-        val state = spotify.playbackState(event.ownerId)
+        val currentTrack = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+        val remote = remote(event, currentTrack) ?: return checkClock(event)
+        val state = remote.state(event.ownerId)
         positions[event.id] = state.progressMs to System.currentTimeMillis()
         val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
         val next = tracks.withStatus(event.id, EventTracksTable.NEXT)
@@ -188,18 +189,19 @@ class EventPlayer(
         }
     }
 
-    /** The owner's Spotify plays the event: a linked Premium account (playback control needs Premium). */
-    private suspend fun streams(event: Event): Boolean {
-        val status = spotify.status(event.ownerId)
-        return status.configured && status.connected && status.product == PREMIUM
-    }
+    private suspend fun remote(event: Event, track: EventTrack?): EventPlaybackProviders.Provider? =
+        providers.forTrack(track?.track)?.takeIf { it.available(event.ownerId) }
 
-    /** Hands the most voted song to Spotify's queue: it plays after the current one. */
+    /** Hands the most voted song to the queue of the provider playing now: it plays after the current one. */
     private suspend fun queueTop(event: Event) {
         val top = tracks.top(event.id) ?: return
+        val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+        val provider = remote(event, current) ?: return
+        // A different provider cannot be prequeued remotely; playTop handles it when the current track ends.
+        if (providers.forTrack(top.track) !== provider) return
         tracks.setStatus(top.id, EventTracksTable.NEXT)
         try {
-            spotify.addToQueue(event.ownerId, listOf(top.track.uri))
+            provider.enqueue(event.ownerId, top.track)
         } catch (e: HttpException) {
             tracks.setStatus(top.id, EventTracksTable.QUEUED)
             throw e
@@ -216,7 +218,13 @@ class EventPlayer(
     }
 
     private suspend fun playTrack(event: Event, track: EventTrack) {
-        if (streams(event)) spotify.play(event.ownerId, PlayRequest(uris = listOf(track.track.uri)))
+        val provider = providers.forTrack(track.track)
+        if (provider != null) {
+            if (provider.available(event.ownerId)) provider.play(event.ownerId, track.track)
+        } else {
+            val current = tracks.withStatus(event.id, EventTracksTable.PLAYING)
+            remote(event, current)?.pause(event.ownerId)
+        }
         tracks.setStatus(track.id, EventTracksTable.PLAYING)
         startedAt[event.id] = TimeSource.Monotonic.markNow()
         positions[event.id] = 0L to System.currentTimeMillis()
@@ -246,6 +254,5 @@ class EventPlayer(
 
         const val START_GRACE_MS = 10_000L
 
-        const val PREMIUM = "premium"
     }
 }
