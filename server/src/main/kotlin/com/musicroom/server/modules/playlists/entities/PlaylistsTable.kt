@@ -8,7 +8,9 @@ import org.jetbrains.exposed.v1.javatime.timestampWithTimeZone
 object PlaylistsTable : UUIDTable("playlists") {
     val ownerId = reference("owner_id", UsersTable, onDelete = ReferenceOption.CASCADE)
     val name = varchar("name", 64)
-    val type = varchar("type", 16)
+    val visibility = varchar("visibility", 16)
+    val editLicense = varchar("edit_license", 16)
+    val revision = long("revision")
     val coverUpdatedAt = timestampWithTimeZone("cover_updated_at").nullable()
     val createdAt = timestampWithTimeZone("created_at")
     val updatedAt = timestampWithTimeZone("updated_at")

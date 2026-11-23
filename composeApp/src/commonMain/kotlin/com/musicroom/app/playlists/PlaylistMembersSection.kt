@@ -39,7 +39,7 @@ import com.musicroom.app.generated.resources.playlist_leave
 import com.musicroom.app.generated.resources.playlist_member_remove
 import com.musicroom.app.generated.resources.playlist_members
 import com.musicroom.app.generated.resources.playlist_owner
-import com.musicroom.app.generated.resources.playlist_personal_hint
+import com.musicroom.app.generated.resources.playlist_license_everyone_hint
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.components.AppChip
@@ -51,14 +51,14 @@ import com.musicroom.shared.dto.PlaylistAccess
 import com.musicroom.shared.dto.PlaylistDetailResponse
 import com.musicroom.shared.dto.PlaylistMemberResponse
 import com.musicroom.shared.dto.PublicUserResponse
-import com.musicroom.shared.dto.PlaylistType
+import com.musicroom.shared.dto.PlaylistEditLicense
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * Who is in the playlist and what they can do. The owner adds friends in one tap (they get a notification) or
- * anyone by email, with "can listen" or "can edit" (only for a shared playlist), changes their rights and
+ * anyone by email, with "can listen" or "can edit" (which matters with the "invited" license), changes their rights and
  * removes them; a member can leave.
  */
 @Composable
@@ -71,13 +71,13 @@ fun PlaylistMembersSection(
 ) {
     val colors = AppTheme.colors
     val playlist = detail.playlist
-    val shared = playlist.type == PlaylistType.SHARED
+    val invitedOnly = playlist.editLicense == PlaylistEditLicense.INVITED
     val scope = rememberCoroutineScope()
     var email by remember { mutableStateOf("") }
     var access by remember { mutableStateOf(PlaylistAccess.READ) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<UiText?>(null) }
-    val inviteAccess = if (shared) access else PlaylistAccess.READ
+    val inviteAccess = if (invitedOnly) access else PlaylistAccess.READ
     // The owner's friends, to invite in one tap. Null until loaded (or when it failed: the email still works).
     var friends by remember { mutableStateOf<List<PublicUserResponse>?>(null) }
     LaunchedEffect(playlist.isOwner) {
@@ -132,7 +132,7 @@ fun PlaylistMembersSection(
         detail.members.forEach { member ->
             memberRow(member, accessLabel(member.access)) {
                 if (playlist.isOwner) {
-                    if (shared) {
+                    if (invitedOnly) {
                         // Tapping the chip switches between "can listen" and "can edit".
                         AppChip(
                             accessLabel(member.access),
@@ -205,7 +205,7 @@ fun PlaylistMembersSection(
                     enabled = !busy,
                     variant = if (inviteAccess == PlaylistAccess.READ) AppButtonVariant.Primary else AppButtonVariant.Secondary,
                 )
-                if (shared) {
+                if (invitedOnly) {
                     AppButton(
                         accessLabel(PlaylistAccess.WRITE),
                         { access = PlaylistAccess.WRITE },
@@ -231,8 +231,8 @@ fun PlaylistMembersSection(
                     icon = Lucide.UserPlus,
                 )
             }
-            if (!shared) {
-                Text(stringResource(Res.string.playlist_personal_hint), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+            if (!invitedOnly) {
+                Text(stringResource(Res.string.playlist_license_everyone_hint), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
             }
         } else {
             AppButton(

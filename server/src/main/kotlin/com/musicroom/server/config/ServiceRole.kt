@@ -14,6 +14,9 @@ enum class ServiceRole {
     /** Its social events must reach the WebSockets held by the realtime service. */
     val relaysSocialEvents: Boolean get() = !runsRealtime
 
+    /** Several replicas may serve playlists: their changes go through PostgreSQL to reach every WebSocket. */
+    val relaysPlaylistChanges: Boolean get() = this == LIBRARY
+
     companion object {
         fun parse(value: String): ServiceRole =
             entries.firstOrNull { it.name.equals(value.trim(), ignoreCase = true) }

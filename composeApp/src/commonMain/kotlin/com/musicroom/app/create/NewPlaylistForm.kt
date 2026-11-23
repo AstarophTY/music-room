@@ -32,7 +32,6 @@ import com.musicroom.app.generated.resources.playlist_create_button
 import com.musicroom.app.generated.resources.playlist_name_label
 import com.musicroom.app.generated.resources.playlist_photo_add
 import com.musicroom.app.generated.resources.playlist_photo_change
-import com.musicroom.app.generated.resources.playlist_type
 import com.musicroom.app.generated.resources.playlists_create
 import com.musicroom.app.playlists.PlaylistCover
 import com.musicroom.app.theme.components.AppButton
@@ -45,20 +44,22 @@ import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.PlaylistValidation
 import com.musicroom.shared.dto.CreatePlaylistRequest
 import com.musicroom.shared.dto.PlaylistResponse
-import com.musicroom.shared.dto.PlaylistType
+import com.musicroom.shared.dto.PlaylistEditLicense
+import com.musicroom.shared.dto.PlaylistVisibility
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.stringResource
 
-/** Name, type and optional photo of a new playlist. The photo is uploaded right after the playlist is created. */
+/** Name, rights and optional photo of a new playlist. The photo is uploaded right after the playlist is created. */
 @Composable
 fun NewPlaylistForm(api: MusicRoomApi, onCreated: (PlaylistResponse) -> Unit) {
     val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
-    var type by remember { mutableStateOf(PlaylistType.PERSONAL) }
+    var visibility by remember { mutableStateOf(PlaylistVisibility.PUBLIC) }
+    var license by remember { mutableStateOf(PlaylistEditLicense.EVERYONE) }
     var photo by remember { mutableStateOf<PickedImage?>(null) }
     val preview = remember(photo) { photo?.let { runCatching { it.bytes.decodeToImageBitmap() }.getOrNull() } }
     var busy by remember { mutableStateOf(false) }
@@ -74,7 +75,7 @@ fun NewPlaylistForm(api: MusicRoomApi, onCreated: (PlaylistResponse) -> Unit) {
         error = null
         scope.launch {
             try {
-                val created = api.createPlaylist(CreatePlaylistRequest(name.trim(), type))
+                val created = api.createPlaylist(CreatePlaylistRequest(name.trim(), visibility, license))
                 val picked = photo
                 // The playlist exists even if the photo upload fails: it can be added again from the playlist.
                 val coverVersion = picked?.let {
@@ -116,10 +117,7 @@ fun NewPlaylistForm(api: MusicRoomApi, onCreated: (PlaylistResponse) -> Unit) {
         }
     }
 
-    Text(stringResource(Res.string.playlist_type), style = AppTheme.typography.label, color = colors.textSecondary)
-    PlaylistType.entries.forEach { option ->
-        PlaylistTypeOption(option, selected = type == option, onClick = { type = option }, enabled = !busy)
-    }
+    PlaylistRightsOptions(visibility, license, { visibility = it }, { license = it }, enabled = !busy)
 
     AnimatedVisibility(error != null) {
         error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }

@@ -322,10 +322,6 @@
         <item quantity="other">%1$d tracks</item>
     </plurals>
     <string name="playlist_name_label">Playlist name</string>
-    <string name="playlist_type_personal">Personal</string>
-    <string name="playlist_type_personal_body">Only you add songs. Members can listen.</string>
-    <string name="playlist_type_shared">Shared</string>
-    <string name="playlist_type_shared_body">Members with edit rights add songs too.</string>
     <string name="playlist_photo_add">Add a photo</string>
     <string name="playlist_photo_change">Change the photo</string>
     <string name="playlist_photo_remove">Remove the photo</string>
@@ -351,10 +347,8 @@
     <string name="playlist_member_remove">Remove %1$s</string>
     <string name="playlist_leave">Leave the playlist</string>
     <string name="playlist_settings">Settings</string>
-    <string name="playlist_type">Type</string>
     <string name="playlist_delete">Delete the playlist</string>
     <string name="playlist_delete_confirm">Delete “%1$s”? Its songs and members are removed too.</string>
-    <string name="playlist_personal_hint">Make the playlist shared to let members edit it.</string>
     <string name="playlist_search_hint">Search a song on Spotify</string>
     <string name="playlists_none_mine">Your Music Room playlists show up here.</string>
     <string name="validation_playlist_name_required">Give the playlist a name</string>
@@ -363,7 +357,6 @@
     <string name="error_playlist_full">This playlist is full.</string>
     <string name="error_user_not_found">No Music Room account uses this email.</string>
     <string name="error_already_member">This user already is in the playlist.</string>
-    <string name="error_personal_playlist_read_only">Members of a personal playlist can only listen. Make it shared first.</string>
     <!-- Friends, chat and notifications -->
     <string name="search_filter_people">People</string>
     <string name="search_no_people">No one has this name</string>
@@ -539,4 +532,21 @@
     <string name="error_hosted_track_limit">You uploaded as many songs as allowed. Delete one to add another.</string>
     <string name="error_hosted_track_not_allowed">Events play on Spotify: songs uploaded to Music Room cannot go there.</string>
     <string name="queue_propose_songs">Suggest songs</string>
+    <string name="playlist_visibility">Who can see it</string>
+    <string name="playlist_visibility_public">Public</string>
+    <string name="playlist_visibility_public_body">Every user can find and open it.</string>
+    <string name="playlist_visibility_private">Private</string>
+    <string name="playlist_visibility_private_body">Only the people you invite can open it.</string>
+    <string name="playlist_license">Who can edit it</string>
+    <string name="playlist_license_everyone">Everyone</string>
+    <string name="playlist_license_everyone_body">Anyone who can open it can change its songs.</string>
+    <string name="playlist_license_invited">Invited people</string>
+    <string name="playlist_license_invited_body">Only members with edit rights can change it.</string>
+    <string name="playlist_license_everyone_hint">Choose the “Invited people” license to give edit rights member by member.</string>
+    <string name="playlist_move_up">Move up</string>
+    <string name="playlist_move_down">Move down</string>
+    <string name="playlists_public">Public playlists</string>
+    <string name="playlists_public_search">Search public playlists</string>
+    <string name="playlists_public_empty">No public playlist found.</string>
+    <string name="error_playlist_track_moved">The playlist just changed. Try again.</string>
 </resources>

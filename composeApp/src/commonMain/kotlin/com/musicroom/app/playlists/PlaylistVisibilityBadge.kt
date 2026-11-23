@@ -11,38 +11,38 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.composables.icons.lucide.Globe
 import com.composables.icons.lucide.Lock
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Users
 import com.musicroom.app.generated.resources.Res
-import com.musicroom.app.generated.resources.playlist_type_personal
-import com.musicroom.app.generated.resources.playlist_type_shared
+import com.musicroom.app.generated.resources.playlist_visibility_private
+import com.musicroom.app.generated.resources.playlist_visibility_public
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
-import com.musicroom.shared.dto.PlaylistType
+import com.musicroom.shared.dto.PlaylistVisibility
 import org.jetbrains.compose.resources.stringResource
 
-/** Small pill saying whether a playlist is personal or shared. */
+/** Small pill saying whether a playlist is public or private. */
 @Composable
-fun PlaylistTypeBadge(type: PlaylistType, modifier: Modifier = Modifier) {
+fun PlaylistVisibilityBadge(visibility: PlaylistVisibility, modifier: Modifier = Modifier) {
     val colors = AppTheme.colors
-    val shared = type == PlaylistType.SHARED
+    val public = visibility == PlaylistVisibility.PUBLIC
     Row(
-        modifier.background(if (shared) colors.accentSubtle else colors.surfaceSubtle, AppShapes.pill)
+        modifier.background(if (public) colors.accentSubtle else colors.surfaceSubtle, AppShapes.pill)
             .padding(horizontal = AppTheme.spacing.sm, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            if (shared) Lucide.Users else Lucide.Lock,
+            if (public) Lucide.Globe else Lucide.Lock,
             contentDescription = null,
-            tint = if (shared) colors.accentText else colors.textSecondary,
+            tint = if (public) colors.accentText else colors.textSecondary,
             modifier = Modifier.size(12.dp),
         )
         Text(
-            stringResource(if (shared) Res.string.playlist_type_shared else Res.string.playlist_type_personal),
+            stringResource(if (public) Res.string.playlist_visibility_public else Res.string.playlist_visibility_private),
             style = AppTheme.typography.bodySmall,
-            color = if (shared) colors.accentText else colors.textSecondary,
+            color = if (public) colors.accentText else colors.textSecondary,
         )
     }
 }

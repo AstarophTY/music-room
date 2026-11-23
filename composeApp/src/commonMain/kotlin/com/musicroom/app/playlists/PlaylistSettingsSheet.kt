@@ -18,7 +18,7 @@ import com.composables.icons.lucide.ListMusic
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Trash2
 import com.musicroom.app.common.UiText
-import com.musicroom.app.create.PlaylistTypeOption
+import com.musicroom.app.create.PlaylistRightsOptions
 import com.musicroom.app.generated.resources.Res
 import com.musicroom.app.generated.resources.common_cancel
 import com.musicroom.app.generated.resources.common_save
@@ -27,7 +27,6 @@ import com.musicroom.app.generated.resources.playlist_delete_confirm
 import com.musicroom.app.generated.resources.playlist_name_label
 import com.musicroom.app.generated.resources.playlist_photo_remove
 import com.musicroom.app.generated.resources.playlist_settings
-import com.musicroom.app.generated.resources.playlist_type
 import com.musicroom.app.theme.components.AppBottomSheet
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
@@ -37,13 +36,12 @@ import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.PlaylistValidation
 import com.musicroom.shared.dto.PlaylistDetailResponse
-import com.musicroom.shared.dto.PlaylistType
 import com.musicroom.shared.dto.UpdatePlaylistRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.stringResource
 
-/** Owner settings from the bottom: rename, switch personal / shared, remove the photo, delete the playlist. */
+/** Owner settings from the bottom: rename, choose who sees and edits it, remove the photo, delete the playlist. */
 @Composable
 fun PlaylistSettingsSheet(
     api: MusicRoomApi,
@@ -89,15 +87,13 @@ fun PlaylistSettingsSheet(
             )
         }
 
-        Text(stringResource(Res.string.playlist_type), style = AppTheme.typography.label, color = colors.textSecondary)
-        PlaylistType.entries.forEach { type ->
-            PlaylistTypeOption(
-                type,
-                selected = playlist.type == type,
-                onClick = { if (playlist.type != type) run { onChange(api.updatePlaylist(playlist.id, UpdatePlaylistRequest(type = type))) } },
-                enabled = !busy,
-            )
-        }
+        PlaylistRightsOptions(
+            playlist.visibility,
+            playlist.editLicense,
+            onVisibility = { if (it != playlist.visibility) run { onChange(api.updatePlaylist(playlist.id, UpdatePlaylistRequest(visibility = it))) } },
+            onLicense = { if (it != playlist.editLicense) run { onChange(api.updatePlaylist(playlist.id, UpdatePlaylistRequest(editLicense = it))) } },
+            enabled = !busy,
+        )
 
         error?.let { Text(it.resolve(), style = AppTheme.typography.bodySmall, color = colors.error) }
 

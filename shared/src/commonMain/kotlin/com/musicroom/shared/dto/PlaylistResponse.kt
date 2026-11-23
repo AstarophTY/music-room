@@ -7,15 +7,18 @@ import kotlinx.serialization.Serializable
 data class PlaylistResponse(
     val id: String,
     val name: String,
-    val type: PlaylistType,
+    val visibility: PlaylistVisibility,
+    val editLicense: PlaylistEditLicense,
     val owner: PlaylistMemberResponse,
-    /** The user owns it: they rename it, change its type, manage members and delete it. */
+    /** The user owns it: they rename it, change its visibility and license, manage members and delete it. */
     val isOwner: Boolean,
-    /** The user can add and remove songs and change the photo. */
+    /** The user can add, move and remove songs and change the photo. */
     val canEdit: Boolean,
     val trackCount: Int,
     /** Members other than the owner. */
     val memberCount: Int,
     /** Changes each time the photo changes (cache key). Null when the playlist has no photo. */
     val coverVersion: Long? = null,
+    /** Raised by each change: a state with a lower revision is older than the one shown. */
+    val revision: Long = 0,
 )

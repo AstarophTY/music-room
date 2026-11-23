@@ -1,15 +1,18 @@
 package com.musicroom.server.modules.playlists
 
 import com.musicroom.server.common.Controller
+import com.musicroom.server.common.exceptions.HttpException
 import com.musicroom.server.common.exceptions.NotFoundException
 import com.musicroom.server.common.guards.currentUserId
 import com.musicroom.server.common.guards.jwtGuard
+import com.musicroom.server.common.jwt.JwtService
 import com.musicroom.server.modules.users.AvatarImages
 import com.musicroom.server.modules.users.UsersService
 import com.musicroom.shared.ApiRoutes
 import com.musicroom.shared.dto.AddPlaylistMemberRequest
 import com.musicroom.shared.dto.AddPlaylistTrackRequest
 import com.musicroom.shared.dto.CreatePlaylistRequest
+import com.musicroom.shared.dto.MovePlaylistTrackRequest
 import com.musicroom.shared.dto.UpdatePlaylistMemberRequest
 import com.musicroom.shared.dto.UpdatePlaylistRequest
 import io.ktor.http.CacheControl
@@ -28,15 +31,20 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.patch
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
+import io.ktor.server.websocket.webSocket
 import io.ktor.utils.io.readRemaining
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.close
 import java.util.UUID
 import kotlinx.io.readByteArray
 
-class PlaylistsController(private val service: PlaylistsService) : Controller {
+class PlaylistsController(private val service: PlaylistsService, private val jwt: JwtService) : Controller {
     override fun Route.routes() {
         jwtGuard {
             get(ApiRoutes.PLAYLISTS) {
-                call.respond(service.list(call.currentUserId()))
+                val userId = call.currentUserId()
+                val public = call.request.queryParameters["scope"] == "public"
+                call.respond(if (public) service.listPublic(userId, call.request.queryParameters["q"].orEmpty()) else service.list(userId))
             }
             post(ApiRoutes.PLAYLISTS) {
                 call.respond(HttpStatusCode.Created, service.create(call.currentUserId(), call.receive<CreatePlaylistRequest>()))
@@ -76,6 +84,13 @@ class PlaylistsController(private val service: PlaylistsService) : Controller {
                 call.respond(service.removeTrack(call.currentUserId(), call.uuid("id"), call.uuid("entryId")))
             }
 
+            put(ApiRoutes.PLAYLIST_TRACK_POSITION) {
+                val after = call.receive<MovePlaylistTrackRequest>().afterEntryId?.let { id ->
+                    runCatching { UUID.fromString(id) }.getOrNull() ?: throw NotFoundException("Not found")
+                }
+                call.respond(service.moveTrack(call.currentUserId(), call.uuid("id"), call.uuid("entryId"), after))
+            }
+
             post(ApiRoutes.PLAYLIST_MEMBERS) {
                 call.respond(service.addMember(call.currentUserId(), call.uuid("id"), call.receive<AddPlaylistMemberRequest>()))
             }
@@ -86,6 +101,31 @@ class PlaylistsController(private val service: PlaylistsService) : Controller {
             delete(ApiRoutes.PLAYLIST_MEMBER) {
                 service.removeMember(call.currentUserId(), call.uuid("id"), call.uuid("userId"))
                 call.respond(HttpStatusCode.NoContent)
+            }
+        }
+
+        // Browsers cannot set headers on a WebSocket: the access token comes in the "token" parameter.
+        webSocket(ApiRoutes.PLAYLIST_WS) {
+            val userId = call.request.queryParameters["token"]?.let { token ->
+                runCatching { UUID.fromString(jwt.verifier.verify(token).subject) }.getOrNull()
+            }
+            val playlistId = call.parameters["id"]?.let { runCatching { UUID.fromString(it) }.getOrNull() }
+            if (userId == null || playlistId == null) {
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "unauthorized"))
+                return@webSocket
+            }
+            try {
+                service.detail(userId, playlistId)
+            } catch (e: HttpException) {
+                close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, e.error))
+                return@webSocket
+            }
+            // Joining pushes the current state; then every change. Nothing is expected from the app.
+            service.hub.join(playlistId, userId, this)
+            try {
+                for (frame in incoming) Unit
+            } finally {
+                service.hub.leave(playlistId, userId, this)
             }
         }
     }

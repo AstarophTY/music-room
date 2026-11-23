@@ -78,7 +78,16 @@ class AppModule(
     val events = EventsModule(database, providers, social.service, jwtService)
 
     private val system = SystemModule(config, database)
-    private val playlists = PlaylistsModule(database, users.repository, providers, premium.tracks, social.service)
+    val playlists = PlaylistsModule(
+        database,
+        users.repository,
+        providers,
+        premium.tracks,
+        social.service,
+        jwtService,
+        config.database,
+        relayChanges = role.relaysPlaylistChanges,
+    )
 
     val modules: List<Module> = when (role) {
         ServiceRole.ALL -> listOf(system, users, auth, spotify, appleMusic, playlists, social, events, premium)
@@ -104,6 +113,8 @@ fun Application.bootstrap(appModule: AppModule) {
     if (appModule.role == ServiceRole.REALTIME) {
         appModule.socialRelay.listen(this, appModule.social.hub::deliver)
     }
+
+    if (appModule.role.relaysPlaylistChanges) appModule.playlists.listen(this)
 
     routing {
         swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
