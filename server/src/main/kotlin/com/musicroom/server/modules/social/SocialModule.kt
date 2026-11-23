@@ -4,6 +4,7 @@ import com.musicroom.server.common.Controller
 import com.musicroom.server.common.Module
 import com.musicroom.server.common.jwt.JwtService
 import com.musicroom.server.database.DatabaseModule
+import com.musicroom.server.modules.users.UserDetailsRepository
 import com.musicroom.server.modules.users.UsersRepository
 
 class SocialModule(
@@ -19,6 +20,7 @@ class SocialModule(
         MessagesRepository(database),
         NotificationsRepository(database),
         users,
+        UserDetailsRepository(database),
         hub,
     )
 

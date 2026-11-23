@@ -7,17 +7,24 @@ import com.musicroom.server.common.exceptions.ValidationException
 import com.musicroom.server.modules.users.entities.User
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.AuthValidation
+import com.musicroom.shared.ProfileValidation
 import com.musicroom.shared.SocialLinks
 import com.musicroom.shared.dto.SocialLink
 import com.musicroom.shared.dto.UpdateProfileRequest
 import com.musicroom.shared.dto.UpdateSocialLinksRequest
+import com.musicroom.shared.dto.UpdateUserDetailsRequest
+import com.musicroom.shared.dto.UserDetailsResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.jetbrains.exposed.v1.exceptions.ExposedSQLException
 import java.time.OffsetDateTime
 import java.util.UUID
 
-class UsersService(private val repository: UsersRepository, private val avatars: AvatarsRepository) {
+class UsersService(
+    private val repository: UsersRepository,
+    private val avatars: AvatarsRepository,
+    private val detailsRepository: UserDetailsRepository,
+) {
 
     suspend fun getById(id: UUID): User =
         repository.findById(id) ?: throw NotFoundException("User not found")
@@ -46,6 +53,27 @@ class UsersService(private val repository: UsersRepository, private val avatars:
             }
         }
         return repository.replaceSocialLinks(id, links) ?: throw NotFoundException("User not found")
+    }
+
+    suspend fun details(id: UUID): UserDetailsResponse {
+        getById(id)
+        return detailsRepository.find(id)
+    }
+
+    suspend fun updateDetails(id: UUID, request: UpdateUserDetailsRequest): UserDetailsResponse {
+        getById(id)
+        val preferences = ProfileValidation.cleanPreferences(request.musicPreferences)
+        if (!ProfileValidation.isValid(listOf(request.publicInfo, request.friendsInfo, request.privateInfo), preferences)) {
+            throw BadRequestException("These profile details are too long", ApiErrors.PROFILE_DETAILS_INVALID)
+        }
+        val details = UserDetailsResponse(
+            publicInfo = request.publicInfo.trim(),
+            friendsInfo = request.friendsInfo.trim(),
+            privateInfo = request.privateInfo.trim(),
+            musicPreferences = preferences,
+        )
+        detailsRepository.save(id, details)
+        return details
     }
 
     suspend fun uploadAvatar(id: UUID, bytes: ByteArray): User {

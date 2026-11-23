@@ -38,6 +38,7 @@ import com.musicroom.app.generated.resources.logout
 import com.musicroom.app.generated.resources.my_songs_title
 import com.musicroom.app.generated.resources.premium_title
 import com.musicroom.app.generated.resources.profile_appearance
+import com.musicroom.app.generated.resources.profile_details_title
 import com.musicroom.app.generated.resources.profile_edit
 import com.musicroom.app.generated.resources.profile_password
 import com.musicroom.app.generated.resources.profile_section_about
@@ -92,6 +93,7 @@ fun SettingsSideBar(
     ) {
         section(stringResource(Res.string.profile_section_account))
         page(ProfileRoute.EditProfile, Lucide.Pencil, stringResource(Res.string.profile_edit))
+        page(ProfileRoute.ProfileDetails, Lucide.FileText, stringResource(Res.string.profile_details_title))
         page(ProfileRoute.SocialLinks, Lucide.Link, stringResource(Res.string.social_section))
 
         section(stringResource(Res.string.profile_section_music))

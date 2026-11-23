@@ -70,6 +70,8 @@ import com.musicroom.shared.dto.TwoFactorResendRequest
 import com.musicroom.shared.dto.TwoFactorSetupResponse
 import com.musicroom.shared.dto.UpdatePlaylistMemberRequest
 import com.musicroom.shared.dto.UpdatePlaylistRequest
+import com.musicroom.shared.dto.UpdateUserDetailsRequest
+import com.musicroom.shared.dto.UserDetailsResponse
 import com.musicroom.shared.dto.UpdateProfileRequest
 import com.musicroom.shared.dto.UpdateSocialLinksRequest
 import com.musicroom.shared.dto.UserResponse
@@ -392,6 +394,12 @@ class MusicRoomApi(
     /** Users whose name contains [query], with how they relate to the user. */
     suspend fun searchUsers(query: String): UsersResponse =
         authorized(HttpMethod.Get, ApiRoutes.USERS_SEARCH) { url.parameters.append("q", query) }.bodyOrThrow()
+
+    /** The user's own public, friends-only and private details, and their music preferences. */
+    suspend fun userDetails(): UserDetailsResponse = authorized(HttpMethod.Get, ApiRoutes.USERS_ME_DETAILS).bodyOrThrow()
+
+    suspend fun updateUserDetails(request: UpdateUserDetailsRequest): UserDetailsResponse =
+        authorized(HttpMethod.Put, ApiRoutes.USERS_ME_DETAILS) { jsonBody(request) }.bodyOrThrow()
 
     suspend fun userProfile(userId: String): UserProfileResponse =
         authorized(HttpMethod.Get, ApiRoutes.userProfile(userId)).bodyOrThrow()

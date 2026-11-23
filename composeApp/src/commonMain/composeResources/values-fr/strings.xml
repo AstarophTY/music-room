@@ -533,4 +533,14 @@
     <string name="playlists_public_search">Chercher une playlist publique</string>
     <string name="playlists_public_empty">Aucune playlist publique trouvée.</string>
     <string name="error_playlist_track_moved">La playlist vient de changer. Réessaie.</string>
+    <string name="profile_details_title">À propos de moi</string>
+    <string name="profile_details_intro">Choisis ce que chaque public peut lire. Tes informations privées ne sont visibles que par toi.</string>
+    <string name="profile_details_public">Informations publiques</string>
+    <string name="profile_details_friends">Informations pour mes amis</string>
+    <string name="profile_details_private">Informations privées</string>
+    <string name="profile_details_music">Préférences musicales (séparées par des virgules)</string>
+    <string name="profile_about">À propos</string>
+    <string name="profile_for_friends">Pour les amis</string>
+    <string name="profile_music_tastes">Préférences musicales</string>
+    <string name="error_profile_details_invalid">Garde chaque texte sous 500 caractères, avec 15 préférences de 32 caractères au plus.</string>
 </resources>

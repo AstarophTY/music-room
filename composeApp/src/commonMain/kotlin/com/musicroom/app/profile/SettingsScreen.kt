@@ -42,6 +42,7 @@ import com.musicroom.app.generated.resources.logout
 import com.musicroom.app.generated.resources.my_songs_title
 import com.musicroom.app.generated.resources.premium_title
 import com.musicroom.app.generated.resources.profile_appearance
+import com.musicroom.app.generated.resources.profile_details_title
 import com.musicroom.app.generated.resources.profile_edit
 import com.musicroom.app.generated.resources.profile_language
 import com.musicroom.app.generated.resources.profile_language_value
@@ -102,6 +103,7 @@ fun SettingsScreen(
                 Text(stringResource(Res.string.profile_section_account), style = AppTheme.typography.label, color = colors.textSecondary)
                 AppCard(Modifier.fillMaxWidth()) {
                     SettingsRow(Lucide.Pencil, stringResource(Res.string.profile_edit), { onOpen(ProfileRoute.EditProfile) })
+                    SettingsRow(Lucide.FileText, stringResource(Res.string.profile_details_title), { onOpen(ProfileRoute.ProfileDetails) })
                     SettingsRow(
                         Lucide.Users,
                         stringResource(Res.string.friends_title),

@@ -5,6 +5,7 @@ import com.musicroom.server.common.exceptions.ForbiddenException
 import com.musicroom.server.common.exceptions.NotFoundException
 import com.musicroom.server.modules.events.EventFriends
 import com.musicroom.server.modules.playlists.PlaylistFriends
+import com.musicroom.server.modules.users.UserDetailsRepository
 import com.musicroom.server.modules.users.UsersRepository
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.dto.ConversationResponse
@@ -34,6 +35,7 @@ class SocialService(
     private val messages: MessagesRepository,
     private val notifications: NotificationsRepository,
     private val users: UsersRepository,
+    private val details: UserDetailsRepository,
     private val hub: SocialHub,
 ) : PlaylistFriends, EventFriends {
 
@@ -48,10 +50,17 @@ class SocialService(
     suspend fun profile(me: UUID, userId: UUID): UserProfileResponse {
         val user = users.findById(userId) ?: throw NotFoundException("No such user", ApiErrors.USER_NOT_FOUND)
         val public = people.find(listOf(userId))[userId] ?: throw NotFoundException("No such user", ApiErrors.USER_NOT_FOUND)
+        val friendship = status(me, userId)
+        val about = details.find(userId)
+        // Private details never leave GET /users/me/details.
+        val isClose = friendship == FriendshipStatus.FRIENDS || friendship == FriendshipStatus.SELF
         return UserProfileResponse(
-            user = public.copy(friendship = status(me, userId)),
+            user = public.copy(friendship = friendship),
             socialLinks = user.socialLinks,
             friendCount = friendships.links(userId).count { it.accepted },
+            publicInfo = about.publicInfo,
+            friendsInfo = about.friendsInfo.takeIf { isClose && it.isNotEmpty() },
+            musicPreferences = about.musicPreferences,
         )
     }
 

@@ -105,6 +105,7 @@ sealed interface UiText {
             ApiErrors.USER_NOT_FOUND to Res.string.error_user_not_found,
             ApiErrors.ALREADY_MEMBER to Res.string.error_already_member,
             ApiErrors.PLAYLIST_TRACK_MOVED to Res.string.error_playlist_track_moved,
+            ApiErrors.PROFILE_DETAILS_INVALID to Res.string.error_profile_details_invalid,
             ApiErrors.INVALID_IMAGE to Res.string.error_invalid_image,
             ApiErrors.IMAGE_TOO_LARGE to Res.string.error_image_too_large,
             ApiErrors.SPOTIFY_NOT_CONFIGURED to Res.string.error_spotify_not_configured,

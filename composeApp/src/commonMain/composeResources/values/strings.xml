@@ -549,4 +549,14 @@
     <string name="playlists_public_search">Search public playlists</string>
     <string name="playlists_public_empty">No public playlist found.</string>
     <string name="error_playlist_track_moved">The playlist just changed. Try again.</string>
+    <string name="profile_details_title">About me</string>
+    <string name="profile_details_intro">Choose what each audience can read. Your private information is only visible to you.</string>
+    <string name="profile_details_public">Public information</string>
+    <string name="profile_details_friends">Information for my friends</string>
+    <string name="profile_details_private">Private information</string>
+    <string name="profile_details_music">Music preferences (separated by commas)</string>
+    <string name="profile_about">About</string>
+    <string name="profile_for_friends">For friends</string>
+    <string name="profile_music_tastes">Music preferences</string>
+    <string name="error_profile_details_invalid">Keep each text under 500 characters, with at most 15 preferences of 32 characters.</string>
 </resources>

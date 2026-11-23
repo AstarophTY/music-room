@@ -98,6 +98,7 @@ object ApiRoutes {
     const val USERS_ME = "$USERS/me"
     const val USERS_ME_AVATAR = "$USERS_ME/avatar"
     const val USERS_ME_SOCIAL_LINKS = "$USERS_ME/social-links"
+    const val USERS_ME_DETAILS = "$USERS_ME/details"
     const val USER_AVATAR = "$USERS/{id}/avatar"
 
     fun userAvatar(userId: String) = "$USERS/$userId/avatar"
