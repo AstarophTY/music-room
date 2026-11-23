@@ -439,6 +439,10 @@ class SpotifyService(
             api.refresh(current.refreshToken)
         } catch (e: SpotifyApiException) {
             if (e.status == 400 || e.status == 401) {
+                // Another service may have just used this refresh token: keep the account if it saved a new one.
+                delay(500)
+                val latest = accounts.find(account.userId)
+                if (latest != null && latest.refreshToken != current.refreshToken) return latest
                 accounts.delete(account.userId)
                 throw notConnected()
             }

@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: music
+  labels:
+    app.kubernetes.io/name: music
+    app.kubernetes.io/part-of: music-room
+spec:
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: music
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: music
+        app.kubernetes.io/part-of: music-room
+        music-room/tier: backend
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: ghcr.io/astarophty/music-room-music:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SERVICE_ROLE
+              value: music
+            - name: DB_MAX_POOL_SIZE
+              value: "5"
+          envFrom:
+            - configMapRef:
+                name: music-room-config
+            - secretRef:
+                name: music-room-core
+            - secretRef:
+                name: music-room-music
+          resources:
+            requests:
+              cpu: 150m
+              memory: 384Mi
+            limits:
+              memory: 768Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # Does not read the database: a database outage must not restart every pod.
+          livenessProbe:
+            httpGet:
+              path: /api/v1/info
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: [sleep, "5"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: apple-music-key
+              mountPath: /secrets/apple
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: apple-music-key
+          secret:
+            secretName: apple-music-key
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: music
+  labels:
+    app.kubernetes.io/name: music
+    app.kubernetes.io/part-of: music-room
+spec:
+  selector:
+    app.kubernetes.io/name: music
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: music
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: music
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: music
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: music

@@ -25,7 +25,38 @@ IOS_DERIVED_DATA := build/ios
 # Name (or prefix) of the simulator to use, e.g. IOS_SIMULATOR="iPhone 18 Pro".
 IOS_SIMULATOR    ?= iPhone
 
+K8S_CLUSTER  := music-room
+K8S_SERVICES := identity music library realtime
+K8S_IMAGE    := ghcr.io/astarophty/music-room
+
 .DEFAULT_GOAL := help
+
+.PHONY: k8s-cluster k8s-images k8s-secrets k8s-deploy k8s-up k8s-status k8s-down
+
+k8s-cluster: ## Create the local Kubernetes cluster (k3d)
+	@k3d cluster list $(K8S_CLUSTER) > /dev/null 2>&1 || k3d cluster create $(K8S_CLUSTER) -p "8081:80@loadbalancer" --wait
+
+k8s-images: ## Build the server image and load it into the local cluster
+	docker build -f server/Dockerfile -t $(K8S_IMAGE)-identity:dev .
+	@for s in $(filter-out identity,$(K8S_SERVICES)); do docker tag $(K8S_IMAGE)-identity:dev $(K8S_IMAGE)-$$s:dev; done
+	k3d image import -c $(K8S_CLUSTER) $(foreach s,$(K8S_SERVICES),$(K8S_IMAGE)-$(s):dev)
+
+k8s-secrets: check-env ## Create the Kubernetes secrets from .env
+	./deploy/k8s/create-secrets.sh .env
+
+k8s-deploy: ## Deploy every service to the local cluster and wait for them
+	kubectl apply -k deploy/k8s/overlays/dev
+	kubectl -n music-room rollout status statefulset/postgres --timeout=180s
+	@for s in $(K8S_SERVICES); do kubectl -n music-room rollout status deployment/$$s --timeout=240s; done
+	@echo "API: http://music-room.localhost:8081/health"
+
+k8s-up: k8s-cluster k8s-images k8s-secrets k8s-deploy ## Create the cluster, build and deploy everything
+
+k8s-status: ## Show pods, autoscalers and routes
+	kubectl -n music-room get pods,svc,hpa,pdb,ingressroute
+
+k8s-down: ## Delete the local cluster and its data
+	k3d cluster delete $(K8S_CLUSTER)
 
 .PHONY: help env up down restart logs ps db dev build test clean fclean re psql tools \
         android android-sdk emulator check-env check-sdk check-android check-ios \

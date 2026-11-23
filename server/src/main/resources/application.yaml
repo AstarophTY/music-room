@@ -8,6 +8,12 @@ ktor:
 app:
   version: "0.1.0"
 
+# role: all (one server), identity, music, library or realtime (Kubernetes, see deploy/k8s).
+# trustProxy: true only behind a proxy that overwrites X-Real-Ip, otherwise clients could fake their IP.
+service:
+  role: "$SERVICE_ROLE:all"
+  trustProxy: "$TRUST_PROXY:false"
+
 database:
   url: "$DB_URL:jdbc:postgresql://localhost:5432/musicroom"
   user: "$POSTGRES_USER:musicroom"

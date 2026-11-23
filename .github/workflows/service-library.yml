@@ -1,0 +1,63 @@
+name: Service library
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/src/main/kotlin/com/musicroom/server/modules/playlists/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/premium/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/catalog/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/users/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/social/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/spotify/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/applemusic/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/events/**"
+      - "server/src/main/kotlin/com/musicroom/server/*.kt"
+      - "server/src/main/kotlin/com/musicroom/server/common/**"
+      - "server/src/main/kotlin/com/musicroom/server/config/**"
+      - "server/src/main/kotlin/com/musicroom/server/database/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/system/**"
+      - "server/src/main/resources/**"
+      - "server/build.gradle.kts"
+      - "server/Dockerfile"
+      - "shared/**"
+      - "gradle/**"
+      - ".github/workflows/service-pipeline.yml"
+      - "deploy/k8s/services/library/**"
+      - ".github/workflows/service-library.yml"
+  pull_request:
+    paths:
+      - "server/src/main/kotlin/com/musicroom/server/modules/playlists/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/premium/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/catalog/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/users/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/social/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/spotify/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/applemusic/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/events/**"
+      - "server/src/main/kotlin/com/musicroom/server/*.kt"
+      - "server/src/main/kotlin/com/musicroom/server/common/**"
+      - "server/src/main/kotlin/com/musicroom/server/config/**"
+      - "server/src/main/kotlin/com/musicroom/server/database/**"
+      - "server/src/main/kotlin/com/musicroom/server/modules/system/**"
+      - "server/src/main/resources/**"
+      - "server/build.gradle.kts"
+      - "server/Dockerfile"
+      - "shared/**"
+      - "gradle/**"
+      - ".github/workflows/service-pipeline.yml"
+      - "deploy/k8s/services/library/**"
+      - ".github/workflows/service-library.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  pipeline:
+    uses: ./.github/workflows/service-pipeline.yml
+    with:
+      service: library
+    secrets:
+      KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}

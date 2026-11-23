@@ -6,8 +6,13 @@ import com.musicroom.server.common.jwt.JwtService
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.users.UsersRepository
 
-class SocialModule(database: DatabaseModule, users: UsersRepository, jwt: JwtService) : Module {
-    private val hub = SocialHub()
+class SocialModule(
+    database: DatabaseModule,
+    users: UsersRepository,
+    jwt: JwtService,
+    relay: SocialRelay? = null,
+) : Module {
+    val hub = SocialHub(relay)
     val service = SocialService(
         PeopleRepository(database),
         FriendshipsRepository(database),

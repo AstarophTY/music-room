@@ -1,0 +1,92 @@
+name: Service pipeline
+
+# Called by service-<name>.yml: test, build one image for the service, then deploy it.
+on:
+  workflow_call:
+    inputs:
+      service:
+        required: true
+        type: string
+    secrets:
+      KUBE_CONFIG:
+        required: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Server tests
+        run: ./gradlew :server:test -PserverOnly=true --no-daemon
+      - name: Render the manifests
+        run: kubectl kustomize "deploy/k8s/services/${{ inputs.service }}" > /dev/null
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Image name
+        id: name
+        env:
+          OWNER: ${{ github.repository_owner }}
+          SERVICE: ${{ inputs.service }}
+        run: echo "image=ghcr.io/${OWNER,,}/music-room-${SERVICE}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@v3
+        if: github.event_name == 'push'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/Dockerfile
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.name.outputs.image }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: image
+    # Stays off until the repository variable DEPLOY_ENABLED is "true" and KUBE_CONFIG is set.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    concurrency: deploy-${{ inputs.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure kubectl
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          install -m 700 -d "$HOME/.kube"
+          printf '%s' "$KUBE_CONFIG" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+      - name: Deploy, and roll back if the rollout fails
+        env:
+          SERVICE: ${{ inputs.service }}
+          IMAGE: ${{ needs.image.outputs.image }}
+          TAG: ${{ github.sha }}
+        run: |
+          cd "deploy/k8s/services/$SERVICE"
+          kustomize edit set image "ghcr.io/astarophty/music-room-$SERVICE=$IMAGE:$TAG"
+          kubectl apply -k .
+          if ! kubectl -n music-room rollout status "deployment/$SERVICE" --timeout=300s; then
+            kubectl -n music-room rollout undo "deployment/$SERVICE"
+            exit 1
+          fi

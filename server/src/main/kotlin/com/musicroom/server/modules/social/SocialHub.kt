@@ -10,7 +10,7 @@ import kotlinx.coroutines.CancellationException
 import org.slf4j.LoggerFactory
 
 /** Open social WebSockets of each user (one per device), to push them live events. */
-class SocialHub {
+class SocialHub(private val relay: SocialRelay? = null) {
     private val log = LoggerFactory.getLogger(SocialHub::class.java)
     private val sessions = ConcurrentHashMap<UUID, MutableSet<WebSocketSession>>()
 
@@ -24,10 +24,14 @@ class SocialHub {
 
     /** Sends [event] to every device of [userId] that is connected; the others get it from the API later. */
     suspend fun send(userId: UUID, event: SocialEvent) {
-        val targets = sessions[userId]?.toList().orEmpty()
-        if (targets.isEmpty()) return
+        if (relay == null && sessions[userId].isNullOrEmpty()) return
         val text = MusicRoomJson.encodeToString(SocialEvent.serializer(), event)
-        targets.forEach { session ->
+        if (relay != null) relay.publish(userId, text) else deliver(userId, text)
+    }
+
+    /** Writes an encoded event to the WebSockets of [userId] open on this process. */
+    suspend fun deliver(userId: UUID, text: String) {
+        sessions[userId]?.toList().orEmpty().forEach { session ->
             try {
                 session.send(Frame.Text(text))
             } catch (e: CancellationException) {
