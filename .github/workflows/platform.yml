@@ -1,0 +1,46 @@
+name: Platform
+
+# Namespace, configuration, PostgreSQL, network policies and routing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/k8s/platform/**"
+      - "deploy/k8s/overlays/prod/**"
+      - ".github/workflows/platform.yml"
+  pull_request:
+    paths:
+      - "deploy/k8s/**"
+      - ".github/workflows/platform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render every overlay
+        run: |
+          kubectl kustomize deploy/k8s/overlays/dev > /dev/null
+          kubectl kustomize deploy/k8s/overlays/prod > /dev/null
+
+  deploy:
+    needs: render
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency: deploy-platform
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply the platform
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          install -m 700 -d "$HOME/.kube"
+          printf '%s' "$KUBE_CONFIG" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+          kubectl apply -k deploy/k8s/overlays/prod
+          kubectl -n music-room rollout status statefulset/postgres --timeout=300s
