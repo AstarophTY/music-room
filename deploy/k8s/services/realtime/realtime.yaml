@@ -1,0 +1,112 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: realtime
+  labels:
+    app.kubernetes.io/name: realtime
+    app.kubernetes.io/part-of: music-room
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  # A single pod: two players must never drive the same Spotify account.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: realtime
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: realtime
+        app.kubernetes.io/part-of: music-room
+        music-room/tier: backend
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: ghcr.io/astarophty/music-room-realtime:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SERVICE_ROLE
+              value: realtime
+            - name: DB_MAX_POOL_SIZE
+              value: "10"
+          envFrom:
+            - configMapRef:
+                name: music-room-config
+            - secretRef:
+                name: music-room-core
+            - secretRef:
+                name: music-room-music
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          # Does not read the database: a database outage must not restart every pod.
+          livenessProbe:
+            httpGet:
+              path: /api/v1/info
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: [sleep, "5"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: apple-music-key
+              mountPath: /secrets/apple
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: apple-music-key
+          secret:
+            secretName: apple-music-key
+            optional: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: realtime
+  labels:
+    app.kubernetes.io/name: realtime
+    app.kubernetes.io/part-of: music-room
+spec:
+  selector:
+    app.kubernetes.io/name: realtime
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
