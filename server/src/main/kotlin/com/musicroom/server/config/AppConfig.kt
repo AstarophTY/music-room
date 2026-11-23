@@ -11,10 +11,14 @@ data class AppConfig(
     val spotify: SpotifyConfig = SpotifyConfig(),
     val appleMusic: AppleMusicConfig = AppleMusicConfig(),
     val stripe: StripeConfig = StripeConfig(),
+    val role: ServiceRole = ServiceRole.ALL,
+    val trustProxy: Boolean = false,
 ) {
     companion object {
         fun from(config: ApplicationConfig) = AppConfig(
             version = config.property("app.version").getString(),
+            role = ServiceRole.parse(config.string("service.role").ifEmpty { ServiceRole.ALL.name }),
+            trustProxy = config.string("service.trustProxy").toBoolean(),
             database = DatabaseConfig(
                 url = config.property("database.url").getString(),
                 user = config.property("database.user").getString(),

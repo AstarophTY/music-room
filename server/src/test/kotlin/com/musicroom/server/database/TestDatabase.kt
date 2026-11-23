@@ -8,7 +8,11 @@ object TestDatabase {
         PostgreSQLContainer("postgres:17-alpine").also { it.start() }
     }
 
+    val config: DatabaseConfig by lazy {
+        DatabaseConfig(container.jdbcUrl, container.username, container.password)
+    }
+
     val module: DatabaseModule by lazy {
-        DatabaseModule.connect(DatabaseConfig(container.jdbcUrl, container.username, container.password))
+        DatabaseModule.connect(config)
     }
 }

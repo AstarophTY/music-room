@@ -18,6 +18,7 @@ import com.musicroom.server.common.serialization.configureSerialization
 import com.musicroom.server.common.throttler.configureThrottler
 import com.musicroom.server.common.websocket.configureWebSockets
 import com.musicroom.server.config.AppConfig
+import com.musicroom.server.config.ServiceRole
 import com.musicroom.server.database.DatabaseModule
 import com.musicroom.server.modules.auth.AuthModule
 import com.musicroom.server.modules.applemusic.AppleMusicModule
@@ -27,6 +28,7 @@ import com.musicroom.server.modules.playlists.PlaylistsModule
 import com.musicroom.server.modules.premium.PremiumModule
 import com.musicroom.server.modules.premium.stripe.StripeApi
 import com.musicroom.server.modules.premium.stripe.StripeHttpApi
+import com.musicroom.server.modules.social.PostgresSocialRelay
 import com.musicroom.server.modules.social.SocialModule
 import com.musicroom.server.modules.spotify.SpotifyModule
 import com.musicroom.server.modules.spotify.client.SpotifyApi
@@ -65,23 +67,26 @@ class AppModule(
 
     private val providers = MusicProviderRegistry(spotify.service, appleMusic.catalog)
 
-    val social = SocialModule(database, users.repository, jwtService)
+    val role = config.role
+    val trustProxy = config.trustProxy
+    val socialRelay = PostgresSocialRelay(database, config.database)
+
+    val social = SocialModule(database, users.repository, jwtService, socialRelay.takeIf { role.relaysSocialEvents })
 
     val premium = PremiumModule(database, users.repository, config.stripe, stripeApi)
 
     val events = EventsModule(database, providers, social.service, jwtService)
 
-    val modules: List<Module> = listOf(
-        SystemModule(config, database),
-        users,
-        auth,
-        spotify,
-        appleMusic,
-        PlaylistsModule(database, users.repository, providers, premium.tracks, social.service),
-        social,
-        events,
-        premium,
-    )
+    private val system = SystemModule(config, database)
+    private val playlists = PlaylistsModule(database, users.repository, providers, premium.tracks, social.service)
+
+    val modules: List<Module> = when (role) {
+        ServiceRole.ALL -> listOf(system, users, auth, spotify, appleMusic, playlists, social, events, premium)
+        ServiceRole.IDENTITY -> listOf(system, users, auth)
+        ServiceRole.MUSIC -> listOf(system, spotify, appleMusic)
+        ServiceRole.LIBRARY -> listOf(system, playlists, premium)
+        ServiceRole.REALTIME -> listOf(system, social, events)
+    }
 }
 
 fun Application.bootstrap(appModule: AppModule) {
@@ -90,10 +95,15 @@ fun Application.bootstrap(appModule: AppModule) {
     configureHttpMiddleware()
     configureExceptionFilter()
     configureJwtGuard(appModule.jwtService)
-    configureThrottler()
+    configureThrottler(appModule.trustProxy)
     configureWebSockets()
-    // Plays the events' music on their owners' Spotify until the server stops.
-    appModule.events.service.player.run(this)
+    if (appModule.role.runsRealtime) {
+        // Plays the events' music on their owners' Spotify until the server stops.
+        appModule.events.service.player.run(this)
+    }
+    if (appModule.role == ServiceRole.REALTIME) {
+        appModule.socialRelay.listen(this, appModule.social.hub::deliver)
+    }
 
     routing {
         swaggerUI(path = "swagger", swaggerFile = "openapi/documentation.yaml")
