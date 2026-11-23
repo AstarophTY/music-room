@@ -19,6 +19,18 @@ class DatabaseModule(private val dataSource: HikariDataSource) : Closeable {
     suspend fun <T> query(block: suspend JdbcTransaction.() -> T): T =
         withContext(Dispatchers.IO) { suspendTransaction(db = database) { block() } }
 
+    /** Sends a PostgreSQL notification on its own connection, committed right away. */
+    suspend fun notify(channel: String, payload: String) = withContext(Dispatchers.IO) {
+        dataSource.connection.use { connection ->
+            connection.prepareStatement("SELECT pg_notify(?, ?)").use { statement ->
+                statement.setString(1, channel)
+                statement.setString(2, payload)
+                statement.execute()
+            }
+            connection.commit()
+        }
+    }
+
     fun isHealthy(): Boolean = runCatching {
         transaction(database) { exec("SELECT 1") { it.next() } }
     }.isSuccess
