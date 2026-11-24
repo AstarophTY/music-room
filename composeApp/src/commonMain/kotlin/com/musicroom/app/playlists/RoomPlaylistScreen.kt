@@ -35,6 +35,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Camera
 import com.composables.icons.lucide.Bell
+import com.composables.icons.lucide.ChevronDown
+import com.composables.icons.lucide.ChevronUp
 import com.composables.icons.lucide.ListPlus
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircle
@@ -51,6 +53,8 @@ import com.musicroom.app.generated.resources.common_retry
 import com.musicroom.app.generated.resources.messages_title
 import com.musicroom.app.generated.resources.notifications_title
 import com.musicroom.app.generated.resources.playlist_add_songs
+import com.musicroom.app.generated.resources.playlist_move_down
+import com.musicroom.app.generated.resources.playlist_move_up
 import com.musicroom.app.generated.resources.playlist_no_songs
 import com.musicroom.app.generated.resources.playlist_no_songs_editor
 import com.musicroom.app.generated.resources.playlist_photo_change
@@ -70,20 +74,24 @@ import com.musicroom.app.theme.components.AppButtonVariant
 import com.musicroom.app.theme.components.pressable
 import com.musicroom.app.theme.tokens.AppShapes
 import com.musicroom.app.theme.tokens.AppTheme
+import com.musicroom.shared.ApiException
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.AvatarColor
 import com.musicroom.shared.dto.PlaylistDetailResponse
+import com.musicroom.shared.dto.PlaylistLiveEvent
 import com.musicroom.shared.dto.PlaylistTrackResponse
 import com.musicroom.shared.dto.SocialCountsResponse
 import io.ktor.http.ContentType
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
  * A Music Room playlist: photo (tap to change it when allowed), Play, its songs in order and its members.
- * Editors add songs from a card at the bottom and remove them; the owner also opens the settings.
+ * Editors add songs from a card at the bottom, move and remove them; the owner also opens the settings.
+ * The page follows the playlist live, so what other people change appears right away.
  * Tapping a song plays the playlist from it; the whole playlist or one song (swipe to the right, or its "...")
  * can be added to the queue, as proposed by who added it to the playlist, and a song to another playlist.
  */
@@ -121,11 +129,43 @@ fun RoomPlaylistScreen(
         }
     }
 
+    // Answers and pushes can arrive out of order: an older revision never replaces a newer one.
+    fun show(next: PlaylistDetailResponse) {
+        val current = detail
+        if (current == null || next.playlist.revision >= current.playlist.revision) detail = next
+    }
+
+    LaunchedEffect(playlistId) {
+        var pause = 1_000L
+        while (true) {
+            try {
+                api.playlistLive(playlistId) { event ->
+                    pause = 1_000L
+                    when (event) {
+                        is PlaylistLiveEvent.State -> show(event.detail)
+                        PlaylistLiveEvent.Gone -> onBack()
+                    }
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: ApiException) {
+                if (e.status == 404) {
+                    onBack()
+                    return@LaunchedEffect
+                }
+            } catch (_: Exception) {
+                // No network: the page keeps its last state and tries again.
+            }
+            delay(pause)
+            pause = (pause * 2).coerceAtMost(30_000)
+        }
+    }
+
     fun run(action: suspend () -> PlaylistDetailResponse) {
         error = null
         scope.launch {
             try {
-                detail = action()
+                show(action())
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -154,7 +194,7 @@ fun RoomPlaylistScreen(
         },
     ) { adding ->
         if (adding && loaded != null) {
-            AddSongsPage(api, loaded, player, onChange = { detail = it }, onBack = { showAddSongs = false })
+            AddSongsPage(api, loaded, player, onChange = ::show, onBack = { showAddSongs = false })
         } else {
             SubScreenScaffold(
                 title = loaded?.playlist?.name.orEmpty(),
@@ -192,7 +232,7 @@ fun RoomPlaylistScreen(
                         }
                     }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
-                        PlaylistTypeBadge(playlist.type)
+                        PlaylistVisibilityBadge(playlist.visibility)
                         Text(playlist.name, style = AppTheme.typography.title, color = colors.textPrimary)
                         Text(
                             listOf(
@@ -241,17 +281,39 @@ fun RoomPlaylistScreen(
                                     playing = player.track?.id == entry.track.id,
                                     onClick = { player.play(tracks, index) },
                                     trailing = {
-                                        TrackMoreButton(
-                                            api,
-                                            player,
-                                            entry.track,
-                                            proposer = proposerOf(entry),
-                                            onRemove = if (playlist.canEdit) {
-                                                { run { api.removePlaylistTrack(playlist.id, entry.entryId) } }
-                                            } else {
-                                                null
-                                            },
-                                        )
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (playlist.canEdit) {
+                                                IconButton(
+                                                    onClick = {
+                                                        val after = loaded.tracks.getOrNull(index - 2)?.entryId
+                                                        run { api.movePlaylistTrack(playlist.id, entry.entryId, after) }
+                                                    },
+                                                    enabled = index > 0,
+                                                ) {
+                                                    Icon(Lucide.ChevronUp, contentDescription = stringResource(Res.string.playlist_move_up), tint = colors.textSecondary)
+                                                }
+                                                IconButton(
+                                                    onClick = {
+                                                        val after = loaded.tracks[index + 1].entryId
+                                                        run { api.movePlaylistTrack(playlist.id, entry.entryId, after) }
+                                                    },
+                                                    enabled = index < loaded.tracks.lastIndex,
+                                                ) {
+                                                    Icon(Lucide.ChevronDown, contentDescription = stringResource(Res.string.playlist_move_down), tint = colors.textSecondary)
+                                                }
+                                            }
+                                            TrackMoreButton(
+                                                api,
+                                                player,
+                                                entry.track,
+                                                proposer = proposerOf(entry),
+                                                onRemove = if (playlist.canEdit) {
+                                                    { run { api.removePlaylistTrack(playlist.id, entry.entryId) } }
+                                                } else {
+                                                    null
+                                                },
+                                            )
+                                        }
                                     },
                                     onSwipeRight = { player.addToQueue(listOf(entry.track), proposerOf(entry)) },
                                 )
@@ -260,13 +322,13 @@ fun RoomPlaylistScreen(
                     }
                 }
 
-                PlaylistMembersSection(api, loaded, onChange = { detail = it }, onLeft = onBack, myUserId = myUserId)
+                PlaylistMembersSection(api, loaded, onChange = ::show, onLeft = onBack, myUserId = myUserId)
             }
         }
     }
 
     val current = detail
     if (showSettings && current != null) {
-        PlaylistSettingsSheet(api, current, onChange = { detail = it }, onDeleted = onBack, onDismiss = { showSettings = false })
+        PlaylistSettingsSheet(api, current, onChange = ::show, onDeleted = onBack, onDismiss = { showSettings = false })
     }
 }

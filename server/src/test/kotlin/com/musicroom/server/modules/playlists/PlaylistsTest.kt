@@ -20,15 +20,16 @@ import com.musicroom.shared.dto.CatalogId
 import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.CreatePlaylistRequest
 import com.musicroom.shared.dto.ErrorResponse
+import com.musicroom.shared.dto.MovePlaylistTrackRequest
 import com.musicroom.shared.dto.PlaylistAccess
 import com.musicroom.shared.dto.PlaylistDetailResponse
+import com.musicroom.shared.dto.PlaylistEditLicense
 import com.musicroom.shared.dto.PlaylistListResponse
 import com.musicroom.shared.dto.PlaylistResponse
-import com.musicroom.shared.dto.PlaylistType
+import com.musicroom.shared.dto.PlaylistVisibility
 import com.musicroom.shared.dto.RegisterRequest
 import com.musicroom.shared.dto.SpotifyConnectResponse
 import com.musicroom.shared.dto.UpdatePlaylistMemberRequest
-import com.musicroom.shared.dto.UpdatePlaylistRequest
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -60,6 +61,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.testcontainers.junit.jupiter.Testcontainers
 
 @Testcontainers(disabledWithoutDocker = true)
@@ -112,8 +116,12 @@ class PlaylistsTest {
         }
     }
 
-    private suspend fun HttpClient.create(owner: TestUser, type: PlaylistType = PlaylistType.PERSONAL): PlaylistResponse =
-        send(HttpClient::post, ApiRoutes.PLAYLISTS, owner.token, CreatePlaylistRequest("  Road trip ", type)).body()
+    private suspend fun HttpClient.create(
+        owner: TestUser,
+        visibility: PlaylistVisibility = PlaylistVisibility.PUBLIC,
+        license: PlaylistEditLicense = PlaylistEditLicense.EVERYONE,
+    ): PlaylistResponse =
+        send(HttpClient::post, ApiRoutes.PLAYLISTS, owner.token, CreatePlaylistRequest("  Road trip ", visibility, license)).body()
 
     private suspend fun HttpClient.addTrack(user: TestUser, playlistId: String, trackId: String) =
         send(HttpClient::post, ApiRoutes.roomPlaylistTracks(playlistId), user.token, AddPlaylistTrackRequest(trackId))
@@ -170,46 +178,101 @@ class PlaylistsTest {
     }
 
     @Test
-    fun `strangers cannot see a playlist, readers listen, writers edit only a shared playlist`() = testApplication {
+    fun `a playlist is public and editable by everyone by default`() = testApplication {
+        val client = client()
+        val owner = client.user()
+        val stranger = client.user()
+        val playlist: PlaylistResponse =
+            client.send(HttpClient::post, ApiRoutes.PLAYLISTS, owner.token, CreatePlaylistRequest("Open radio")).body()
+        assertEquals(PlaylistVisibility.PUBLIC, playlist.visibility)
+        assertEquals(PlaylistEditLicense.EVERYONE, playlist.editLicense)
+
+        val seen: PlaylistDetailResponse = client.send<Unit>(HttpClient::get, ApiRoutes.playlist(playlist.id), stranger.token).body()
+        assertTrue(seen.playlist.canEdit)
+        assertEquals(HttpStatusCode.OK, client.addTrack(stranger, playlist.id, "t1").status)
+        val found: PlaylistListResponse = client.get(ApiRoutes.PLAYLISTS) {
+            bearerAuth(stranger.token)
+            parameter("scope", "public")
+            parameter("q", "open rad")
+        }.body()
+        assertTrue(found.items.any { it.id == playlist.id })
+    }
+
+    @Test
+    fun `only invited users reach a private playlist, and only writers edit with the invited license`() = testApplication {
         val client = client()
         val owner = client.user()
         val stranger = client.user()
         val member = client.user()
-        val playlist = client.create(owner)
+        val playlist = client.create(owner, PlaylistVisibility.PRIVATE, PlaylistEditLicense.INVITED)
 
         assertEquals(HttpStatusCode.NotFound, client.send<Unit>(HttpClient::get, ApiRoutes.playlist(playlist.id), stranger.token).status)
         assertEquals(HttpStatusCode.NotFound, client.addTrack(stranger, playlist.id, "t1").status)
+        val listed: PlaylistListResponse = client.get(ApiRoutes.PLAYLISTS) {
+            bearerAuth(stranger.token)
+            parameter("scope", "public")
+        }.body()
+        assertTrue(listed.items.none { it.id == playlist.id })
 
-        // A personal playlist only takes listeners.
-        val refused = client.addMember(owner, playlist.id, member, PlaylistAccess.WRITE)
-        assertEquals(ApiErrors.PERSONAL_PLAYLIST_READ_ONLY, refused.body<ErrorResponse>().error)
         assertEquals(HttpStatusCode.OK, client.addMember(owner, playlist.id, member, PlaylistAccess.READ).status)
         assertEquals(ApiErrors.ALREADY_MEMBER, client.addMember(owner, playlist.id, member, PlaylistAccess.READ).body<ErrorResponse>().error)
-
         val seen: PlaylistDetailResponse = client.send<Unit>(HttpClient::get, ApiRoutes.playlist(playlist.id), member.token).body()
         assertFalse(seen.playlist.canEdit)
         assertEquals(HttpStatusCode.Forbidden, client.addTrack(member, playlist.id, "t1").status)
 
-        // Shared + write access: the member edits.
-        client.send(HttpClient::patch, ApiRoutes.playlist(playlist.id), owner.token, UpdatePlaylistRequest(type = PlaylistType.SHARED))
         val memberId = seen.members.single().userId
         client.send(HttpClient::patch, ApiRoutes.playlistMember(playlist.id, memberId), owner.token, UpdatePlaylistMemberRequest(PlaylistAccess.WRITE))
         assertEquals(HttpStatusCode.OK, client.addTrack(member, playlist.id, "t1").status)
         val memberList: PlaylistListResponse = client.send<Unit>(HttpClient::get, ApiRoutes.PLAYLISTS, member.token).body()
         assertTrue(memberList.items.single { it.id == playlist.id }.canEdit)
 
-        // Only the owner manages the playlist.
         assertEquals(HttpStatusCode.Forbidden, client.send<Unit>(HttpClient::delete, ApiRoutes.playlist(playlist.id), member.token).status)
-
-        // Back to personal: every member becomes read-only.
-        val personal: PlaylistDetailResponse =
-            client.send(HttpClient::patch, ApiRoutes.playlist(playlist.id), owner.token, UpdatePlaylistRequest(type = PlaylistType.PERSONAL)).body()
-        assertEquals(PlaylistAccess.READ, personal.members.single().access)
-        assertEquals(HttpStatusCode.Forbidden, client.addTrack(member, playlist.id, "t2").status)
-
-        // A member can leave.
         assertEquals(HttpStatusCode.NoContent, client.send<Unit>(HttpClient::delete, ApiRoutes.playlistMember(playlist.id, memberId), member.token).status)
         assertEquals(HttpStatusCode.NotFound, client.send<Unit>(HttpClient::get, ApiRoutes.playlist(playlist.id), member.token).status)
+    }
+
+    @Test
+    fun `simultaneous moves keep every song exactly once`() = testApplication {
+        val client = client()
+        val owner = client.user()
+        val ids = (1..8).map { "m$it" }
+        spotify.tracks = ids.associateWith { FakeSpotifyApi.track(it, "Daft Punk") }
+        val playlist = client.create(owner)
+        ids.forEach { client.addTrack(owner, playlist.id, it) }
+        val entries = client.send<Unit>(HttpClient::get, ApiRoutes.playlist(playlist.id), owner.token).body<PlaylistDetailResponse>().tracks
+
+        coroutineScope {
+            entries.mapIndexed { index, entry ->
+                async {
+                    val after = entries[(index + 3) % entries.size].entryId
+                    client.send(HttpClient::put, ApiRoutes.roomPlaylistTrackPosition(playlist.id, entry.entryId), owner.token, MovePlaylistTrackRequest(after))
+                }
+            }.awaitAll().forEach { assertEquals(HttpStatusCode.OK, it.status) }
+        }
+
+        val final = client.send<Unit>(HttpClient::get, ApiRoutes.playlist(playlist.id), owner.token).body<PlaylistDetailResponse>()
+        assertEquals(ids.toSet(), final.tracks.map { it.track.id }.toSet())
+        assertEquals(ids.size, final.tracks.size)
+        assertEquals(ids.size.toLong() + ids.size, final.playlist.revision)
+    }
+
+    @Test
+    fun `moving after a removed song is a conflict`() = testApplication {
+        val client = client()
+        val owner = client.user()
+        val playlist = client.create(owner)
+        client.addTrack(owner, playlist.id, "t1")
+        val entries = client.addTrack(owner, playlist.id, "t2").body<PlaylistDetailResponse>().tracks
+        client.send<Unit>(HttpClient::delete, ApiRoutes.roomPlaylistTrack(playlist.id, entries[1].entryId), owner.token)
+
+        val moved = client.send(
+            HttpClient::put,
+            ApiRoutes.roomPlaylistTrackPosition(playlist.id, entries[0].entryId),
+            owner.token,
+            MovePlaylistTrackRequest(entries[1].entryId),
+        )
+        assertEquals(HttpStatusCode.Conflict, moved.status)
+        assertEquals(ApiErrors.PLAYLIST_TRACK_MOVED, moved.body<ErrorResponse>().error)
     }
 
     @Test

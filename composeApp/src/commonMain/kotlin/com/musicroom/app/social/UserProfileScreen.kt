@@ -31,6 +31,9 @@ import com.musicroom.app.generated.resources.friend_count
 import com.musicroom.app.generated.resources.message_write
 import com.musicroom.app.generated.resources.social_section
 import com.musicroom.app.generated.resources.user_profile_songs
+import com.musicroom.app.generated.resources.profile_about
+import com.musicroom.app.generated.resources.profile_for_friends
+import com.musicroom.app.generated.resources.profile_music_tastes
 import com.musicroom.app.generated.resources.user_profile_title
 import com.musicroom.app.music.TrackMoreButton
 import com.musicroom.app.music.TrackRow
@@ -153,6 +156,16 @@ fun UserProfileScreen(
                         icon = Lucide.MessageCircle,
                     )
                 }
+            }
+        }
+        listOf(
+            stringResource(Res.string.profile_about) to shown.publicInfo,
+            stringResource(Res.string.profile_for_friends) to shown.friendsInfo.orEmpty(),
+            stringResource(Res.string.profile_music_tastes) to shown.musicPreferences.joinToString(" · "),
+        ).filter { it.second.isNotEmpty() }.forEach { (title, body) ->
+            Column(verticalArrangement = Arrangement.spacedBy(AppTheme.spacing.xs)) {
+                Text(title, style = AppTheme.typography.label, color = colors.textSecondary)
+                Text(body, style = AppTheme.typography.body, color = colors.textPrimary)
             }
         }
         if (shown.socialLinks.isNotEmpty()) {

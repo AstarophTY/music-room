@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import com.composables.icons.lucide.ListMusic
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Plus
+import com.composables.icons.lucide.Search
 import com.musicroom.app.common.EmptyState
 import com.musicroom.app.common.SectionTitle
 import com.musicroom.app.common.TabContent
@@ -27,20 +28,28 @@ import com.musicroom.app.generated.resources.playlists_empty_title
 import com.musicroom.app.generated.resources.playlists_from_provider
 import com.musicroom.app.generated.resources.playlists_mine
 import com.musicroom.app.generated.resources.playlists_provider_empty
+import com.musicroom.app.generated.resources.playlists_public
+import com.musicroom.app.generated.resources.playlists_public_empty
+import com.musicroom.app.generated.resources.playlists_public_search
 import com.musicroom.app.music.MusicPlaylist
 import com.musicroom.app.theme.components.AppButton
 import com.musicroom.app.theme.components.AppButtonVariant
+import com.musicroom.app.theme.components.AppTextField
 import com.musicroom.app.theme.tokens.AppTheme
 import com.musicroom.shared.MusicRoomApi
 import com.musicroom.shared.dto.PlaylistResponse
 import org.jetbrains.compose.resources.stringResource
 
-/** The playlists tab: Music Room playlists, then one shelf per provider that lists the user's playlists. */
+/** The playlists tab: the user's Music Room playlists, the public ones to discover, then one shelf per provider that lists the user's playlists. */
 @Composable
 fun PlaylistsList(
     api: MusicRoomApi,
     roomPlaylists: List<PlaylistResponse>?,
     roomError: UiText?,
+    publicPlaylists: List<PlaylistResponse>?,
+    publicError: UiText?,
+    publicQuery: String,
+    onPublicQuery: (String) -> Unit,
     providerShelves: List<ProviderPlaylists>,
     onRetry: () -> Unit,
     onCreate: () -> Unit,
@@ -98,6 +107,17 @@ fun PlaylistsList(
                 onAction = onCreate,
             )
             else -> grid(roomPlaylists) { playlist, modifier -> RoomPlaylistRow(api, playlist, onClick = { onOpenRoom(playlist.id) }, modifier = modifier) }
+        }
+
+        SectionTitle(stringResource(Res.string.playlists_public))
+        AppTextField(publicQuery, onPublicQuery, stringResource(Res.string.playlists_public_search), Modifier.fillMaxWidth(), leadingIcon = Lucide.Search)
+        val mine = roomPlaylists.orEmpty().map { it.id }.toSet()
+        val discover = publicPlaylists?.filter { it.id !in mine }
+        when {
+            publicError != null -> status(publicError, loading = false)
+            discover == null -> status(null, loading = true)
+            discover.isEmpty() -> Text(stringResource(Res.string.playlists_public_empty), style = AppTheme.typography.bodySmall, color = colors.textSecondary)
+            else -> grid(discover) { playlist, modifier -> RoomPlaylistRow(api, playlist, onClick = { onOpenRoom(playlist.id) }, modifier = modifier) }
         }
 
         providerShelves.forEach { shelf ->

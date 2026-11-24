@@ -60,7 +60,8 @@ object ApiErrors {
     const val EVENT_PROPOSAL_LIMIT = "event_proposal_limit"
 
     /** Only listeners can be added to a personal playlist: make it shared to let members edit it. */
-    const val PERSONAL_PLAYLIST_READ_ONLY = "personal_playlist_read_only"
+    const val PLAYLIST_TRACK_MOVED = "playlist_track_moved"
+    const val PROFILE_DETAILS_INVALID = "profile_details_invalid"
     const val INVALID_IMAGE = "invalid_image"
     const val IMAGE_TOO_LARGE = "image_too_large"
 

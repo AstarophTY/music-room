@@ -2,9 +2,9 @@ package com.musicroom.app.common
 
 import androidx.compose.runtime.Composable
 import com.musicroom.app.auth.SocialSignInException
-import com.musicroom.app.music.AppleMusicException
 import com.musicroom.app.generated.resources.*
 import com.musicroom.app.generated.resources.Res
+import com.musicroom.app.music.AppleMusicException
 import com.musicroom.shared.ApiErrors
 import com.musicroom.shared.ApiException
 import com.musicroom.shared.AuthValidation
@@ -104,7 +104,8 @@ sealed interface UiText {
             ApiErrors.PLAYLIST_FULL to Res.string.error_playlist_full,
             ApiErrors.USER_NOT_FOUND to Res.string.error_user_not_found,
             ApiErrors.ALREADY_MEMBER to Res.string.error_already_member,
-            ApiErrors.PERSONAL_PLAYLIST_READ_ONLY to Res.string.error_personal_playlist_read_only,
+            ApiErrors.PLAYLIST_TRACK_MOVED to Res.string.error_playlist_track_moved,
+            ApiErrors.PROFILE_DETAILS_INVALID to Res.string.error_profile_details_invalid,
             ApiErrors.INVALID_IMAGE to Res.string.error_invalid_image,
             ApiErrors.IMAGE_TOO_LARGE to Res.string.error_image_too_large,
             ApiErrors.SPOTIFY_NOT_CONFIGURED to Res.string.error_spotify_not_configured,

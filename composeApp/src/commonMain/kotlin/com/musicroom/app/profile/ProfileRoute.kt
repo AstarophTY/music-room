@@ -4,6 +4,7 @@ package com.musicroom.app.profile
 enum class ProfileRoute(val parent: ProfileRoute?) {
     Profile(null),
     EditProfile(Profile),
+    ProfileDetails(Profile),
     SocialLinks(Profile),
     ChangePassword(Profile),
     TwoFactor(Profile),

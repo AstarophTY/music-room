@@ -4,8 +4,8 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Rights of a member on a playlist. [READ]: sees and plays it. [WRITE]: also adds and removes songs and
- * changes the photo, only in a [PlaylistType.SHARED] playlist. [key] is the value stored by the server.
+ * Rights of an invited member. [READ]: sees and plays the playlist. [WRITE]: also edits it when its license is
+ * [PlaylistEditLicense.INVITED]. [key] is the value stored by the server.
  */
 @Serializable
 enum class PlaylistAccess(val key: String) {

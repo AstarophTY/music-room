@@ -310,10 +310,6 @@
         <item quantity="other">%1$d titres</item>
     </plurals>
     <string name="playlist_name_label">Nom de la playlist</string>
-    <string name="playlist_type_personal">Perso</string>
-    <string name="playlist_type_personal_body">Toi seul ajoutes des sons. Les membres écoutent.</string>
-    <string name="playlist_type_shared">Partagée</string>
-    <string name="playlist_type_shared_body">Les membres qui ont le droit de modifier ajoutent aussi des sons.</string>
     <string name="playlist_photo_add">Ajouter une photo</string>
     <string name="playlist_photo_change">Changer la photo</string>
     <string name="playlist_photo_remove">Retirer la photo</string>
@@ -339,10 +335,8 @@
     <string name="playlist_member_remove">Retirer %1$s</string>
     <string name="playlist_leave">Quitter la playlist</string>
     <string name="playlist_settings">Réglages</string>
-    <string name="playlist_type">Type</string>
     <string name="playlist_delete">Supprimer la playlist</string>
     <string name="playlist_delete_confirm">Supprimer « %1$s » ? Ses sons et ses membres sont retirés aussi.</string>
-    <string name="playlist_personal_hint">Rends la playlist partagée pour que les membres puissent la modifier.</string>
     <string name="playlist_search_hint">Cherche un son sur Spotify</string>
     <string name="playlists_none_mine">Tes playlists Music Room apparaissent ici.</string>
     <string name="validation_playlist_name_required">Donne un nom à la playlist</string>
@@ -351,7 +345,6 @@
     <string name="error_playlist_full">Cette playlist est pleine.</string>
     <string name="error_user_not_found">Aucun compte Music Room n’utilise cet email.</string>
     <string name="error_already_member">Cet utilisateur est déjà dans la playlist.</string>
-    <string name="error_personal_playlist_read_only">Les membres d’une playlist perso ne peuvent qu’écouter. Rends-la partagée d’abord.</string>
     <!-- Friends, chat and notifications -->
     <string name="search_filter_people">Personnes</string>
     <string name="search_no_people">Personne ne porte ce nom</string>
@@ -523,4 +516,31 @@
     <string name="error_hosted_track_limit">Tu as ajouté le nombre maximum de sons. Supprimes-en un pour en ajouter un autre.</string>
     <string name="error_hosted_track_not_allowed">Les événements jouent sur Spotify : les sons ajoutés à Music Room ne peuvent pas y aller.</string>
     <string name="queue_propose_songs">Proposer des morceaux</string>
+    <string name="playlist_visibility">Qui peut la voir</string>
+    <string name="playlist_visibility_public">Publique</string>
+    <string name="playlist_visibility_public_body">Tous les utilisateurs peuvent la trouver et l’ouvrir.</string>
+    <string name="playlist_visibility_private">Privée</string>
+    <string name="playlist_visibility_private_body">Seules les personnes invitées peuvent l’ouvrir.</string>
+    <string name="playlist_license">Qui peut la modifier</string>
+    <string name="playlist_license_everyone">Tout le monde</string>
+    <string name="playlist_license_everyone_body">Quiconque peut l’ouvrir peut changer ses sons.</string>
+    <string name="playlist_license_invited">Personnes invitées</string>
+    <string name="playlist_license_invited_body">Seuls les membres ayant le droit de modifier peuvent la changer.</string>
+    <string name="playlist_license_everyone_hint">Choisis la licence « Personnes invitées » pour donner le droit de modifier membre par membre.</string>
+    <string name="playlist_move_up">Monter</string>
+    <string name="playlist_move_down">Descendre</string>
+    <string name="playlists_public">Playlists publiques</string>
+    <string name="playlists_public_search">Chercher une playlist publique</string>
+    <string name="playlists_public_empty">Aucune playlist publique trouvée.</string>
+    <string name="error_playlist_track_moved">La playlist vient de changer. Réessaie.</string>
+    <string name="profile_details_title">À propos de moi</string>
+    <string name="profile_details_intro">Choisis ce que chaque public peut lire. Tes informations privées ne sont visibles que par toi.</string>
+    <string name="profile_details_public">Informations publiques</string>
+    <string name="profile_details_friends">Informations pour mes amis</string>
+    <string name="profile_details_private">Informations privées</string>
+    <string name="profile_details_music">Préférences musicales (séparées par des virgules)</string>
+    <string name="profile_about">À propos</string>
+    <string name="profile_for_friends">Pour les amis</string>
+    <string name="profile_music_tastes">Préférences musicales</string>
+    <string name="error_profile_details_invalid">Garde chaque texte sous 500 caractères, avec 15 préférences de 32 caractères au plus.</string>
 </resources>

@@ -64,6 +64,7 @@ import com.musicroom.app.playlists.PlaylistsScreen
 import com.musicroom.app.profile.AppearanceScreen
 import com.musicroom.app.profile.ChangePasswordScreen
 import com.musicroom.app.profile.EditProfileScreen
+import com.musicroom.app.profile.ProfileDetailsScreen
 import com.musicroom.app.profile.ProfileRoute
 import com.musicroom.app.profile.SettingsScreen
 import com.musicroom.app.profile.SettingsSideBar
@@ -324,6 +325,7 @@ fun MainScreen(
         when (route) {
             ProfileRoute.Profile -> settingsScreen()
             ProfileRoute.EditProfile -> EditProfileScreen(api, user, onUserChange, onBack = back)
+            ProfileRoute.ProfileDetails -> ProfileDetailsScreen(api, onBack = back)
             ProfileRoute.SocialLinks -> SocialLinksScreen(api, user, onUserChange, onBack = back)
             ProfileRoute.ChangePassword -> ChangePasswordScreen(api, onBack = back)
             ProfileRoute.TwoFactor -> TwoFactorSettingsScreen(api, user, onUserChange, onBack = back)

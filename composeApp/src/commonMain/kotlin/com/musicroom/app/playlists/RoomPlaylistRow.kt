@@ -37,7 +37,7 @@ fun RoomPlaylistRow(api: MusicRoomApi, playlist: PlaylistResponse, onClick: () -
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(playlist.name, style = AppTheme.typography.label, color = colors.textPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(AppTheme.spacing.sm), verticalAlignment = Alignment.CenterVertically) {
-                PlaylistTypeBadge(playlist.type)
+                PlaylistVisibilityBadge(playlist.visibility)
                 val details = buildList {
                     add(pluralStringResource(Res.plurals.playlists_track_count, playlist.trackCount, playlist.trackCount))
                     if (!playlist.isOwner) add(stringResource(Res.string.playlists_by, playlist.owner.displayName))

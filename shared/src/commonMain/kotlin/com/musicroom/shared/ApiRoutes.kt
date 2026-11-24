@@ -73,6 +73,8 @@ object ApiRoutes {
     const val PLAYLIST_COVER = "$PLAYLIST/cover"
     const val PLAYLIST_TRACKS = "$PLAYLIST/tracks"
     const val PLAYLIST_TRACK = "$PLAYLIST/tracks/{entryId}"
+    const val PLAYLIST_TRACK_POSITION = "$PLAYLIST_TRACK/position"
+    const val PLAYLIST_WS = "$PLAYLIST/ws"
     const val PLAYLIST_MEMBERS = "$PLAYLIST/members"
     const val PLAYLIST_MEMBER = "$PLAYLIST/members/{userId}"
 
@@ -84,6 +86,10 @@ object ApiRoutes {
 
     fun roomPlaylistTrack(id: String, entryId: String) = "$PLAYLISTS/$id/tracks/$entryId"
 
+    fun roomPlaylistTrackPosition(id: String, entryId: String) = "$PLAYLISTS/$id/tracks/$entryId/position"
+
+    fun playlistWs(id: String) = "$PLAYLISTS/$id/ws"
+
     fun playlistMembers(id: String) = "$PLAYLISTS/$id/members"
 
     fun playlistMember(id: String, userId: String) = "$PLAYLISTS/$id/members/$userId"
@@ -92,6 +98,7 @@ object ApiRoutes {
     const val USERS_ME = "$USERS/me"
     const val USERS_ME_AVATAR = "$USERS_ME/avatar"
     const val USERS_ME_SOCIAL_LINKS = "$USERS_ME/social-links"
+    const val USERS_ME_DETAILS = "$USERS_ME/details"
     const val USER_AVATAR = "$USERS/{id}/avatar"
 
     fun userAvatar(userId: String) = "$USERS/$userId/avatar"

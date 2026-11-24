@@ -42,8 +42,10 @@ import com.musicroom.shared.dto.PlayRequest
 import com.musicroom.shared.dto.PlaybackStateResponse
 import com.musicroom.shared.dto.QueueRequest
 import com.musicroom.shared.dto.QueueResponse
+import com.musicroom.shared.dto.MovePlaylistTrackRequest
 import com.musicroom.shared.dto.PlaylistAccess
 import com.musicroom.shared.dto.PlaylistDetailResponse
+import com.musicroom.shared.dto.PlaylistLiveEvent
 import com.musicroom.shared.dto.PlaylistListResponse
 import com.musicroom.shared.dto.PlaylistResponse
 import com.musicroom.shared.dto.PlaylistsResponse
@@ -68,6 +70,8 @@ import com.musicroom.shared.dto.TwoFactorResendRequest
 import com.musicroom.shared.dto.TwoFactorSetupResponse
 import com.musicroom.shared.dto.UpdatePlaylistMemberRequest
 import com.musicroom.shared.dto.UpdatePlaylistRequest
+import com.musicroom.shared.dto.UpdateUserDetailsRequest
+import com.musicroom.shared.dto.UserDetailsResponse
 import com.musicroom.shared.dto.UpdateProfileRequest
 import com.musicroom.shared.dto.UpdateSocialLinksRequest
 import com.musicroom.shared.dto.UserResponse
@@ -320,6 +324,13 @@ class MusicRoomApi(
     /** Music Room playlists the user owns or was added to. */
     suspend fun roomPlaylists(): PlaylistListResponse = authorized(HttpMethod.Get, ApiRoutes.PLAYLISTS).bodyOrThrow()
 
+    /** Public playlists, most recently changed first, optionally those whose name contains [query]. */
+    suspend fun publicPlaylists(query: String = ""): PlaylistListResponse =
+        authorized(HttpMethod.Get, ApiRoutes.PLAYLISTS) {
+            parameter("scope", "public")
+            if (query.isNotBlank()) parameter("q", query.trim())
+        }.bodyOrThrow()
+
     suspend fun createPlaylist(request: CreatePlaylistRequest): PlaylistResponse =
         authorized(HttpMethod.Post, ApiRoutes.PLAYLISTS) { jsonBody(request) }.bodyOrThrow()
 
@@ -354,6 +365,12 @@ class MusicRoomApi(
             jsonBody(AddPlaylistTrackRequest(track.id, requireNotNull(track.catalogId) { "Invalid track catalog identity" }))
         }.bodyOrThrow()
 
+    /** Moves a song right after [afterEntryId], or to the top when it is null. */
+    suspend fun movePlaylistTrack(id: String, entryId: String, afterEntryId: String?): PlaylistDetailResponse =
+        authorized(HttpMethod.Put, ApiRoutes.roomPlaylistTrackPosition(id, entryId)) {
+            jsonBody(MovePlaylistTrackRequest(afterEntryId))
+        }.bodyOrThrow()
+
     suspend fun removePlaylistTrack(id: String, entryId: String): PlaylistDetailResponse =
         authorized(HttpMethod.Delete, ApiRoutes.roomPlaylistTrack(id, entryId)).bodyOrThrow()
 
@@ -377,6 +394,12 @@ class MusicRoomApi(
     /** Users whose name contains [query], with how they relate to the user. */
     suspend fun searchUsers(query: String): UsersResponse =
         authorized(HttpMethod.Get, ApiRoutes.USERS_SEARCH) { url.parameters.append("q", query) }.bodyOrThrow()
+
+    /** The user's own public, friends-only and private details, and their music preferences. */
+    suspend fun userDetails(): UserDetailsResponse = authorized(HttpMethod.Get, ApiRoutes.USERS_ME_DETAILS).bodyOrThrow()
+
+    suspend fun updateUserDetails(request: UpdateUserDetailsRequest): UserDetailsResponse =
+        authorized(HttpMethod.Put, ApiRoutes.USERS_ME_DETAILS) { jsonBody(request) }.bodyOrThrow()
 
     suspend fun userProfile(userId: String): UserProfileResponse =
         authorized(HttpMethod.Get, ApiRoutes.userProfile(userId)).bodyOrThrow()
@@ -521,6 +544,26 @@ class MusicRoomApi(
             for (frame in incoming) {
                 if (frame !is Frame.Text) continue
                 val event = runCatching { MusicRoomJson.decodeFromString(EventLiveEvent.serializer(), frame.readText()) }.getOrNull()
+                if (event != null) onEvent(event)
+            }
+        }
+    }
+
+    /**
+     * Follows the playlist [id] until the connection closes (or the caller is cancelled): [onEvent] gets its state
+     * on joining and after each change. A first API call makes sure the access token is fresh.
+     */
+    suspend fun playlistLive(id: String, onEvent: suspend (PlaylistLiveEvent) -> Unit) {
+        roomPlaylist(id)
+        val token = accessToken ?: throw notLoggedIn()
+        val wsUrl = url(ApiRoutes.playlistWs(id)).replaceFirst("http", "ws")
+        http.webSocket({
+            url.takeFrom(wsUrl)
+            url.parameters.append("token", token)
+        }) {
+            for (frame in incoming) {
+                if (frame !is Frame.Text) continue
+                val event = runCatching { MusicRoomJson.decodeFromString(PlaylistLiveEvent.serializer(), frame.readText()) }.getOrNull()
                 if (event != null) onEvent(event)
             }
         }

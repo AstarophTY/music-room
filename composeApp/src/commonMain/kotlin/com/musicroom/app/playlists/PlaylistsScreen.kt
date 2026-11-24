@@ -29,6 +29,7 @@ import com.musicroom.shared.dto.SocialCountsResponse
 import com.musicroom.shared.dto.TrackSource
 import com.musicroom.shared.dto.UserResponse
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 
 /**
  * The playlists made in Music Room (owned or shared with the user), then one shelf per connected provider
@@ -55,6 +56,9 @@ fun PlaylistsScreen(
     var errorsBySource by remember { mutableStateOf<Map<TrackSource, UiText>>(emptyMap()) }
     var roomPlaylists by remember { mutableStateOf<List<PlaylistResponse>?>(null) }
     var roomError by remember { mutableStateOf<UiText?>(null) }
+    var publicPlaylists by remember { mutableStateOf<List<PlaylistResponse>?>(null) }
+    var publicError by remember { mutableStateOf<UiText?>(null) }
+    var publicQuery by rememberSaveable { mutableStateOf("") }
     // A playlist is started from this tab and nowhere else, and opens as soon as it exists.
     var creating by rememberSaveable { mutableStateOf(false) }
     var attempt by remember { mutableIntStateOf(0) }
@@ -83,6 +87,19 @@ fun PlaylistsScreen(
             throw e
         } catch (e: Exception) {
             roomError = UiText.of(e)
+        }
+    }
+
+    LaunchedEffect(openRoomPlaylistId == null, publicQuery, attempt) {
+        if (openRoomPlaylistId != null) return@LaunchedEffect
+        if (publicQuery.isNotBlank()) delay(300)
+        publicError = null
+        try {
+            publicPlaylists = api.publicPlaylists(publicQuery).items
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            publicError = UiText.of(e)
         }
     }
 
@@ -130,7 +147,7 @@ fun PlaylistsScreen(
                 }
             }
             else -> PlaylistsList(
-                api, roomPlaylists, roomError, shelves,
+                api, roomPlaylists, roomError, publicPlaylists, publicError, publicQuery, { publicQuery = it }, shelves,
                 onRetry = { attempt++ }, onCreate = { creating = true },
                 onOpenRoom = onOpenRoomPlaylist,
                 onOpenProviderPlaylist = { onOpenProviderPlaylist(it.key) },

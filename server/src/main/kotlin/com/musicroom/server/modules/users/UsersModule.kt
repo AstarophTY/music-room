@@ -6,7 +6,8 @@ import com.musicroom.server.database.DatabaseModule
 
 class UsersModule(database: DatabaseModule) : Module {
     val repository = UsersRepository(database)
-    val service = UsersService(repository, AvatarsRepository(database))
+    val details = UserDetailsRepository(database)
+    val service = UsersService(repository, AvatarsRepository(database), details)
 
     override val controllers: List<Controller> = listOf(UsersController(service))
 }

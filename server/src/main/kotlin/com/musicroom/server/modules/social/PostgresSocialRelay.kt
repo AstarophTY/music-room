@@ -2,16 +2,11 @@ package com.musicroom.server.modules.social
 
 import com.musicroom.server.config.DatabaseConfig
 import com.musicroom.server.database.DatabaseModule
-import java.sql.DriverManager
+import com.musicroom.server.database.PostgresListener
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import org.postgresql.PGConnection
 import org.slf4j.LoggerFactory
 
 /**
@@ -20,9 +15,10 @@ import org.slf4j.LoggerFactory
  */
 class PostgresSocialRelay(
     private val database: DatabaseModule,
-    private val config: DatabaseConfig,
+    config: DatabaseConfig,
 ) : SocialRelay {
     private val log = LoggerFactory.getLogger(PostgresSocialRelay::class.java)
+    private val listener = PostgresListener(config, CHANNEL)
 
     override suspend fun publish(userId: UUID, text: String) {
         val payload = "$userId$SEPARATOR$text"
@@ -40,26 +36,8 @@ class PostgresSocialRelay(
     }
 
     /** Hands every relayed event to [deliver] until [scope] ends, reconnecting if the database goes away. */
-    fun listen(scope: CoroutineScope, deliver: suspend (UUID, String) -> Unit): Job = scope.launch(Dispatchers.IO) {
-        while (isActive) {
-            try {
-                DriverManager.getConnection(config.url, config.user, config.password).use { connection ->
-                    connection.createStatement().use { it.execute("LISTEN $CHANNEL") }
-                    val notifications = connection.unwrap(PGConnection::class.java)
-                    while (isActive) {
-                        notifications.getNotifications(POLL_MS)?.forEach { notification ->
-                            val userId = UUID.fromString(notification.parameter.substringBefore(SEPARATOR))
-                            deliver(userId, notification.parameter.substringAfter(SEPARATOR))
-                        }
-                    }
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                log.warn("Social relay disconnected: {}", e.message)
-                delay(RECONNECT_MS)
-            }
-        }
+    fun listen(scope: CoroutineScope, deliver: suspend (UUID, String) -> Unit): Job = listener.listen(scope) { payload ->
+        deliver(UUID.fromString(payload.substringBefore(SEPARATOR)), payload.substringAfter(SEPARATOR))
     }
 
     private companion object {
@@ -68,7 +46,5 @@ class PostgresSocialRelay(
 
         /** PostgreSQL refuses NOTIFY payloads of 8000 bytes or more. */
         const val MAX_PAYLOAD_BYTES = 7900
-        const val POLL_MS = 1000
-        const val RECONNECT_MS = 2000L
     }
 }
